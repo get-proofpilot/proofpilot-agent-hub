@@ -43,7 +43,7 @@ cp .env.example .env   # add keys (see env vars section)
 
 ---
 
-## Live Workflows (7 Active)
+## Live Workflows (8 Active)
 
 | Workflow ID | Title | Data Sources | File |
 |-------------|-------|-------------|------|
@@ -54,6 +54,7 @@ cp .env.example .env   # add keys (see env vars section)
 | `seo-blog-post` | SEO Blog Post | Claude only | `workflows/seo_blog_post.py` |
 | `service-page` | Service Page | Claude only | `workflows/service_page.py` |
 | `location-page` | Location Page | Claude only | `workflows/location_page.py` |
+| `programmatic-content` | Programmatic Content Agent | DataForSEO (per-item research) + Claude | `workflows/programmatic_content.py` |
 
 ### How Workflows Work
 1. Frontend POSTs to `/api/run-workflow` with `workflow_id`, `client_name`, `inputs`, `strategy_context`
@@ -209,6 +210,7 @@ Set via: `railway variables set KEY=value`
 | `/api/download/{job_id}` | GET | Download branded .docx |
 | `/api/jobs/{job_id}` | GET | Job metadata + content preview |
 | `/api/content` | GET | All completed jobs as content library items |
+| `/api/discover-cities` | POST | Auto-discover nearby cities via Claude Haiku |
 | `/` | GET | Serves frontend SPA |
 
 ### SSE Event Types (from `/api/run-workflow`)
@@ -276,6 +278,30 @@ Claude context includes: SA organic data + DataForSEO SERP competitors + keyword
   "home_base": "Chandler, AZ", "local_details": "optional local context", "services_list": "optional", "notes": "optional" }
 ```
 
+### `programmatic-content`
+```json
+{ "content_type": "location-pages",
+  "business_type": "electrician",
+  "primary_service": "electrical service",
+  "location": "Chandler, AZ",
+  "home_base": "Chandler, AZ",
+  "items_list": "Mesa, AZ\nGilbert, AZ\nTempe, AZ\nScottsdale, AZ",
+  "services_list": "panel upgrades, rewiring, EV charger installation",
+  "differentiators": "same-day service, master electrician, 20+ years",
+  "notes": "optional strategy context" }
+```
+`content_type` is one of: `location-pages`, `service-pages`, `blog-posts`.
+`items_list` is newline-separated (or comma-separated). Max 50 items per batch.
+For `location-pages`: `primary_service` + `home_base` are required; `location` is unused.
+For `service-pages` / `blog-posts`: `location` is required; `primary_service` + `home_base` are unused.
+
+### `/api/discover-cities` (POST)
+```json
+{ "city": "Chandler, AZ", "radius": 15 }
+```
+Returns `{ "cities": ["Mesa, AZ", "Gilbert, AZ", ...] }` — max 50 cities.
+Uses Claude Haiku (`claude-haiku-4-5-20251001`) for fast, cheap city discovery.
+
 ---
 
 ## Claude API Config (all workflows)
@@ -311,6 +337,10 @@ Claude context includes: SA organic data + DataForSEO SERP competitors + keyword
 | `format_keyword_difficulty()` | (formatter) | prospect-audit |
 | `format_competitor_gmb_profiles()` | (formatter) | prospect-audit |
 | `format_full_competitor_section()` | (formatter) | Both audits |
+| `build_location_name()` | (utility) — "Chandler, AZ" → "Chandler,Arizona,United States" | programmatic-content |
+| `get_location_research()` | Parallel: organic SERP + Maps + keyword volumes | programmatic-content |
+| `format_location_research()` | (formatter) | programmatic-content |
+| `format_maps_competitors()` | (formatter) | programmatic-content |
 
 ### DataForSEO API Capabilities (Full Map)
 
@@ -325,6 +355,69 @@ Claude context includes: SA organic data + DataForSEO SERP competitors + keyword
 | **Domain Analytics** | `technologies/domain_technologies`, `whois/overview` | Tech stack, domain age |
 | **Backlinks** | `summary`, `referring_domains`, `competitors` | Link profile, gap |
 | **Trends** | `google_trends/explore`, `subregion_interests` | Seasonality, geographic demand |
+
+---
+
+## Programmatic Content Agent — Architecture
+
+The Programmatic Content Agent (`workflows/programmatic_content.py`) generates unique, data-driven content at scale — up to 50 pages per batch. Each page gets independent DataForSEO research so content is genuinely local, not templated.
+
+### How It Works
+1. User selects content type (location-pages, service-pages, or blog-posts) and provides a list of items
+2. For each item in the batch, the agent:
+   - Runs DataForSEO research (organic SERP + Maps competitors + keyword volumes)
+   - Builds a unique user prompt with the research data injected
+   - Streams Claude Opus 4.6 output with a content-type-specific system prompt
+   - Emits progress markers (`[1/50] Researching Mesa, AZ...`) between pages
+3. Pages are separated by `---` dividers in the stream
+4. On completion, the full output is saved as a single job + `.docx`
+
+### Content Types
+
+| Type | System Prompt | Per-Item Research | Use Case |
+|------|--------------|-------------------|----------|
+| `location-pages` | `LOCATION_PAGE_SYSTEM` | `get_location_research(service, city)` | Geo-targeted pages for 50+ cities |
+| `service-pages` | `SERVICE_PAGE_SYSTEM` | `get_location_research(service, location)` | Multiple service pages for one city |
+| `blog-posts` | `BLOG_POST_SYSTEM` | `get_organic_serp()` + `get_keyword_search_volumes()` | SEO blog posts for multiple keywords |
+
+### Anti-Template Strategy
+Each system prompt aggressively enforces unique content:
+- References specific competitor businesses from Maps/SERP data
+- Uses actual keyword volumes to inform headings
+- Incorporates local details: housing stock era, climate impacts, utility companies, neighborhood names
+- Varies openings, section angles, and supporting details between pages
+
+### Auto-Discover Cities
+Instead of requiring a manual city list, users can auto-discover nearby cities:
+- Frontend sends `POST /api/discover-cities` with `{ city, radius }`
+- Backend uses Claude Haiku to list real incorporated cities within the radius
+- Results populate the items textarea (users can edit before running)
+- Only shown for `location-pages` content type
+
+### Batch Badges (Single vs Programmatic)
+The existing single-page workflow cards (location-page, service-page, seo-blog-post) have "Batch" badges that open the programmatic agent with the correct content type pre-selected:
+- `selectProgrammatic(contentType)` in script.js handles the redirect
+- `onProgContentTypeChange()` toggles conditional fields based on content type
+
+### Key Functions (`programmatic_content.py`)
+
+| Function | Purpose |
+|----------|---------|
+| `_parse_items(text)` | Parse newline/comma-separated list → clean list of items |
+| `_get_system_prompt(content_type)` | Return the correct system prompt |
+| `_research_item(content_type, ...)` | DataForSEO research for one item (returns dict or empty) |
+| `_format_research(research, item)` | Format research data for prompt injection |
+| `_build_user_prompt(...)` | Build the complete user prompt with research + context |
+| `run_programmatic_content(...)` | Main orchestrator — loops items, researches, generates, streams |
+
+### Expansion Points
+- **New content types:** Add a new system prompt constant + branch in `_research_item()` and `_build_user_prompt()` + add option to `wfProgContentType` select in index.html
+- **Parallel generation:** Current loop is sequential (one page at a time). Could batch 3-5 concurrent Claude calls with `asyncio.gather()` for faster generation
+- **Per-page .docx:** Currently outputs one combined document. Could split into individual .docx per page with a zip download
+- **Research caching:** If multiple pages share a metro area, cache shared DataForSEO data to reduce API costs
+- **Custom templates:** Allow users to paste their own page structure/system prompt instead of using the built-in ones
+- **Progress persistence:** Save intermediate results so a failed batch can resume from where it stopped
+- **Content quality scoring:** After generation, score each page for uniqueness/template-ness and flag low-quality pages
 
 ---
 
@@ -374,7 +467,7 @@ MCP server configured in Claude Code global config.
 | View ID | Nav Label | Description |
 |---------|-----------|-------------|
 | `dashboard` | Dashboard | KPIs, live task queue, client roster |
-| `workflows` | AI Skills | 7 active workflow cards + coming soon |
+| `workflows` | AI Skills | 8 active workflow cards + coming soon |
 | `clients` | Clients | 14 clients — active/inactive toggle, clickable → client hub |
 | `jobs` | Agent Tasks | Job list with progress, client names clickable → hub |
 | `reports` | Reports | Report cards |
