@@ -17,14 +17,24 @@ const CLIENTS = [
 ];
 
 const WORKFLOWS = [
-  { id: 'audit', icon: '🔍', title: 'Full Site Audit', desc: 'Technical SEO, CWV, broken links, structured data — full report generated.', time: '~8 min' },
-  { id: 'keywords', icon: '📊', title: 'Keyword Research', desc: 'Seed phrase → thousands of clustered keywords mapped to a content plan.', time: '~4 min' },
-  { id: 'content', icon: '✍️', title: 'Content Brief', desc: 'SEO brief + full draft for a target keyword in your brand voice.', time: '~6 min' },
-  { id: 'outreach', icon: '🔗', title: 'Backlink Outreach', desc: 'Prospect link-building opportunities and generate personalized outreach emails.', time: '~12 min' },
-  { id: 'report', icon: '📋', title: 'Monthly Report', desc: 'White-label PDF — GSC data, rankings, traffic, wins, and recommendations.', time: '~3 min' },
-  { id: 'monitor', icon: '📡', title: 'Rank Monitor Sweep', desc: 'Snapshot current rankings for all tracked keywords — flag drops > 5 positions.', time: '~2 min' },
-  { id: 'gap', icon: '⚡', title: 'Competitor Gap', desc: 'Find keywords competitors rank for that you don\'t — instant opportunity list.', time: '~5 min' },
-  { id: 'schema', icon: '🧩', title: 'Schema Generator', desc: 'Auto-generate structured data markup for target pages based on content type.', time: '~2 min' },
+  /* ── ACTIVE SKILLS ── */
+  { id: 'website-seo-audit',       icon: '🔍', title: 'Website & SEO Audit',        desc: 'Full technical SEO audit for home service businesses — performance, structure, local signals, and ranked opportunity list.',  time: '~8 min',  status: 'active', skill: 'website-seo-audit' },
+  { id: 'seo-blog-generator',      icon: '✍️', title: 'SEO Blog Generator',          desc: 'Full SEO blog post workflow for service businesses — keyword-targeted, structured, and ready to publish.',                    time: '~6 min',  status: 'active', skill: 'seo-blog-generator' },
+  { id: 'home-service-content',    icon: '🏠', title: 'Home Service SEO Content',    desc: 'SEO articles tuned for electricians, plumbers, HVAC, and other home service businesses. Built for local rank.',             time: '~5 min',  status: 'active', skill: 'home-service-seo-content' },
+  { id: 'seo-strategy-sheet',      icon: '📊', title: 'SEO Strategy Spreadsheet',    desc: '14-tab SEO strategy workbook — keyword clusters, competitor gaps, content calendar, and priority matrix.',                   time: '~4 min',  status: 'active', skill: 'seo-strategy-spreadsheet' },
+  { id: 'content-strategy-sheet',  icon: '📋', title: 'Content Strategy Spreadsheet',desc: 'Content ecosystem mapping with psychographic profiles, funnel stages, and distribution plan per channel.',                   time: '~5 min',  status: 'active', skill: 'content-strategy-spreadsheet' },
+  { id: 'proposals',               icon: '📄', title: 'Client Proposals',            desc: 'Branded marketing proposals ready to send — scoped deliverables, pricing, and ProofPilot positioning built in.',             time: '~3 min',  status: 'active', skill: 'proofpilot-proposals' },
+  { id: 'brand-styling',           icon: '🎨', title: 'Brand Styling',               desc: 'Applies ProofPilot brand standards to .docx and .xlsx deliverables — fonts, colors, headers, and polish.',                  time: '~2 min',  status: 'active', skill: 'proofpilot-brand' },
+  { id: 'pnl-statement',           icon: '💰', title: 'P&L Statement',               desc: 'Monthly profit & loss statement generator — structured financials formatted and ready for review.',                           time: '~3 min',  status: 'active', skill: 'proofpilot-pnl' },
+  { id: 'property-mgmt-strategy',  icon: '🏢', title: 'Property Mgmt Strategy',      desc: 'Website and SEO strategy for property management companies — local presence, lead gen focus, and conversion flow.',          time: '~6 min',  status: 'active', skill: 'property-management-website-strategy' },
+  { id: 'frontend-design',         icon: '🖥️', title: 'Frontend Interface Builder',  desc: 'Production-grade UI components and pages — distinctive design, clean code, no generic AI aesthetics.',                     time: '~8 min',  status: 'active', skill: 'frontend-design' },
+  { id: 'lovable-prompting',       icon: '⚡', title: 'Lovable App Builder',          desc: 'Expert Lovable.dev prompting to build full apps — structured flows that get clean, working results fast.',                  time: '~5 min',  status: 'active', skill: 'lovable-prompting' },
+  /* ── COMING SOON ── */
+  { id: 'backlink-outreach',       icon: '🔗', title: 'Backlink Outreach',           desc: 'Prospect link-building opportunities and generate personalized outreach emails at scale.',                                    time: '~12 min', status: 'soon' },
+  { id: 'competitor-gap',          icon: '🎯', title: 'Competitor Gap Analysis',      desc: 'Find keywords competitors rank for that you don\'t — instant opportunity list with difficulty scores.',                      time: '~5 min',  status: 'soon' },
+  { id: 'monthly-report',          icon: '📈', title: 'Monthly Client Report',        desc: 'White-label client report — GSC data, rankings, traffic wins, and recommendations bundled to send.',                        time: '~3 min',  status: 'soon' },
+  { id: 'google-ads-copy',         icon: '📣', title: 'Google Ads Copy',             desc: 'High-converting search ad copy — headlines, descriptions, and extensions for service-based campaigns.',                     time: '~4 min',  status: 'soon' },
+  { id: 'schema-generator',        icon: '🧩', title: 'Schema Generator',            desc: 'Auto-generate structured data markup for target pages — local business, FAQ, service, and article schemas.',                 time: '~2 min',  status: 'soon' },
 ];
 
 const TASK_QUEUE = [
@@ -248,24 +258,50 @@ function renderWorkflows() {
 function renderWorkflowCards() {
   const el = document.getElementById('workflowCardsGrid');
   if (!el) return;
-  el.innerHTML = WORKFLOWS.map(wf => `
+
+  const active = WORKFLOWS.filter(w => w.status === 'active');
+  const soon   = WORKFLOWS.filter(w => w.status === 'soon');
+
+  const activeCards = active.map(wf => `
     <div class="wf-card" data-id="${wf.id}" onclick="selectWorkflow('${wf.id}')">
-      <span class="wf-card-icon">${wf.icon}</span>
+      <div class="wf-card-header">
+        <span class="wf-card-icon">${wf.icon}</span>
+        <span class="wf-skill-tag">${wf.skill}</span>
+      </div>
       <div class="wf-card-title">${wf.title}</div>
       <div class="wf-card-desc">${wf.desc}</div>
       <div class="wf-card-time">⏱ ${wf.time}</div>
     </div>
   `).join('');
+
+  const soonCards = soon.map(wf => `
+    <div class="wf-card soon" data-id="${wf.id}">
+      <div class="wf-card-header">
+        <span class="wf-card-icon">${wf.icon}</span>
+        <span class="wf-soon-badge">SOON</span>
+      </div>
+      <div class="wf-card-title">${wf.title}</div>
+      <div class="wf-card-desc">${wf.desc}</div>
+      <div class="wf-card-time">⏱ ${wf.time}</div>
+    </div>
+  `).join('');
+
+  el.innerHTML = `
+    <div class="wf-section-label">ACTIVE SKILLS — ${active.length} BUILT</div>
+    ${activeCards}
+    <div class="wf-section-label">COMING SOON — ${soon.length} IN PIPELINE</div>
+    ${soonCards}
+  `;
 }
 
 function selectWorkflow(id) {
+  const wf = WORKFLOWS.find(w => w.id === id);
+  if (!wf || wf.status === 'soon') return;
+
   selectedWorkflow = id;
   document.querySelectorAll('.wf-card').forEach(c => c.classList.remove('selected'));
   const card = document.querySelector(`.wf-card[data-id="${id}"]`);
   if (card) card.classList.add('selected');
-
-  const wf = WORKFLOWS.find(w => w.id === id);
-  if (!wf) return;
 
   document.getElementById('wfRunIcon').textContent = wf.icon;
   document.getElementById('wfRunTitle').textContent = wf.title;
