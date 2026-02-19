@@ -6,14 +6,21 @@
 /* ── DATA MODELS ── */
 
 const CLIENTS = [
-  { id: 1, name: 'TechCorp', domain: 'techcorp.io', plan: 'Agency', score: 92, trend: '+4', avgRank: 5.2, lastJob: '12 min ago', status: 'active', color: '#0051FF', initials: 'TC' },
-  { id: 2, name: 'Growth Labs', domain: 'growthlab.co', plan: 'Agency', score: 88, trend: '+2', avgRank: 8.1, lastJob: '34 min ago', status: 'active', color: '#C8FF00', initials: 'GL' },
-  { id: 3, name: 'Meridian', domain: 'meridian.agency', plan: 'Enterprise', score: 71, trend: '→0', avgRank: 12.4, lastJob: '2 hr ago', status: 'review', color: '#A78BFA', initials: 'ME' },
-  { id: 4, name: 'NexusDigital', domain: 'nexusdigital.io', plan: 'Starter', score: 76, trend: '+7', avgRank: 11.8, lastJob: '3 hr ago', status: 'active', color: '#F59E3B', initials: 'NX' },
-  { id: 5, name: 'Apex Retail', domain: 'apexretail.com', plan: 'Starter', score: 58, trend: '-3', avgRank: 18.3, lastJob: '5 hr ago', status: 'active', color: '#DC3545', initials: 'AR' },
-  { id: 6, name: 'SolarVerde', domain: 'solarverde.com', plan: 'Agency', score: 84, trend: '+1', avgRank: 7.6, lastJob: '1 day ago', status: 'active', color: '#28A745', initials: 'SV' },
-  { id: 7, name: 'Orbis Health', domain: 'orbishealth.io', plan: 'Enterprise', score: 79, trend: '+5', avgRank: 9.2, lastJob: '1 day ago', status: 'active', color: '#0051FF', initials: 'OH' },
-  { id: 8, name: 'Voxel Labs', domain: 'voxellabs.io', plan: 'Starter', score: 67, trend: '-1', avgRank: 14.5, lastJob: '2 days ago', status: 'paused', color: '#C8FF00', initials: 'VX' },
+  { id: 1,  name: 'SEO Templates',                domain: 'seotemplates.com',              plan: 'Agency',     score: 88, trend: '+3',  avgRank: 6.4,  lastJob: '45 min ago',  status: 'active', color: '#F59E3B', initials: 'ST' },
+  { id: 2,  name: 'All Thingz Electric',           domain: 'allthingzelectric.com',          plan: 'Starter',    score: 74, trend: '+5',  avgRank: 9.2,  lastJob: '1 hr ago',    status: 'active', color: '#7C3AED', initials: 'AE' },
+  { id: 3,  name: 'Adam Levinstein Photography',   domain: 'adamlevinstein.com',             plan: 'Starter',    score: 62, trend: '+1',  avgRank: 14.1, lastJob: '2 hr ago',    status: 'active', color: '#7C3AED', initials: 'AL' },
+  { id: 4,  name: 'Dolce Electric',                domain: 'dolceelectric.com',              plan: 'Starter',    score: 69, trend: '→0',  avgRank: 11.8, lastJob: '3 hr ago',    status: 'active', color: '#7C3AED', initials: 'DE' },
+  { id: 5,  name: 'Integrative Sports and Spine',  domain: 'integrativesportsandspine.com',  plan: 'Agency',     score: 81, trend: '+6',  avgRank: 7.3,  lastJob: '30 min ago',  status: 'active', color: '#0D9488', initials: 'IS' },
+  { id: 6,  name: 'Saiyan Electric',               domain: 'saiyanelectric.com',             plan: 'Starter',    score: 71, trend: '+2',  avgRank: 10.6, lastJob: '4 hr ago',    status: 'active', color: '#7C3AED', initials: 'SE' },
+  { id: 7,  name: 'Cedar Gold Group',              domain: 'cedargoldgroup.com',             plan: 'Agency',     score: 85, trend: '+4',  avgRank: 6.9,  lastJob: '1 hr ago',    status: 'active', color: '#0D9488', initials: 'CG' },
+  { id: 8,  name: 'Pelican Coast Electric',        domain: 'pelicancoastelectric.com',       plan: 'Starter',    score: 67, trend: '-1',  avgRank: 13.4, lastJob: '5 hr ago',    status: 'active', color: '#7C3AED', initials: 'PC' },
+  { id: 9,  name: 'ProofPilot',                    domain: 'proofpilot.com',                 plan: 'Agency',     score: 94, trend: '+8',  avgRank: 4.1,  lastJob: '12 min ago',  status: 'active', color: '#0051FF', initials: 'PP' },
+  { id: 10, name: 'Xsite Belize',                  domain: 'xsitebelize.com',                plan: 'Starter',    score: 58, trend: '+3',  avgRank: 16.2, lastJob: '1 day ago',   status: 'active', color: '#7C3AED', initials: 'XB' },
+  { id: 11, name: 'Power Route Electric',          domain: 'powerrouteelectric.com',         plan: 'Starter',    score: 73, trend: '+4',  avgRank: 10.1, lastJob: '3 hr ago',    status: 'active', color: '#7C3AED', initials: 'PR' },
+  { id: 12, name: 'Alpha Property Management',     domain: 'alphapropertymgmt.com',          plan: 'Agency',     score: 79, trend: '+2',  avgRank: 8.5,  lastJob: '2 hr ago',    status: 'active', color: '#7C3AED', initials: 'AP' },
+  { id: 13, name: 'Trading Academy',               domain: 'tradingacademy.com',             plan: 'Enterprise', score: 91, trend: '+5',  avgRank: 5.0,  lastJob: '20 min ago',  status: 'active', color: '#7C3AED', initials: 'TA' },
+  { id: 14, name: 'Youth Link',                    domain: 'youthlink.org',                  plan: 'Starter',    score: 55, trend: '→0',  avgRank: 18.7, lastJob: '2 days ago',  status: 'review', color: '#F59E3B', initials: 'YL' },
+  { id: 15, name: 'LAF Counseling',                domain: 'lafcounseling.com',              plan: 'Starter',    score: 61, trend: '+1',  avgRank: 15.3, lastJob: '1 day ago',   status: 'active', color: '#EA580C', initials: 'LC' },
 ];
 
 const WORKFLOWS = [
@@ -252,7 +259,17 @@ function renderAdPreview() {
 
 /* ── WORKFLOWS ── */
 function renderWorkflows() {
+  renderClientSelect();
   renderWorkflowCards();
+}
+
+function renderClientSelect() {
+  const sel = document.getElementById('wfClientSelect');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">— Choose client —</option>' +
+    CLIENTS.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  if (current) sel.value = current;
 }
 
 function renderWorkflowCards() {
