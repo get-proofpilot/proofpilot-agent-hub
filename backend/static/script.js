@@ -297,17 +297,30 @@ function renderWorkflowCards() {
   const active = WORKFLOWS.filter(w => w.status === 'active');
   const soon   = WORKFLOWS.filter(w => w.status === 'soon');
 
-  const activeCards = active.map(wf => `
+  const batchMap = {
+    'location-page': 'location-pages',
+    'service-page':  'service-pages',
+    'seo-blog-post': 'blog-posts',
+  };
+
+  const activeCards = active.map(wf => {
+    const batchType = batchMap[wf.id] || '';
+    const batchBadge = batchType
+      ? `<span class="wf-batch-badge" onclick="event.stopPropagation(); selectProgrammatic('${batchType}')" title="Generate multiple at once">⚡ Batch</span>`
+      : '';
+    return `
     <div class="wf-card" data-id="${wf.id}" onclick="selectWorkflow('${wf.id}')">
       <div class="wf-card-header">
         <span class="wf-card-icon">${wf.icon}</span>
         <span class="wf-skill-tag">${wf.skill}</span>
+        ${batchBadge}
       </div>
       <div class="wf-card-title">${wf.title}</div>
       <div class="wf-card-desc">${wf.desc}</div>
       <div class="wf-card-time">⏱ ${wf.time}</div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   const soonCards = soon.map(wf => `
     <div class="wf-card soon" data-id="${wf.id}">
@@ -376,10 +389,17 @@ function selectWorkflow(id) {
   });
 
   // Reset programmatic content conditional fields
-  const progLocFields = document.getElementById('progLocFields');
-  const progSvcBlogFields = document.getElementById('progSvcBlogFields');
-  if (progLocFields) progLocFields.style.display = 'none';
-  if (progSvcBlogFields) progSvcBlogFields.style.display = 'none';
+  ['progLocFields', 'progSvcBlogFields', 'progAutoDiscover'].forEach(elId => {
+    const el = document.getElementById(elId);
+    if (el) el.style.display = 'none';
+  });
+  const progItemCount = document.getElementById('progItemCount');
+  if (progItemCount) progItemCount.style.display = 'none';
+  // Reset discover city fields
+  const discoverCity = document.getElementById('wfProgDiscoverCity');
+  if (discoverCity) discoverCity.value = '';
+  const discoverRadius = document.getElementById('wfProgDiscoverRadius');
+  if (discoverRadius) discoverRadius.value = '15';
 
   checkRunReady();
 
@@ -470,6 +490,13 @@ function checkRunReady() {
         const location = document.getElementById('wfProgLocation')?.value.trim();
         ready = !!location;
       }
+      // Enforce 50-page batch limit
+      if (ready && itemsList) {
+        let lines = itemsList.split('\n');
+        if (lines.length === 1 && lines[0].includes(',')) lines = lines[0].split(',');
+        if (lines.filter(l => l.trim()).length > 50) ready = false;
+      }
+      updateProgItemCount();
     }
   }
 
@@ -506,6 +533,84 @@ function onAuditClientChange() {
   checkRunReady();
 }
 
+function selectProgrammatic(contentType) {
+  selectWorkflow('programmatic-content');
+  // After modal opens, pre-select the content type
+  setTimeout(() => {
+    const sel = document.getElementById('wfProgContentType');
+    if (sel) {
+      sel.value = contentType;
+      onProgContentTypeChange();
+      checkRunReady();
+    }
+  }, 50);
+}
+
+function updateProgItemCount() {
+  const el = document.getElementById('progItemCount');
+  const textarea = document.getElementById('wfProgItemsList');
+  if (!el || !textarea) return;
+
+  const text = textarea.value.trim();
+  if (!text) {
+    el.style.display = 'none';
+    return;
+  }
+
+  let lines = text.split('\n');
+  if (lines.length === 1 && lines[0].includes(',')) {
+    lines = lines[0].split(',');
+  }
+  const count = lines.filter(l => l.trim()).length;
+  const max = 50;
+
+  el.style.display = 'block';
+  if (count > max) {
+    el.innerHTML = `<span style="color:#FF4444;">${count} items — exceeds limit of ${max}</span>`;
+  } else {
+    el.innerHTML = `<span style="color:var(--text3);">${count} item${count !== 1 ? 's' : ''} · max ${max} per batch</span>`;
+  }
+}
+
+async function discoverCities() {
+  const cityInput = document.getElementById('wfProgDiscoverCity');
+  const city = cityInput?.value.trim();
+  const radius = document.getElementById('wfProgDiscoverRadius')?.value || '15';
+  const btn = document.getElementById('btnDiscoverCities');
+
+  if (!city) {
+    showToast('Enter a center city first');
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Searching...'; }
+
+  try {
+    const resp = await fetch('/api/discover-cities', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ city, radius: parseInt(radius) }),
+    });
+
+    if (!resp.ok) throw new Error('Server returned ' + resp.status);
+
+    const data = await resp.json();
+    const textarea = document.getElementById('wfProgItemsList');
+    if (textarea && data.cities && data.cities.length > 0) {
+      textarea.value = data.cities.join('\n');
+      updateProgItemCount();
+      checkRunReady();
+      showToast('Found ' + data.cities.length + ' cities near ' + city);
+    } else {
+      showToast('No cities found — try a larger radius');
+    }
+  } catch (err) {
+    showToast('Error: ' + err.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Find Cities'; }
+  }
+}
+
 function onProgContentTypeChange() {
   const contentType = document.getElementById('wfProgContentType')?.value;
   const locFields = document.getElementById('progLocFields');
@@ -515,9 +620,12 @@ function onProgContentTypeChange() {
   const itemsHint = document.getElementById('progItemsHint');
   const servicesWrap = document.getElementById('progServicesWrap');
 
+  const autoDiscover = document.getElementById('progAutoDiscover');
+
   if (contentType === 'location-pages') {
     if (locFields) locFields.style.display = 'block';
     if (svcBlogFields) svcBlogFields.style.display = 'none';
+    if (autoDiscover) autoDiscover.style.display = 'block';
     if (itemsLabel) itemsLabel.innerHTML = 'Locations <span class="req">*</span>';
     if (itemsTextarea) itemsTextarea.placeholder = 'One city per line, e.g.:\nMesa, AZ\nGilbert, AZ\nTempe, AZ\nScottsdale, AZ\nPhoenix, AZ';
     if (itemsHint) itemsHint.textContent = 'Each line becomes a unique location page with its own DataForSEO research';
@@ -525,6 +633,7 @@ function onProgContentTypeChange() {
   } else if (contentType === 'service-pages') {
     if (locFields) locFields.style.display = 'none';
     if (svcBlogFields) svcBlogFields.style.display = 'block';
+    if (autoDiscover) autoDiscover.style.display = 'none';
     if (itemsLabel) itemsLabel.innerHTML = 'Services <span class="req">*</span>';
     if (itemsTextarea) itemsTextarea.placeholder = 'One service per line, e.g.:\npanel upgrade\nEV charger installation\nwhole-house rewiring\nelectrical inspection\ngenerator installation';
     if (itemsHint) itemsHint.textContent = 'Each line becomes a unique service page with competitor research';
@@ -532,6 +641,7 @@ function onProgContentTypeChange() {
   } else if (contentType === 'blog-posts') {
     if (locFields) locFields.style.display = 'none';
     if (svcBlogFields) svcBlogFields.style.display = 'block';
+    if (autoDiscover) autoDiscover.style.display = 'none';
     if (itemsLabel) itemsLabel.innerHTML = 'Keywords <span class="req">*</span>';
     if (itemsTextarea) itemsTextarea.placeholder = 'One target keyword per line, e.g.:\nhow much does a panel upgrade cost\nsigns you need to rewire your house\nwhen to call an emergency electrician\nEV charger installation guide';
     if (itemsHint) itemsHint.textContent = 'Each line becomes a unique blog post with keyword research data';
@@ -539,11 +649,13 @@ function onProgContentTypeChange() {
   } else {
     if (locFields) locFields.style.display = 'none';
     if (svcBlogFields) svcBlogFields.style.display = 'none';
+    if (autoDiscover) autoDiscover.style.display = 'none';
     if (itemsLabel) itemsLabel.innerHTML = 'Items <span class="req">*</span>';
     if (itemsTextarea) itemsTextarea.placeholder = 'Select a content type above to see format...';
     if (itemsHint) itemsHint.textContent = 'Enter one item per line — each becomes a unique page with its own DataForSEO research';
     if (servicesWrap) servicesWrap.style.display = 'none';
   }
+  updateProgItemCount();
 }
 
 async function launchWorkflow() {

@@ -936,11 +936,37 @@
             </div>
           </div>
 
+          <!-- Auto-discover cities (location-pages only) -->
+          <div id="progAutoDiscover" style="display:none;">
+            <div style="background:rgba(0,81,255,0.05); border:1px solid rgba(0,81,255,0.15); border-radius:8px; padding:14px; margin-bottom:4px;">
+              <label class="wf-field-label" style="margin-bottom:10px; font-size:11px; color:var(--elec-blue);">Auto-Discover Nearby Cities</label>
+              <div class="wf-modal-2col">
+                <div class="wf-modal-field" style="margin-bottom:0;">
+                  <input type="text" id="wfProgDiscoverCity" placeholder="e.g. Chandler, AZ" />
+                  <div class="wf-field-hint">Center city</div>
+                </div>
+                <div style="display:flex; gap:8px; align-items:flex-start;">
+                  <div class="wf-modal-field" style="margin-bottom:0; flex:1;">
+                    <select id="wfProgDiscoverRadius">
+                      <option value="10">10 miles</option>
+                      <option value="15" selected>15 miles</option>
+                      <option value="25">25 miles</option>
+                      <option value="50">50 miles</option>
+                    </select>
+                    <div class="wf-field-hint">Radius</div>
+                  </div>
+                  <button type="button" class="btn-discover" id="btnDiscoverCities" onclick="discoverCities()">Find Cities</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Items List (label changes by content type) -->
           <div class="wf-modal-field">
             <label class="wf-field-label" id="progItemsLabel">Items <span class="req">*</span></label>
-            <textarea id="wfProgItemsList" rows="8" placeholder="Select a content type above to see format..." oninput="checkRunReady()"></textarea>
+            <textarea id="wfProgItemsList" rows="8" placeholder="Select a content type above to see format..." oninput="checkRunReady(); updateProgItemCount()"></textarea>
             <div class="wf-field-hint" id="progItemsHint">Enter one item per line — each becomes a unique page with its own DataForSEO research</div>
+            <div id="progItemCount" style="display:none; font-family:var(--mono); font-size:10px; margin-top:4px;"></div>
           </div>
 
           <!-- Optional fields -->

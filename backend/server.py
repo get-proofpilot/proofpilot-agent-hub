@@ -72,10 +72,52 @@ class WorkflowRequest(BaseModel):
     strategy_context: Optional[str] = ""
 
 
+class DiscoverCitiesRequest(BaseModel):
+    city: str
+    radius: int = 15
+
+
 # ── Routes ────────────────────────────────────────────────
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "ProofPilot Agency Hub API"}
+
+
+@app.post("/api/discover-cities")
+async def discover_cities(req: DiscoverCitiesRequest):
+    """Use Claude Haiku to find nearby cities for programmatic content."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured")
+
+    city_name = req.city.split(",")[0].strip()
+    client = anthropic.AsyncAnthropic(api_key=api_key)
+
+    response = await client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=1024,
+        messages=[{
+            "role": "user",
+            "content": (
+                f"List all real, incorporated cities and towns within approximately "
+                f"{req.radius} miles of {req.city}. Do NOT include {city_name} itself. "
+                f"Format each as 'City, ST' (2-letter state code). One per line. "
+                f"No numbering, no bullets, no other text. Just the city list. "
+                f"Maximum 50 cities. If fewer than 50 exist within that radius, list all of them."
+            ),
+        }],
+    )
+
+    import re
+    text = response.content[0].text.strip()
+    cities = []
+    for line in text.split("\n"):
+        line = line.strip().lstrip("- ").lstrip("• ").lstrip("* ")
+        line = re.sub(r'^\d+[\.\)]\s*', '', line).strip()
+        if line and "," in line:
+            cities.append(line)
+
+    return {"cities": cities[:50]}
 
 
 @app.post("/api/run-workflow")
