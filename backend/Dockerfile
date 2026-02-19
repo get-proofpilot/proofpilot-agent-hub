@@ -6,7 +6,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code — v3 (cache bust)
+# Copy application code — v4 (fix f-string syntax error Python 3.11)
 COPY . .
 
 # Ensure default directories exist
