@@ -4,6 +4,7 @@ Takes completed job content and produces a formatted Word document
 with ProofPilot brand colors, clean typography, and proper structure.
 """
 
+import os
 import re
 from pathlib import Path
 from datetime import datetime
@@ -21,7 +22,9 @@ LIGHT_GRAY = RGBColor(0xAA, 0xAA, 0xBB)   # footer / dividers
 BODY_FONT = "Calibri"
 DISPLAY_FONT = "Calibri"  # swap to "Bebas Neue" if installed on the server
 
-TEMP_DIR = Path("temp_docs")
+# DOCS_DIR env var lets Railway Volume mount survive restarts.
+# Default: ./temp_docs (relative to wherever the process runs)
+TEMP_DIR = Path(os.environ.get("DOCS_DIR", str(Path(__file__).parent.parent / "temp_docs")))
 
 
 def generate_docx(job_id: str, job_data: dict) -> Path:
@@ -172,6 +175,16 @@ def _render_markdown(doc: Document, content: str) -> None:
             p.paragraph_format.left_indent = Inches(0.25)
             _inline_format(p, re.sub(r"^\d+\.\s", "", line).strip())
             p.space_after = Pt(3)
+            prev_empty = False
+
+        # Horizontal rule / section divider (---)
+        elif line.strip() == "---":
+            p = doc.add_paragraph()
+            p.space_before = Pt(8)
+            p.space_after  = Pt(8)
+            r = p.add_run("─" * 90)
+            r.font.size = Pt(7)
+            r.font.color.rgb = ELEC_BLUE
             prev_empty = False
 
         # Empty line — small paragraph break (avoid double-spacing)

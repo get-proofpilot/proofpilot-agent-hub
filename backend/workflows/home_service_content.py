@@ -93,7 +93,8 @@ async def run_home_service_content(
     # ── Stream from Claude ─────────────────────────────────
     async with client.messages.stream(
         model="claude-opus-4-6",
-        max_tokens=4096,
+        max_tokens=8000,
+        thinking={"type": "adaptive"},
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_prompt}],
     ) as stream:

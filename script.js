@@ -116,10 +116,19 @@ const CONTENT = [
 const jobProgresses = {};
 JOBS.forEach(j => { jobProgresses[j.id] = j.pct; });
 
+/* ── CONFIG ── */
+const API_BASE = 'https://proofpilot-agents.up.railway.app';
+
 /* ── VIEW ROUTING ── */
 let currentView = 'dashboard';
 let selectedWorkflow = null;
 let agentRunning = true;
+
+/* ── STREAMING STATE ── */
+let terminalStreaming = false;
+let streamDiv = null;
+let sseBuffer = '';
+let currentJobId = null;
 
 function showView(viewId) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -324,42 +333,229 @@ function selectWorkflow(id) {
   document.getElementById('wfRunTitle').textContent = wf.title;
   document.getElementById('wfRunDesc').textContent = wf.desc;
 
+  // Show inputs panel only for workflows with live backend
+  const inputsPanel = document.getElementById('wfInputsPanel');
+  const wfInputsWfName = document.getElementById('wfInputsWfName');
+  if (inputsPanel) {
+    const hasInputs = id === 'home-service-content';
+    inputsPanel.style.display = hasInputs ? 'flex' : 'none';
+    if (wfInputsWfName) wfInputsWfName.textContent = id;
+  }
+
   checkRunReady();
 }
 
 function checkRunReady() {
   const clientVal = document.getElementById('wfClientSelect')?.value;
   const btn = document.getElementById('wfRunBtn');
-  if (btn) btn.disabled = !(clientVal && selectedWorkflow);
+  if (!btn) return;
+
+  let ready = !!(clientVal && selectedWorkflow);
+
+  // For home-service-content, also require the three core fields
+  if (selectedWorkflow === 'home-service-content' && ready) {
+    const businessType = document.getElementById('wfBusinessType')?.value.trim();
+    const location = document.getElementById('wfLocation')?.value.trim();
+    const keyword = document.getElementById('wfKeyword')?.value.trim();
+    ready = !!(businessType && location && keyword);
+  }
+
+  btn.disabled = !ready;
 }
 
-function launchWorkflow() {
+async function launchWorkflow() {
   const clientSel = document.getElementById('wfClientSelect');
   const clientVal = clientSel?.value;
   if (!clientVal || !selectedWorkflow) return;
 
   const wf = WORKFLOWS.find(w => w.id === selectedWorkflow);
-  const client = clientSel.options[clientSel.selectedIndex].text;
+  const clientName = clientSel.options[clientSel.selectedIndex].text;
+  const now = new Date();
+  const timeStr = now.toTimeString().slice(0, 8);
 
   const newJob = {
     id: `JOB-${4822 + JOBS.length}`,
     wf: wf.title,
-    client,
+    client: clientName,
     started: 'just now',
     duration: '–',
     status: 'running',
     pct: 0,
-    output: 'Starting...'
+    output: 'Streaming...'
   };
   JOBS.unshift(newJob);
   jobProgresses[newJob.id] = 0;
+  LOG_ENTRIES.unshift({ time: timeStr, level: 'info', msg: `${newJob.id} started — ${wf.title} for ${clientName}` });
 
-  showToast(`▷ ${wf.title} launched for ${client}`);
+  // Navigate to dashboard and set up terminal for streaming
+  showView('dashboard');
+  startStreamingTerminal(newJob.id, wf.title, clientName);
 
-  // Add log entry
-  const now = new Date();
-  const timeStr = now.toTimeString().slice(0, 8);
-  LOG_ENTRIES.unshift({ time: timeStr, level: 'info', msg: `${newJob.id} started — ${wf.title} for ${client}` });
+  if (selectedWorkflow === 'home-service-content') {
+    const inputs = {
+      business_type: document.getElementById('wfBusinessType')?.value.trim() || '',
+      location:      document.getElementById('wfLocation')?.value.trim() || '',
+      keyword:       document.getElementById('wfKeyword')?.value.trim() || '',
+      service_focus: document.getElementById('wfServiceFocus')?.value.trim() || '',
+    };
+    const strategyContext = document.getElementById('wfStrategyContext')?.value.trim() || '';
+
+    const payload = {
+      workflow_id: selectedWorkflow,
+      client_id: String(clientVal),
+      client_name: clientName,
+      inputs,
+      strategy_context: strategyContext,
+    };
+
+    try {
+      const response = await fetch(`${API_BASE}/api/run-workflow`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      sseBuffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        processSSEChunk(decoder.decode(value, { stream: true }), newJob);
+      }
+    } catch (err) {
+      appendErrorLineToTerminal(`Connection error: ${err.message}`);
+      newJob.status = 'failed';
+      newJob.output = err.message;
+      terminalStreaming = false;
+      streamDiv = null;
+    }
+  } else {
+    // Mock for workflows without a live backend yet
+    showToast(`▷ ${wf.title} launched for ${clientName} (mock)`);
+    setTimeout(() => {
+      const tb = document.getElementById('terminal');
+      if (tb) {
+        const mockDiv = document.createElement('div');
+        mockDiv.className = 'tl-w';
+        mockDiv.textContent = `  ⚠ ${wf.title} backend not yet connected — coming in a future session`;
+        tb.appendChild(mockDiv);
+        tb.scrollTop = tb.scrollHeight;
+      }
+      newJob.status = 'completed';
+      newJob.output = 'Mock complete';
+      terminalStreaming = false;
+      streamDiv = null;
+    }, 1500);
+  }
+}
+
+function startStreamingTerminal(jobId, wfTitle, clientName) {
+  terminalStreaming = true;
+  streamDiv = null;
+  sseBuffer = '';
+
+  const tb = document.getElementById('terminal');
+  if (!tb) return;
+
+  tb.innerHTML = '';
+
+  const header = document.createElement('div');
+  header.className = 'tl-d';
+  header.textContent = `# ProofPilot Claude Agent — ${new Date().toISOString().slice(0, 10)}`;
+  tb.appendChild(header);
+  tb.appendChild(document.createElement('br'));
+
+  const jobLine = document.createElement('div');
+  jobLine.className = 'tl-inf';
+  jobLine.textContent = `▷ ${jobId} — ${wfTitle} for ${clientName}`;
+  tb.appendChild(jobLine);
+  tb.appendChild(document.createElement('br'));
+
+  const callingLine = document.createElement('div');
+  callingLine.className = 'tl-p';
+  callingLine.innerHTML = '<span class="t-prompt">$ </span>Calling Claude Sonnet · streaming output...';
+  tb.appendChild(callingLine);
+  tb.appendChild(document.createElement('br'));
+}
+
+function appendTokenToTerminal(text) {
+  const tb = document.getElementById('terminal');
+  if (!tb) return;
+  if (!streamDiv) {
+    streamDiv = document.createElement('div');
+    streamDiv.className = 'tl-stream';
+    tb.appendChild(streamDiv);
+  }
+  streamDiv.textContent += text;
+  tb.scrollTop = tb.scrollHeight;
+}
+
+function appendErrorLineToTerminal(msg) {
+  const tb = document.getElementById('terminal');
+  if (!tb) return;
+  const errDiv = document.createElement('div');
+  errDiv.className = 'tl-err';
+  errDiv.textContent = `✗ ${msg}`;
+  tb.appendChild(errDiv);
+  tb.scrollTop = tb.scrollHeight;
+}
+
+function processSSEChunk(chunk, job) {
+  sseBuffer += chunk;
+  const lines = sseBuffer.split('\n');
+  sseBuffer = lines.pop(); // keep last (possibly incomplete) line
+
+  for (const line of lines) {
+    if (!line.startsWith('data: ')) continue;
+    try {
+      const data = JSON.parse(line.slice(6));
+      if (data.type === 'token') {
+        appendTokenToTerminal(data.text);
+        if (job) jobProgresses[job.id] = Math.min(95, (jobProgresses[job.id] || 0) + 0.25);
+
+      } else if (data.type === 'done') {
+        currentJobId = data.job_id;
+        terminalStreaming = false;
+        streamDiv = null;
+
+        if (job) {
+          job.status = 'completed';
+          job.output = 'Complete — ready to download';
+          jobProgresses[job.id] = 100;
+        }
+
+        const tb = document.getElementById('terminal');
+        if (tb) {
+          tb.appendChild(document.createElement('br'));
+          const doneDiv = document.createElement('div');
+          doneDiv.className = 'tl-ok';
+          doneDiv.textContent = `✓ Complete — Job ${data.job_id}`;
+          tb.appendChild(doneDiv);
+
+          const dlDiv = document.createElement('div');
+          dlDiv.className = 'tl-inf';
+          dlDiv.innerHTML = `  ↓ <a href="${API_BASE}/api/download/${data.job_id}" target="_blank" style="color:#60a5fa;text-decoration:underline;cursor:pointer;">Download branded .docx</a>`;
+          tb.appendChild(dlDiv);
+          tb.scrollTop = tb.scrollHeight;
+        }
+
+        showToast(`✓ ${job?.wf || 'Workflow'} complete — download link in terminal`);
+        LOG_ENTRIES.unshift({ time: new Date().toTimeString().slice(0, 8), level: 'ok', msg: `${job?.id} completed — ${job?.wf} for ${job?.client}` });
+
+      } else if (data.type === 'error') {
+        appendErrorLineToTerminal(data.message || 'Workflow error');
+        terminalStreaming = false;
+        streamDiv = null;
+        if (job) { job.status = 'failed'; job.output = data.message || 'Error'; }
+      }
+    } catch (e) { /* skip malformed lines */ }
+  }
 }
 
 /* ── CLIENTS ── */
@@ -623,6 +819,7 @@ function startTerminal() {
   let li = 0, ci = 0, curDiv = null;
 
   function tick() {
+    if (terminalStreaming) { setTimeout(tick, 1000); return; }
     if (!agentRunning) { setTimeout(tick, 500); return; }
     if (li >= TERMINAL_LINES.length) {
       setTimeout(() => {
@@ -716,6 +913,11 @@ document.getElementById('clientSearch')?.addEventListener('input', e => {
 
 // Workflow client select
 document.getElementById('wfClientSelect')?.addEventListener('change', checkRunReady);
+
+// Workflow input fields — re-validate run button as user types
+['wfBusinessType', 'wfLocation', 'wfKeyword', 'wfServiceFocus'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input', checkRunReady);
+});
 
 /* ── INIT ── */
 showView('dashboard');

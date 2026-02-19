@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ProofPilot Agency Hub — SEO Operations Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800&family=Martian+Mono:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+  <!-- ═══════════ SIDEBAR ═══════════ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="brand">
+        <div class="brand-icon"><span></span></div>
+        <div class="brand-text">
+          <span class="brand-name">ProofPilot</span>
+          <span class="brand-sub">Agency Hub</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Agent status pill -->
+    <div class="agent-pill" id="agentPill">
+      <div class="agent-dot pulse" id="agentDot"></div>
+      <div class="agent-pill-text">
+        <span class="ap-label">Agent Status</span>
+        <span class="ap-val" id="agentState">Running · 3 tasks active</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-group">
+        <span class="nav-group-label">Overview</span>
+        <a href="#" class="nav-item active" data-view="dashboard" id="nav-dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <rect x="3" y="3" width="7" height="7" />
+            <rect x="14" y="3" width="7" height="7" />
+            <rect x="14" y="14" width="7" height="7" />
+            <rect x="3" y="14" width="7" height="7" />
+          </svg>
+          Dashboard
+        </a>
+        <a href="#" class="nav-item" data-view="workflows" id="nav-workflows">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <polygon points="5 3 19 12 5 21 5 3" />
+          </svg>
+          Run Workflows
+        </a>
+        <a href="#" class="nav-item" data-view="clients" id="nav-clients">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+          Clients
+          <span class="nav-badge nav-badge-green" id="navBadgeClients">—</span>
+        </a>
+        <a href="#" class="nav-item" data-view="jobs" id="nav-jobs">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
+          Agent Tasks
+          <span class="nav-badge" id="navBadgeJobs">2</span>
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <span class="nav-group-label">Automation</span>
+        <a href="#" class="nav-item" data-view="reports" id="nav-reports">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <path d="M3 9h18M3 15h18M9 3v18" />
+          </svg>
+          Reports
+        </a>
+        <a href="#" class="nav-item" data-view="content" id="nav-content">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+            <polyline points="14 2 14 8 20 8" />
+          </svg>
+          Content
+        </a>
+        <a href="#" class="nav-item" data-view="logs" id="nav-logs">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <polyline points="4 17 10 11 4 5" />
+            <line x1="12" y1="19" x2="20" y2="19" />
+          </svg>
+          Activity Log
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <span class="nav-group-label">Ad Studio</span>
+        <a href="#" class="nav-item" data-view="ads" id="nav-ads">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <rect x="2" y="3" width="20" height="14" rx="2" />
+            <path d="M8 21h8M12 17v4" />
+          </svg>
+          Create Ad
+        </a>
+        <a href="#" class="nav-item" data-view="campaigns" id="nav-campaigns">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+          </svg>
+          Campaigns
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <span class="nav-group-label">System</span>
+        <a href="#" class="nav-item" id="nav-settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.07 4.93A10 10 0 1 0 4.93 19.07 10 10 0 0 0 19.07 4.93z" />
+          </svg>
+          Settings
+        </a>
+      </div>
+    </nav>
+
+    <div class="sb-user">
+      <div class="sb-avatar">MA</div>
+      <div>
+        <div class="sb-user-name">Matt A.</div>
+        <div class="sb-user-role">Agency Owner</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══════════ MAIN ═══════════ -->
+  <main class="main" id="main">
+
+    <!-- Top bar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <span class="topbar-crumb">ProofPilot</span>
+        <span class="topbar-sep">/</span>
+        <span class="topbar-cur" id="pageTitle">Dashboard</span>
+      </div>
+      <div class="topbar-right">
+        <span class="tb-clock" id="clock">—</span>
+        <button class="btn-ghost" id="agentToggleBtn" onclick="toggleAgent()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="6" y="4" width="4" height="16" />
+            <rect x="14" y="4" width="4" height="16" />
+          </svg>
+          Pause Agent
+        </button>
+        <button class="btn-primary-top" onclick="showView('workflows')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          New Task
+        </button>
+        <div class="tb-avatar">MA</div>
+      </div>
+    </header>
+
+    <!-- ═══════════════════════════════
+         VIEW: DASHBOARD
+    ═══════════════════════════════ -->
+    <div class="view active" id="view-dashboard">
+
+      <!-- KPI row -->
+      <div class="kpi-row">
+        <div class="kpi-card kpi-blue">
+          <div class="kpi-label">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+            </svg>
+            Active Clients
+          </div>
+          <div class="kpi-value" id="kpiActiveClients">—</div>
+          <div class="kpi-delta" id="kpiActiveClientsDelta"></div>
+        </div>
+        <div class="kpi-card kpi-green">
+          <div class="kpi-label">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+            </svg>
+            Active Tasks
+          </div>
+          <div class="kpi-value" id="kpiActiveTasks">—</div>
+          <div class="kpi-delta" id="kpiActiveTasksDelta"></div>
+        </div>
+        <div class="kpi-card kpi-amber">
+          <div class="kpi-label">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+            Workflows Run
+          </div>
+          <div class="kpi-value" id="kpiWorkflowsRun">—</div>
+          <div class="kpi-delta" id="kpiWorkflowsRunDelta"></div>
+        </div>
+        <div class="kpi-card kpi-purple">
+          <div class="kpi-label">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+            Docs Generated
+          </div>
+          <div class="kpi-value" id="kpiDocsGenerated">—</div>
+          <div class="kpi-delta" id="kpiDocsDelta"></div>
+        </div>
+      </div>
+
+      <!-- Main grid: left (terminal + queue + completions) / right (roster + metrics + alerts + ad studio) -->
+      <div class="dash-grid">
+
+        <!-- LEFT -->
+        <div class="dash-left">
+
+          <!-- Live Agent Terminal -->
+          <div class="panel panel-terminal">
+            <div class="panel-header">
+              <div class="panel-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <polyline points="4 17 10 11 4 5" />
+                  <line x1="12" y1="19" x2="20" y2="19" />
+                </svg>
+                Agent Activity
+              </div>
+              <div class="panel-actions">
+                <span class="ph-badge badge-running">● Live</span>
+                <button class="ph-btn" onclick="clearTerminal()">Clear</button>
+              </div>
+            </div>
+            <div class="terminal-body" id="terminal">
+              <div class="tl-d"># ProofPilot Claude Agent — Session 2026-02-18</div>
+              <br>
+            </div>
+          </div>
+
+          <!-- Task Queue -->
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <line x1="8" y1="6" x2="21" y2="6" />
+                  <line x1="8" y1="12" x2="21" y2="12" />
+                  <line x1="8" y1="18" x2="21" y2="18" />
+                  <line x1="3" y1="6" x2="3.01" y2="6" />
+                  <line x1="3" y1="12" x2="3.01" y2="12" />
+                  <line x1="3" y1="18" x2="3.01" y2="18" />
+                </svg>
+                Task Queue
+              </div>
+              <div class="panel-actions">
+                <span class="ph-badge badge-count">7 tasks</span>
+                <button class="ph-btn" onclick="showView('jobs')">View All</button>
+              </div>
+            </div>
+            <div class="task-list" id="dashTaskQueue">
+              <!-- injected by JS -->
+            </div>
+          </div>
+
+          <!-- Recent Completions -->
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                Recent Completions
+              </div>
+              <div class="panel-actions">
+                <button class="ph-btn">Export</button>
+              </div>
+            </div>
+            <table class="c-table">
+              <thead>
+                <tr>
+                  <th>Task</th>
+                  <th>Client</th>
+                  <th>Type</th>
+                  <th>Outcome</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody id="completionsTbody">
+                <!-- injected by JS -->
+              </tbody>
+            </table>
+          </div>
+
+        </div><!-- /dash-left -->
+
+        <!-- RIGHT -->
+        <div class="dash-right">
+
+          <!-- Client Roster -->
+          <div class="panel panel-roster">
+            <div class="panel-header">
+              <div class="panel-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                </svg>
+                Client Roster
+              </div>
+              <div class="panel-actions">
+                <button class="ph-btn">+ Add</button>
+              </div>
+            </div>
+            <div class="roster-list" id="clientRoster">
+              <!-- injected by JS -->
+            </div>
+          </div>
+
+          <!-- Weekly Metrics -->
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <line x1="18" y1="20" x2="18" y2="10" />
+                  <line x1="12" y1="20" x2="12" y2="4" />
+                  <line x1="6" y1="20" x2="6" y2="14" />
+                </svg>
+                This Week
+              </div>
+            </div>
+            <div class="mini-metrics">
+              <div class="mini-metric"><span class="mm-label">Keywords tracked</span><span
+                  class="mm-val mm-blue">4,821</span></div>
+              <div class="mini-metric"><span class="mm-label">Emails sent</span><span class="mm-val">213</span></div>
+              <div class="mini-metric"><span class="mm-label">Links secured</span><span
+                  class="mm-val mm-green">18</span></div>
+              <div class="mini-metric"><span class="mm-label">Pages re-optimized</span><span class="mm-val">34</span>
+              </div>
+              <div class="mini-metric"><span class="mm-label">Reports delivered</span><span class="mm-val">6</span>
+              </div>
+              <div class="mini-metric"><span class="mm-label">Claude API calls</span><span
+                  class="mm-val mm-amber">1,247</span></div>
+            </div>
+          </div>
+
+          <!-- Alerts -->
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+                Alerts
+              </div>
+              <div class="panel-actions">
+                <span class="ph-badge badge-urgent">2 urgent</span>
+              </div>
+            </div>
+            <div class="alert-list" id="dashAlerts">
+              <!-- injected by JS -->
+            </div>
+          </div>
+
+          <!-- Ad Studio Preview -->
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <rect x="2" y="3" width="20" height="14" rx="2" />
+                  <path d="M8 21h8M12 17v4" />
+                </svg>
+                Ad Studio
+              </div>
+              <div class="panel-actions">
+                <span class="ph-badge badge-count">3 live</span>
+                <button class="ph-btn" onclick="showView('ads')">Open</button>
+              </div>
+            </div>
+            <button class="create-ad-btn" onclick="showView('ads')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              New Ad Creative
+            </button>
+            <div class="ad-list" id="dashAdList">
+              <!-- injected by JS -->
+            </div>
+          </div>
+
+        </div><!-- /dash-right -->
+      </div><!-- /dash-grid -->
+    </div><!-- /view-dashboard -->
+
+    <!-- ═══════════════════════════════
+         VIEW: WORKFLOWS
+    ═══════════════════════════════ -->
+    <div class="view" id="view-workflows">
+      <div class="workflow-launcher">
+        <div class="workflow-cards-grid" id="workflowCardsGrid">
+          <!-- injected by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         VIEW: CLIENTS
+    ═══════════════════════════════ -->
+    <div class="view" id="view-clients">
+      <div class="clients-toolbar">
+        <input type="text" class="table-search" placeholder="Search clients..." id="clientSearch" />
+        <button class="btn-primary-top" onclick="alert('Add client modal')">+ Add Client</button>
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table" id="clientsTable">
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Domain</th>
+              <th>Plan</th>
+              <th>SEO Score</th>
+              <th>Avg Rank</th>
+              <th>Last Job</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="clientsTbody"><!-- injected by JS --></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         VIEW: JOBS
+    ═══════════════════════════════ -->
+    <div class="view" id="view-jobs">
+      <div class="jobs-toolbar">
+        <div class="filter-tabs" id="jobFilterTabs">
+          <button class="filter-tab active" data-filter="all">All</button>
+          <button class="filter-tab" data-filter="running">Running</button>
+          <button class="filter-tab" data-filter="completed">Completed</button>
+          <button class="filter-tab" data-filter="failed">Failed</button>
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table" id="jobsTable">
+          <thead>
+            <tr>
+              <th>Job ID</th>
+              <th>Workflow</th>
+              <th>Client</th>
+              <th>Started</th>
+              <th>Duration</th>
+              <th>Status</th>
+              <th>Output</th>
+            </tr>
+          </thead>
+          <tbody id="jobsTbody"><!-- injected by JS --></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         VIEW: JOB MONITOR
+    ═══════════════════════════════ -->
+    <div class="view" id="view-job-monitor">
+      <div class="jm-header">
+        <button class="jm-back" onclick="showView('jobs')">← Agent Tasks</button>
+        <div class="jm-job-info">
+          <span class="jm-job-id" id="jmJobId"></span>
+          <span class="jm-sep">·</span>
+          <span class="jm-wf-name" id="jmWfName"></span>
+          <span class="jm-sep">·</span>
+          <span class="jm-client" id="jmClient"></span>
+        </div>
+        <span class="jm-status-badge running" id="jmStatusBadge">RUNNING</span>
+      </div>
+      <div class="jm-terminal-wrap">
+        <div class="terminal" id="monitorTerminal"></div>
+      </div>
+      <div class="jm-done-bar" id="jmDoneBar" style="display:none;">
+        <span class="jm-done-check">✓</span>
+        <span id="jmDoneMsg"></span>
+        <a id="jmDownloadLink" class="jm-download-btn" href="#" target="_blank">↓ Download .docx</a>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         VIEW: REPORTS
+    ═══════════════════════════════ -->
+    <div class="view" id="view-reports">
+      <div class="reports-grid" id="reportsGrid"><!-- injected by JS --></div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         VIEW: CONTENT
+    ═══════════════════════════════ -->
+    <div class="view" id="view-content">
+      <!-- Header bar -->
+      <div class="content-lib-header">
+        <h2 class="content-lib-title">Content Library</h2>
+        <div class="content-lib-controls">
+          <input
+            type="text"
+            id="contentSearch"
+            placeholder="Search content..."
+            class="content-search-input"
+            oninput="filterContentLibrary()"
+          />
+          <select id="contentClientFilter" class="content-filter-select" onchange="filterContentLibrary()">
+            <option value="">All Clients</option>
+            <!-- populated by JS -->
+          </select>
+          <select id="contentTypeFilter" class="content-filter-select" onchange="filterContentLibrary()">
+            <option value="">All Types</option>
+            <option value="website-seo-audit">SEO Audits</option>
+            <option value="prospect-audit">Prospect Analyses</option>
+            <option value="home-service-content">SEO Content</option>
+            <option value="keyword-gap">Keyword Gap</option>
+            <option value="seo-blog-post">Blog Posts</option>
+            <option value="service-page">Service Pages</option>
+            <option value="location-page">Location Pages</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Client sections — populated by renderContentLibrary() -->
+      <div id="contentLibraryGrid" class="content-library-grid">
+        <!-- injected by JS -->
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         VIEW: ACTIVITY LOG
+    ═══════════════════════════════ -->
+    <div class="view" id="view-logs">
+      <div class="log-panel">
+        <div class="log-toolbar">
+          <div class="log-filter-tabs">
+            <button class="filter-tab active" data-log-filter="all" onclick="setLogFilter('all')">All</button>
+            <button class="filter-tab" data-log-filter="agent" onclick="setLogFilter('agent')">Agent</button>
+            <button class="filter-tab" data-log-filter="system" onclick="setLogFilter('system')">System</button>
+            <button class="filter-tab" data-log-filter="errors" onclick="setLogFilter('errors')">Errors</button>
+          </div>
+          <button class="ph-btn" onclick="clearLogs()">Clear</button>
+        </div>
+        <div class="log-stream" id="logStream"><!-- injected by JS --></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         VIEW: AD STUDIO
+    ═══════════════════════════════ -->
+    <div class="view" id="view-ads">
+      <div class="ads-layout">
+        <div class="ads-header">
+          <h2 class="ads-heading">Ad Studio</h2>
+          <button class="btn-primary-top">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Generate New Ad
+          </button>
+        </div>
+        <div class="ads-grid" id="adsGrid"><!-- injected by JS --></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         VIEW: CAMPAIGNS
+    ═══════════════════════════════ -->
+    <div class="view" id="view-campaigns">
+      <div class="campaigns-placeholder">
+        <div class="placeholder-icon">📊</div>
+        <h2>Campaigns</h2>
+        <p>Connect your ad platform to manage live campaigns from here.</p>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         VIEW: CLIENT HUB
+    ═══════════════════════════════ -->
+    <div class="view" id="view-client-hub">
+      <div id="clientHubContent">
+        <!-- populated by renderClientHub() -->
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Job Detail Modal -->
+  <div class="modal-overlay" id="jobModal" onclick="closeModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2 id="modalTitle">Job Detail</h2>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="runToast"></div>
+
+  <!-- ── Workflow Run Modal ── -->
+  <div class="wf-modal-overlay" id="wfModal" onclick="closeWorkflowModal(event)">
+    <div class="wf-modal">
+      <div class="wf-modal-header">
+        <div class="wf-modal-identity">
+          <span class="wf-modal-icon" id="modalWfIcon"></span>
+          <div class="wf-modal-meta">
+            <div class="wf-modal-title" id="modalWfTitle"></div>
+            <div class="wf-modal-desc" id="modalWfDesc"></div>
+          </div>
+        </div>
+        <button class="wf-modal-close" onclick="closeWorkflowModal()">✕</button>
+      </div>
+
+      <div class="wf-modal-body">
+        <div class="wf-modal-field" id="wfClientFieldWrap">
+          <label class="wf-field-label">Client <span class="req">*</span></label>
+          <select id="wfClientSelect" onchange="checkRunReady()">
+            <option value="">— Choose client —</option>
+          </select>
+        </div>
+
+        <!-- website-seo-audit inputs -->
+        <div id="modalInputsWebsiteAudit" style="display:none; flex-direction:column; gap:16px;">
+          <div class="wf-modal-field">
+            <label class="wf-field-label">Domain to Audit <span class="req">*</span></label>
+            <input type="text" id="wfAuditDomain" placeholder="e.g. allthingzelectric.com" oninput="checkRunReady()" />
+            <div class="wf-field-hint">Auto-filled from client record — edit if different</div>
+          </div>
+          <div class="wf-modal-2col">
+            <div class="wf-modal-field">
+              <label class="wf-field-label">Primary Service <span class="req">*</span></label>
+              <input type="text" id="wfAuditService" placeholder="e.g. electrician, plumber, HVAC" oninput="checkRunReady()" />
+              <div class="wf-field-hint">Used to find top competitors on Google</div>
+            </div>
+            <div class="wf-modal-field">
+              <label class="wf-field-label">City, State <span class="req">*</span></label>
+              <input type="text" id="wfAuditLocation" placeholder="e.g. Chandler, AZ" oninput="checkRunReady()" />
+              <div class="wf-field-hint">Primary service area city</div>
+            </div>
+          </div>
+          <!-- Optional fields section -->
+          <div class="wf-modal-optional-section">
+            <div class="wf-modal-optional-label">Optional</div>
+            <div class="wf-modal-field optional">
+              <label class="wf-field-label">Focus Areas <span class="opt">optional</span></label>
+              <textarea id="wfAuditNotes" rows="3"
+                placeholder="Any specific areas to focus on? e.g. Local SEO, technical issues, competitor gaps, specific service pages..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- prospect-audit inputs -->
+        <div id="modalInputsProspectAudit" style="display:none; flex-direction:column; gap:16px;">
+          <div class="wf-modal-field">
+            <label class="wf-field-label">Prospect / Business Name <span class="req">*</span></label>
+            <input type="text" id="wfProspectName" placeholder="e.g. Steadfast Plumbing" oninput="checkRunReady()" />
+          </div>
+          <div class="wf-modal-field">
+            <label class="wf-field-label">Domain to Analyze <span class="req">*</span></label>
+            <input type="text" id="wfProspectDomain" placeholder="e.g. steadfastplumbingaz.com" oninput="checkRunReady()" />
+          </div>
+          <div class="wf-modal-2col">
+            <div class="wf-modal-field">
+              <label class="wf-field-label">Primary Service <span class="req">*</span></label>
+              <input type="text" id="wfProspectService" placeholder="e.g. plumber, electrician, HVAC" oninput="checkRunReady()" />
+            </div>
+            <div class="wf-modal-field">
+              <label class="wf-field-label">City, State <span class="req">*</span></label>
+              <input type="text" id="wfProspectLocation" placeholder="e.g. Gilbert, AZ" oninput="checkRunReady()" />
+            </div>
+          </div>
+          <!-- Optional fields section -->
+          <div class="wf-modal-optional-section">
+            <div class="wf-modal-optional-label">Optional — improves revenue projections &amp; sales narrative</div>
+            <div class="wf-modal-2col">
+              <div class="wf-modal-field optional">
+                <label class="wf-field-label">Monthly Revenue <span class="opt">optional</span></label>
+                <input type="text" id="wfProspectRevenue" placeholder="e.g. $40,000/month" />
+                <div class="wf-field-hint">Used for revenue projection math</div>
+              </div>
+              <div class="wf-modal-field optional">
+                <label class="wf-field-label">Avg Job Value <span class="opt">optional</span></label>
+                <input type="text" id="wfProspectJobValue" placeholder="e.g. $850" />
+                <div class="wf-field-hint">Average ticket size for this service</div>
+              </div>
+            </div>
+            <div class="wf-modal-field optional">
+              <label class="wf-field-label">Sales Context <span class="opt">optional</span></label>
+              <textarea id="wfProspectNotes" rows="3"
+                placeholder="Pain points heard, objections, what they care about most, how you got the lead..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- keyword-gap inputs -->
+        <div id="modalInputsKeywordGap" style="display:none; flex-direction:column; gap:16px;">
+          <div class="wf-modal-field">
+            <label class="wf-field-label">Your Domain <span class="req">*</span></label>
+            <input type="text" id="wfGapDomain" placeholder="e.g. allthingzelectric.com" oninput="checkRunReady()" />
+            <div class="wf-field-hint">Auto-filled from client record — edit if different</div>
+          </div>
+          <div class="wf-modal-2col">
+            <div class="wf-modal-field">
+              <label class="wf-field-label">Primary Service <span class="req">*</span></label>
+              <input type="text" id="wfGapService" placeholder="e.g. electrician" oninput="checkRunReady()" />
+            </div>
+            <div class="wf-modal-field">
+              <label class="wf-field-label">Service Area <span class="req">*</span></label>
+              <input type="text" id="wfGapLocation" placeholder="e.g. Chandler, AZ" oninput="checkRunReady()" />
+            </div>
+          </div>
+          <div class="wf-modal-field">
+            <label class="wf-field-label">Competitor Domains <span class="opt">optional — auto-detected if blank</span></label>
+            <input type="text" id="wfGapCompetitors" placeholder="competitor1.com, competitor2.com" />
+            <div class="wf-field-hint">Leave blank to auto-detect top competitors from Google</div>
+          </div>
+          <div class="wf-modal-field">
+            <label class="wf-field-label">Additional Context <span class="opt">optional</span></label>
+            <textarea id="wfGapNotes" rows="3"
+              placeholder="Any context about target markets, recent campaigns, specific keyword categories to focus on..."></textarea>
+          </div>
+        </div>
+
+        <!-- home-service-content inputs -->
+        <div id="modalInputsHomeService" style="display:none; flex-direction:column; gap:16px;">
+          <div class="wf-modal-2col">
+            <div class="wf-modal-field">
+              <label class="wf-field-label">Business Type <span class="req">*</span></label>
+              <input type="text" id="wfBusinessType" placeholder="e.g. electrician, HVAC contractor" oninput="checkRunReady()" />
+            </div>
+            <div class="wf-modal-field">
+              <label class="wf-field-label">Location <span class="req">*</span></label>
+              <input type="text" id="wfLocation" placeholder="e.g. Phoenix, AZ" oninput="checkRunReady()" />
+            </div>
+          </div>
+          <div class="wf-modal-field">
+            <label class="wf-field-label">Primary Keyword <span class="req">*</span></label>
+            <input type="text" id="wfKeyword" placeholder="e.g. emergency electrical repair Phoenix" oninput="checkRunReady()" />
+          </div>
+          <!-- Optional fields section -->
+          <div class="wf-modal-optional-section">
+            <div class="wf-modal-optional-label">Optional — makes content more specific and less generic</div>
+            <div class="wf-modal-field optional">
+              <label class="wf-field-label">Service Focus <span class="opt">optional</span></label>
+              <input type="text" id="wfServiceFocus" placeholder="e.g. panel upgrades, EV charging" />
+            </div>
+            <div class="wf-modal-field optional">
+              <label class="wf-field-label">Strategy Direction <span class="opt">optional</span></label>
+              <textarea id="wfStrategyContext" rows="4"
+                placeholder="Add specific context, client talking points, competitor angles, local hooks, or anything that should make this article stand out from generic AI content..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- seo-blog-post inputs -->
+        <div id="modalInputsSEOBlogPost" style="display:none; flex-direction:column; gap:16px;">
+          <div class="wf-modal-2col">
+            <div class="wf-modal-field">
+              <label class="wf-field-label">Business Type <span class="req">*</span></label>
+              <input type="text" id="wfBlogBusinessType" placeholder="e.g. electrician, plumber, HVAC company" oninput="checkRunReady()" />
+            </div>
+            <div class="wf-modal-field">
+              <label class="wf-field-label">Location <span class="req">*</span></label>
+              <input type="text" id="wfBlogLocation" placeholder="e.g. Chandler, AZ" oninput="checkRunReady()" />
+            </div>
+          </div>
+          <div class="wf-modal-field">
+            <label class="wf-field-label">Primary Keyword <span class="req">*</span></label>
+            <input type="text" id="wfBlogKeyword" placeholder="e.g. how much does it cost to rewire a house" oninput="checkRunReady()" />
+            <div class="wf-field-hint">The exact keyword phrase this post should rank for</div>
+          </div>
+          <!-- Optional fields section -->
+          <div class="wf-modal-optional-section">
+            <div class="wf-modal-optional-label">Optional — improves targeting and specificity</div>
+            <div class="wf-modal-2col">
+              <div class="wf-modal-field optional">
+                <label class="wf-field-label">Audience <span class="opt">optional</span></label>
+                <input type="text" id="wfBlogAudience" placeholder="e.g. homeowners, landlords, property managers" />
+                <div class="wf-field-hint">Defaults to homeowners</div>
+              </div>
+              <div class="wf-modal-field optional">
+                <label class="wf-field-label">Tone <span class="opt">optional</span></label>
+                <input type="text" id="wfBlogTone" placeholder="e.g. conversational, educational, authoritative" />
+                <div class="wf-field-hint">Defaults to conversational</div>
+              </div>
+            </div>
+            <div class="wf-modal-field optional">
+              <label class="wf-field-label">Internal Links <span class="opt">optional</span></label>
+              <input type="text" id="wfBlogInternalLinks" placeholder="e.g. /services/panel-upgrade, /services/ev-charger" />
+              <div class="wf-field-hint">Comma-separated service page URLs to link to naturally</div>
+            </div>
+            <div class="wf-modal-field optional">
+              <label class="wf-field-label">Content Direction &amp; Notes <span class="opt">optional</span></label>
+              <textarea id="wfBlogNotes" rows="3"
+                placeholder="Angles to push, competitor gaps, local hooks, client talking points, anything that makes this post non-generic..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- service-page inputs -->
+        <div id="modalInputsServicePage" style="display:none; flex-direction:column; gap:16px;">
+          <div class="wf-modal-2col">
+            <div class="wf-modal-field">
+              <label class="wf-field-label">Business Type <span class="req">*</span></label>
+              <input type="text" id="wfSvcBusinessType" placeholder="e.g. electrician, plumber, roofer" oninput="checkRunReady()" />
+            </div>
+            <div class="wf-modal-field">
+              <label class="wf-field-label">Location <span class="req">*</span></label>
+              <input type="text" id="wfSvcLocation" placeholder="e.g. Chandler, AZ" oninput="checkRunReady()" />
+            </div>
+          </div>
+          <div class="wf-modal-field">
+            <label class="wf-field-label">Service <span class="req">*</span></label>
+            <input type="text" id="wfSvcService" placeholder="e.g. panel upgrade, EV charger installation, electrical inspection" oninput="checkRunReady()" />
+            <div class="wf-field-hint">The specific service this page targets — be precise</div>
+          </div>
+          <!-- Optional fields section -->
+          <div class="wf-modal-optional-section">
+            <div class="wf-modal-optional-label">Optional — powers the trust and conversion sections</div>
+            <div class="wf-modal-field optional">
+              <label class="wf-field-label">Differentiators <span class="opt">optional</span></label>
+              <input type="text" id="wfSvcDifferentiators" placeholder="e.g. same-day service, licensed master electrician, 5-star rated, family-owned since 2008" />
+              <div class="wf-field-hint">What makes this business stand out — specific beats generic</div>
+            </div>
+            <div class="wf-modal-field optional">
+              <label class="wf-field-label">Price Range <span class="opt">optional</span></label>
+              <input type="text" id="wfSvcPriceRange" placeholder="e.g. $1,200–$3,500 depending on panel size" />
+              <div class="wf-field-hint">Honest pricing builds trust and reduces drop-off</div>
+            </div>
+            <div class="wf-modal-field optional">
+              <label class="wf-field-label">Notes <span class="opt">optional</span></label>
+              <textarea id="wfSvcNotes" rows="3"
+                placeholder="Anything specific to emphasize — local neighborhoods served, permits pulled, warranty, financing, etc."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- location-page inputs -->
+        <div id="modalInputsLocationPage" style="display:none; flex-direction:column; gap:16px;">
+          <div class="wf-modal-2col">
+            <div class="wf-modal-field">
+              <label class="wf-field-label">Business Type <span class="req">*</span></label>
+              <input type="text" id="wfLocBusinessType" placeholder="e.g. plumber, electrician, HVAC contractor" oninput="checkRunReady()" />
+            </div>
+            <div class="wf-modal-field">
+              <label class="wf-field-label">Primary Service <span class="req">*</span></label>
+              <input type="text" id="wfLocPrimaryService" placeholder="e.g. plumbing repair, electrical service" oninput="checkRunReady()" />
+            </div>
+          </div>
+          <div class="wf-modal-2col">
+            <div class="wf-modal-field">
+              <label class="wf-field-label">Target Location <span class="req">*</span></label>
+              <input type="text" id="wfLocTargetLocation" placeholder="e.g. Mesa, AZ" oninput="checkRunReady()" />
+              <div class="wf-field-hint">The city/neighborhood this page ranks for</div>
+            </div>
+            <div class="wf-modal-field">
+              <label class="wf-field-label">Business Home Base <span class="req">*</span></label>
+              <input type="text" id="wfLocHomeBase" placeholder="e.g. Chandler, AZ" oninput="checkRunReady()" />
+              <div class="wf-field-hint">Where the business is based — establishes proximity</div>
+            </div>
+          </div>
+          <!-- Optional fields section -->
+          <div class="wf-modal-optional-section">
+            <div class="wf-modal-optional-label">Optional — makes the page feel genuinely local, not templated</div>
+            <div class="wf-modal-field optional">
+              <label class="wf-field-label">Local Details <span class="opt">optional</span></label>
+              <textarea id="wfLocLocalDetails" rows="3"
+                placeholder="Local landmarks, neighborhood names, HOAs, housing types, local utilities, anything that makes it feel real — e.g. 'Many homes in NE Mesa near the 202 were built in the 1970s–80s with original copper plumbing'"></textarea>
+            </div>
+            <div class="wf-modal-field optional">
+              <label class="wf-field-label">Services to Highlight <span class="opt">optional</span></label>
+              <input type="text" id="wfLocServicesList" placeholder="e.g. drain cleaning, water heater repair, pipe repiping, sewer inspection" />
+              <div class="wf-field-hint">Comma-separated list of specific services to include on this page</div>
+            </div>
+            <div class="wf-modal-field optional">
+              <label class="wf-field-label">Notes <span class="opt">optional</span></label>
+              <textarea id="wfLocNotes" rows="2"
+                placeholder="Anything specific — local competitors, common problems in this area, how long they've served this city..."></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="wf-modal-footer">
+        <button class="btn-modal-cancel" onclick="closeWorkflowModal()">Cancel</button>
+        <button class="btn-run" id="wfRunBtn" disabled onclick="launchWorkflow()">▷ Run Now</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+
+</html>

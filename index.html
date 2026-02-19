@@ -415,6 +415,38 @@
         <div class="workflow-cards-grid" id="workflowCardsGrid">
           <!-- injected by JS -->
         </div>
+
+        <!-- Structured inputs — shown when a live workflow is selected -->
+        <div class="wf-inputs-panel" id="wfInputsPanel">
+          <div class="wf-inputs-header">
+            <span class="wf-inputs-label">WORKFLOW INPUTS</span>
+            <span class="wf-inputs-wfname" id="wfInputsWfName"></span>
+          </div>
+          <div class="wf-input-row">
+            <div class="wf-input-group">
+              <label class="wf-field-label">Business Type <span class="req">*</span></label>
+              <input type="text" id="wfBusinessType" placeholder="e.g. electrician, HVAC contractor" />
+            </div>
+            <div class="wf-input-group">
+              <label class="wf-field-label">Location <span class="req">*</span></label>
+              <input type="text" id="wfLocation" placeholder="e.g. Phoenix, AZ" />
+            </div>
+            <div class="wf-input-group">
+              <label class="wf-field-label">Primary Keyword <span class="req">*</span></label>
+              <input type="text" id="wfKeyword" placeholder="e.g. emergency electrical repair Phoenix" />
+            </div>
+            <div class="wf-input-group">
+              <label class="wf-field-label">Service Focus <span class="opt">optional</span></label>
+              <input type="text" id="wfServiceFocus" placeholder="e.g. panel upgrades, EV charging" />
+            </div>
+          </div>
+          <div class="wf-strategy-section">
+            <label class="wf-field-label">Strategy Direction <span class="opt">optional — makes the article non-generic</span></label>
+            <textarea id="wfStrategyContext" class="wf-strategy-textarea" rows="4"
+              placeholder="Add specific context, client talking points, competitor angles, local hooks, or anything that should make this article stand out from generic AI content..."></textarea>
+          </div>
+        </div>
+
         <div class="wf-run-panel" id="wfRunPanel">
           <div class="wf-run-inner">
             <div class="wf-run-icon" id="wfRunIcon">⟳</div>
