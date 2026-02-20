@@ -2674,6 +2674,105 @@ body {
   box-shadow: 0 6px 22px rgba(0, 81, 255, 0.45);
 }
 
+/* ── Preview button (done bar) — green ghost style ── */
+.jm-preview-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--green-ui);
+  padding: 10px 24px;
+  border-radius: 7px;
+  border: 1.5px solid var(--green-ui);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  letter-spacing: 0.03em;
+  transition: all var(--t-fast);
+}
+
+.jm-preview-btn:hover {
+  background: rgba(22,163,74,0.08);
+  transform: translateY(-1px);
+}
+
+/* ── Viewport Toggle (HTML preview) ── */
+.viewport-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.vp-btn {
+  padding: 5px 14px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text3);
+  background: transparent;
+  border: 1px solid var(--border2);
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+
+.vp-btn:first-child { border-radius: 4px 0 0 4px; }
+.vp-btn:last-child { border-radius: 0 4px 4px 0; }
+.vp-btn:not(:first-child) { border-left: none; }
+
+.vp-btn.active {
+  background: var(--elec-blue);
+  color: #fff;
+  border-color: var(--elec-blue);
+}
+
+.vp-btn:not(.active):hover {
+  background: var(--bg3);
+  color: var(--text);
+}
+
+/* ── Iframe container for HTML preview ── */
+.doc-iframe-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border-radius: 6px;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.doc-iframe-wrap iframe {
+  transition: width 0.3s ease;
+  background: #fff;
+  height: 100%;
+}
+
+/* ── Preview button on content card ── */
+.cl-card-btn-preview {
+  padding: 4px 10px;
+  font-size: 10px;
+  font-family: var(--mono);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--green-ui);
+  background: transparent;
+  color: var(--green-ui);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all var(--t-fast);
+}
+
+.cl-card-btn-preview:hover {
+  background: rgba(22,163,74,0.08);
+}
+
 /* ══════════════════════════════════════ SIDEBAR LIVE BADGE ══ */
 .nav-badge-live {
   background: rgba(22,163,74,0.12) !important;

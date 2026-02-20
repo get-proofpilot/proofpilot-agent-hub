@@ -113,6 +113,10 @@ const WORKFLOWS = [
     desc: 'High-converting search ad copy — headlines, descriptions, sitelinks, callouts, and negative keywords.',
     time: '~4 min', status: 'active', skill: 'google-ads-copy', category: 'content',
     preview: '# Google Ads Copy: All Thingz Electric — Chandler, AZ\n\n## Ad Group: Electrician — High Intent\n**Headlines (15):**\n1. Electrician in Chandler AZ (23 chars)\n2. Licensed Master Electrician (27 chars)\n3. Same-Day Service Available (26 chars)\n\n**Descriptions (4):**\n1. Licensed & insured electricians serving Chandler. Same-day appointments. Call for free estimate. (90 chars)\n\n**Keywords:** "electrician chandler az" 2,400/mo $12.50 CPC\n\n## Sitelinks\n## Negative Keywords (47)' },
+  { id: 'page-design', icon: '🎨', title: 'Page Design Agent',
+    desc: 'Generates a fully designed, self-contained HTML/CSS page — renders in any browser. Service pages, landing pages, location pages, and more.',
+    time: '~6 min', status: 'active', skill: 'page-design', category: 'content',
+    preview: '<!DOCTYPE html>\n<html lang="en">\n<head>\n  <title>Panel Upgrade in Chandler, AZ | All Thingz Electric</title>\n  <style>\n    :root { --primary: #1a3b5c; --accent: #ff6b00; }\n    /* Full responsive CSS design system */\n  </style>\n</head>\n<body>\n  <header>Sticky nav with mobile hamburger</header>\n  <section class="hero">Customer-problem-first headline + CTA</section>\n  <section class="trust-bar">15 Years · 500+ Reviews · Licensed</section>\n  <section class="services">3-6 service cards with icons</section>\n  <section class="why-us">Differentiators grid</section>\n  <section class="process">Step-by-step timeline</section>\n  <section class="testimonials">3 review cards</section>\n  <section class="faq">CSS-only accordion</section>\n  <section class="cta">Full-width CTA band</section>\n  <footer>Business info + nav + copyright</footer>\n</body>\n</html>' },
   /* ── BUSINESS TOOLS ── */
   { id: 'monthly-report', icon: '📈', title: 'Monthly Client Report',
     desc: 'Data-backed monthly performance report — rankings, traffic, backlinks, wins, and strategic recommendations.',
@@ -241,12 +245,25 @@ function showJobMonitor(jobId) {
       const editBar = document.getElementById('docEditBar');
       if (editBar) editBar.style.display = 'flex';
 
-      // Show done bar with download link
+      // Show done bar with download or preview link
       const dlLink = document.getElementById('jmDownloadLink');
+      const previewLink = document.getElementById('jmPreviewLink');
       const doneMsg = document.getElementById('jmDoneMsg');
       if (doneBar && dlLink && doneMsg) {
         doneMsg.textContent = `Job ${job.server_job_id} complete — output ready`;
-        dlLink.href = `${API_BASE}/api/download/${job.server_job_id}`;
+        // Detect if this is a page-design job by checking content
+        const isPageDesign = _isHtmlContent(job.docContent);
+        if (isPageDesign) {
+          if (previewLink) {
+            previewLink.href = `${API_BASE}/api/preview/${job.server_job_id}`;
+            previewLink.style.display = '';
+          }
+          dlLink.style.display = 'none';
+        } else {
+          dlLink.href = `${API_BASE}/api/download/${job.server_job_id}`;
+          dlLink.style.display = '';
+          if (previewLink) previewLink.style.display = 'none';
+        }
         doneBar.style.display = 'flex';
       }
     }
@@ -290,20 +307,43 @@ function toggleDocView(mode) {
   }
 }
 
+function _isHtmlContent(content) {
+  const t = (content || '').trimStart();
+  return t.startsWith('<!DOCTYPE') || t.startsWith('<html') || t.startsWith('<HTML');
+}
+
 function renderDocPanel() {
   const panel = document.getElementById('docPanel');
+  const iframeWrap = document.getElementById('docIframeWrap');
+  const iframe = document.getElementById('docIframe');
+  const vpToggle = document.getElementById('viewportToggle');
   if (!panel) return;
   const content = markdownBuffer || currentDocContent;
   if (!content) {
     panel.innerHTML = '<div class="doc-panel-empty">No document content yet</div>';
+    if (iframeWrap) iframeWrap.style.display = 'none';
+    if (vpToggle) vpToggle.style.display = 'none';
     return;
   }
-  if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
-    panel.innerHTML = DOMPurify.sanitize(marked.parse(content));
+
+  if (_isHtmlContent(content)) {
+    // HTML mode — render in iframe
+    panel.style.display = 'none';
+    if (iframeWrap) iframeWrap.style.display = 'flex';
+    if (vpToggle) vpToggle.style.display = 'flex';
+    if (iframe) iframe.srcdoc = content;
   } else {
-    panel.innerHTML = `<pre style="white-space:pre-wrap;">${content}</pre>`;
+    // Markdown mode
+    if (iframeWrap) iframeWrap.style.display = 'none';
+    if (vpToggle) vpToggle.style.display = 'none';
+    panel.style.display = '';
+    if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+      panel.innerHTML = DOMPurify.sanitize(marked.parse(content));
+    } else {
+      panel.innerHTML = `<pre style="white-space:pre-wrap;">${content}</pre>`;
+    }
+    panel.scrollTop = panel.scrollHeight;
   }
-  panel.scrollTop = panel.scrollHeight;
 }
 
 function renderDocViewerModal(content, title, subtitle, downloadUrl, jobId) {
@@ -312,21 +352,46 @@ function renderDocViewerModal(content, title, subtitle, downloadUrl, jobId) {
   const subEl = document.getElementById('docViewerSub');
   const dlBtn = document.getElementById('docViewerDownload');
   const overlay = document.getElementById('docViewerModal');
+  const modalIframeWrap = document.getElementById('modalIframeWrap');
+  const modalIframe = document.getElementById('modalIframe');
+  const modalVpToggle = document.getElementById('modalViewportToggle');
   if (!panel || !overlay) return;
 
   titleEl.textContent = title || 'Document';
   subEl.textContent = subtitle || '';
-  if (downloadUrl) {
-    dlBtn.href = downloadUrl;
-    dlBtn.style.display = '';
-  } else {
-    dlBtn.style.display = 'none';
-  }
 
-  if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
-    panel.innerHTML = DOMPurify.sanitize(marked.parse(content));
+  const isHtml = _isHtmlContent(content);
+
+  if (isHtml) {
+    // HTML mode — show iframe, hide markdown panel
+    panel.style.display = 'none';
+    if (modalIframeWrap) modalIframeWrap.style.display = 'flex';
+    if (modalVpToggle) modalVpToggle.style.display = 'flex';
+    if (modalIframe) modalIframe.srcdoc = content;
+    // Change download button to "Open Preview" linking to preview endpoint
+    if (dlBtn && jobId) {
+      dlBtn.href = `${API_BASE}/api/preview/${jobId}`;
+      dlBtn.textContent = 'Open in New Tab';
+      dlBtn.style.display = '';
+    }
   } else {
-    panel.innerHTML = `<pre style="white-space:pre-wrap;">${content}</pre>`;
+    // Markdown mode
+    if (modalIframeWrap) modalIframeWrap.style.display = 'none';
+    if (modalVpToggle) modalVpToggle.style.display = 'none';
+    panel.style.display = '';
+    if (downloadUrl) {
+      dlBtn.href = downloadUrl;
+      dlBtn.textContent = '↓ Download .docx';
+      dlBtn.style.display = '';
+    } else {
+      dlBtn.style.display = 'none';
+    }
+
+    if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+      panel.innerHTML = DOMPurify.sanitize(marked.parse(content));
+    } else {
+      panel.innerHTML = `<pre style="white-space:pre-wrap;">${content}</pre>`;
+    }
   }
 
   // Initialize modal version history and editing
@@ -345,6 +410,21 @@ function renderDocViewerModal(content, title, subtitle, downloadUrl, jobId) {
 function closeDocViewer() {
   const overlay = document.getElementById('docViewerModal');
   if (overlay) overlay.classList.remove('open');
+}
+
+/* ── Viewport Toggle (HTML preview) ── */
+function setViewport(width, btn) {
+  const iframe = document.getElementById('docIframe');
+  if (iframe) iframe.style.width = width;
+  document.querySelectorAll('#viewportToggle .vp-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+
+function setModalViewport(width, btn) {
+  const iframe = document.getElementById('modalIframe');
+  if (iframe) iframe.style.width = width;
+  document.querySelectorAll('#modalViewportToggle .vp-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
 }
 
 /* ── Document Version History ── */
@@ -403,9 +483,28 @@ function modalVersionNav(dir) {
   const newIndex = modalVersionIndex + dir;
   if (newIndex < 0 || newIndex >= modalVersions.length) return;
   modalVersionIndex = newIndex;
-  const panel = document.getElementById('docViewerPanel');
-  if (panel && typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
-    panel.innerHTML = DOMPurify.sanitize(marked.parse(modalVersions[newIndex].content));
+  const vContent = modalVersions[newIndex].content;
+  if (_isHtmlContent(vContent)) {
+    const iframe = document.getElementById('modalIframe');
+    const panel = document.getElementById('docViewerPanel');
+    const iframeWrap = document.getElementById('modalIframeWrap');
+    const vpToggle = document.getElementById('modalViewportToggle');
+    if (panel) panel.style.display = 'none';
+    if (iframeWrap) iframeWrap.style.display = 'flex';
+    if (vpToggle) vpToggle.style.display = 'flex';
+    if (iframe) iframe.srcdoc = vContent;
+  } else {
+    const panel = document.getElementById('docViewerPanel');
+    const iframeWrap = document.getElementById('modalIframeWrap');
+    const vpToggle = document.getElementById('modalViewportToggle');
+    if (iframeWrap) iframeWrap.style.display = 'none';
+    if (vpToggle) vpToggle.style.display = 'none';
+    if (panel) {
+      panel.style.display = '';
+      if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+        panel.innerHTML = DOMPurify.sanitize(marked.parse(vContent));
+      }
+    }
   }
   _updateVersionBar('modal');
 }
@@ -475,10 +574,16 @@ async function _streamDocEdit(jobId, instruction, currentContent, panelId) {
 
   let editBuffer = '';
   let editRenderTimer = null;
-  const EDIT_RENDER_INTERVAL = 120; // ms — throttle edit renders
+  const isHtml = _isHtmlContent(currentContent);
+  const EDIT_RENDER_INTERVAL = isHtml ? 500 : 120; // slower for HTML to prevent iframe reload flicker
 
   function renderEdit() {
-    if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+    if (isHtml) {
+      // HTML edit — render to iframe
+      const iframeId = panelId === 'docPanel' ? 'docIframe' : 'modalIframe';
+      const iframe = document.getElementById(iframeId);
+      if (iframe) iframe.srcdoc = editBuffer;
+    } else if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
       panel.innerHTML = DOMPurify.sanitize(marked.parse(editBuffer));
       panel.scrollTop = panel.scrollHeight;
     }
@@ -777,6 +882,7 @@ function selectWorkflow(id) {
     'modalInputsContentStrategy': id === 'content-strategy',
     'modalInputsPnl':           id === 'pnl-statement',
     'modalInputsPropertyMgmt':  id === 'property-mgmt-strategy',
+    'modalInputsPageDesign':    id === 'page-design',
   };
   Object.entries(panels).forEach(([panelId, show]) => {
     const panel = document.getElementById(panelId);
@@ -811,7 +917,8 @@ function selectWorkflow(id) {
    'wfSCBusinessName','wfSCBusinessType','wfSCLocation','wfSCSchemaTypes','wfSCPhone','wfSCAddress','wfSCWebsite','wfSCServicesList','wfSCHours','wfSCNotes',
    'wfCSBusinessType','wfCSService','wfCSLocation','wfCSAudience','wfCSGoals','wfCSNotes',
    'wfPLPeriod','wfPLRevenue','wfPLExpenses','wfPLEntity','wfPLNotes',
-   'wfPMDomain','wfPMCompany','wfPMLocation','wfPMPropertyTypes','wfPMPortfolioSize','wfPMNotes'].forEach(fid => {
+   'wfPMDomain','wfPMCompany','wfPMLocation','wfPMPropertyTypes','wfPMPortfolioSize','wfPMNotes',
+   'wfPDPageType','wfPDBusinessType','wfPDService','wfPDLocation','wfPDDomain','wfPDBusinessName','wfPDPhone','wfPDBrandColors','wfPDStyle','wfPDExistingCopy','wfPDNotes'].forEach(fid => {
     const el = document.getElementById(fid);
     if (el) el.value = '';
   });
@@ -974,6 +1081,14 @@ function checkRunReady() {
       const domain   = document.getElementById('wfPMDomain')?.value.trim();
       const location = document.getElementById('wfPMLocation')?.value.trim();
       ready = !!(domain && location);
+    }
+
+    if (selectedWorkflow === 'page-design' && ready) {
+      const pageType     = document.getElementById('wfPDPageType')?.value;
+      const businessType = document.getElementById('wfPDBusinessType')?.value.trim();
+      const service      = document.getElementById('wfPDService')?.value.trim();
+      const location     = document.getElementById('wfPDLocation')?.value.trim();
+      ready = !!(pageType && businessType && service && location);
     }
 
     if (selectedWorkflow === 'programmatic-content' && ready) {
@@ -1457,6 +1572,20 @@ async function launchWorkflow() {
       portfolio_size: document.getElementById('wfPMPortfolioSize')?.value.trim() || '',
       notes:          document.getElementById('wfPMNotes')?.value.trim() || '',
     };
+  } else if (selectedWorkflow === 'page-design') {
+    inputs = {
+      page_type:       document.getElementById('wfPDPageType')?.value || '',
+      business_type:   document.getElementById('wfPDBusinessType')?.value.trim() || '',
+      service:         document.getElementById('wfPDService')?.value.trim() || '',
+      location:        document.getElementById('wfPDLocation')?.value.trim() || '',
+      domain:          document.getElementById('wfPDDomain')?.value.trim() || '',
+      business_name:   document.getElementById('wfPDBusinessName')?.value.trim() || '',
+      phone:           document.getElementById('wfPDPhone')?.value.trim() || '',
+      brand_colors:    document.getElementById('wfPDBrandColors')?.value.trim() || '',
+      style_direction: document.getElementById('wfPDStyle')?.value.trim() || '',
+      existing_copy:   document.getElementById('wfPDExistingCopy')?.value.trim() || '',
+      notes:           document.getElementById('wfPDNotes')?.value.trim() || '',
+    };
   } else if (selectedWorkflow === 'programmatic-content') {
     inputs = {
       content_type:     document.getElementById('wfProgContentType')?.value || '',
@@ -1471,7 +1600,7 @@ async function launchWorkflow() {
     };
   }
 
-  const liveWorkflows = ['home-service-content', 'website-seo-audit', 'prospect-audit', 'keyword-gap', 'seo-blog-post', 'service-page', 'location-page', 'programmatic-content', 'ai-search-report', 'backlink-audit', 'onpage-audit', 'seo-research', 'competitor-intel', 'monthly-report', 'proposals', 'google-ads-copy', 'schema-generator', 'content-strategy', 'pnl-statement', 'property-mgmt-strategy'];
+  const liveWorkflows = ['home-service-content', 'website-seo-audit', 'prospect-audit', 'keyword-gap', 'seo-blog-post', 'service-page', 'location-page', 'programmatic-content', 'ai-search-report', 'backlink-audit', 'onpage-audit', 'seo-research', 'competitor-intel', 'monthly-report', 'proposals', 'google-ads-copy', 'schema-generator', 'content-strategy', 'pnl-statement', 'property-mgmt-strategy', 'page-design'];
 
   if (liveWorkflows.includes(selectedWorkflow)) {
     const payload = {
@@ -1592,14 +1721,16 @@ function appendTokenToTerminal(text) {
   }
 }
 
-/* Throttle document re-renders to every 120ms for performance */
+/* Throttle document re-renders — 500ms for HTML (iframe reload is expensive), 120ms for markdown */
 let _docRenderTimer = null;
 function _scheduleDocRender() {
   if (_docRenderTimer) return;
+  const content = markdownBuffer || currentDocContent;
+  const interval = _isHtmlContent(content) ? 500 : 120;
   _docRenderTimer = setTimeout(() => {
     _docRenderTimer = null;
     renderDocPanel();
-  }, 120);
+  }, interval);
 }
 
 function appendErrorLineToTerminal(msg) {
@@ -1667,10 +1798,22 @@ function processSSEChunk(chunk, job) {
           updateMonitorStatus('completed');
           const doneBar = document.getElementById('jmDoneBar');
           const dlLink = document.getElementById('jmDownloadLink');
+          const previewLink = document.getElementById('jmPreviewLink');
           const doneMsg = document.getElementById('jmDoneMsg');
           if (doneBar && dlLink && doneMsg) {
             doneMsg.textContent = `Job ${data.job_id} complete — output ready`;
-            dlLink.href = `${API_BASE}/api/download/${data.job_id}`;
+            if (data.workflow_id === 'page-design') {
+              // Show preview link, hide download
+              if (previewLink) {
+                previewLink.href = `${API_BASE}/api/preview/${data.job_id}`;
+                previewLink.style.display = '';
+              }
+              dlLink.style.display = 'none';
+            } else {
+              dlLink.href = `${API_BASE}/api/download/${data.job_id}`;
+              dlLink.style.display = '';
+              if (previewLink) previewLink.style.display = 'none';
+            }
             doneBar.style.display = 'flex';
           }
         }
@@ -2405,6 +2548,12 @@ function _contentCard(item) {
     ? `<span class="cl-approved-badge">✓ Approved</span>`
     : `<button class="cl-card-btn cl-card-btn-approve" onclick="event.stopPropagation(); approveContentItem('${item.job_id}')">✓ Approve</button>`;
 
+  const previewBtn = item.workflow_id === 'page-design'
+    ? `<button class="cl-card-btn cl-card-btn-preview" onclick="event.stopPropagation(); window.open('${API_BASE}/api/preview/${item.job_id}', '_blank')" title="Open HTML preview">
+         Preview
+       </button>`
+    : '';
+
   return `
     <div class="cl-card" onclick="viewContentItem('${item.job_id}')">
       <div class="cl-card-top">
@@ -2419,6 +2568,7 @@ function _contentCard(item) {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
           View
         </button>
+        ${previewBtn}
         ${downloadBtn}
         ${approvalEl}
       </div>

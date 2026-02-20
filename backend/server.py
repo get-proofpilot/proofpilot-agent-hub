@@ -13,7 +13,7 @@ from pathlib import Path
 import anthropic
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.responses import StreamingResponse, FileResponse, HTMLResponse
 from pydantic import BaseModel
 from typing import Optional
 
@@ -37,6 +37,7 @@ from workflows.schema_generator import run_schema_generator
 from workflows.content_strategy import run_content_strategy
 from workflows.pnl_statement import run_pnl_statement
 from workflows.property_mgmt_strategy import run_property_mgmt_strategy
+from workflows.page_design import run_page_design
 from utils.docx_generator import generate_docx
 from utils.db import (
     init_db, save_job, update_docx_path, update_job_content,
@@ -80,6 +81,7 @@ WORKFLOW_TITLES = {
     "content-strategy":          "Content Strategy",
     "pnl-statement":             "P&L Statement",
     "property-mgmt-strategy":    "Property Mgmt Strategy",
+    "page-design":               "Page Design Agent",
 }
 
 
@@ -397,6 +399,13 @@ async def run_workflow(req: WorkflowRequest):
                     strategy_context=req.strategy_context or "",
                     client_name=req.client_name,
                 )
+            elif req.workflow_id == "page-design":
+                generator = run_page_design(
+                    client=client,
+                    inputs=req.inputs,
+                    strategy_context=req.strategy_context or "",
+                    client_name=req.client_name,
+                )
             else:
                 msg = f'Workflow "{req.workflow_id}" is not yet wired up.'
                 yield f"data: {json.dumps({'type': 'error', 'message': msg})}\n\n"
@@ -420,8 +429,9 @@ async def run_workflow(req: WorkflowRequest):
 
             # Persist to SQLite and generate docx (both run off the event loop)
             await asyncio.to_thread(save_job, job_id, job_data)
-            docx_path = await asyncio.to_thread(generate_docx, job_id, job_data)
-            await asyncio.to_thread(update_docx_path, job_id, str(docx_path))
+            if req.workflow_id != "page-design":
+                docx_path = await asyncio.to_thread(generate_docx, job_id, job_data)
+                await asyncio.to_thread(update_docx_path, job_id, str(docx_path))
 
             yield f"data: {json.dumps({'type': 'done', 'job_id': job_id, 'client_name': req.client_name, 'workflow_title': WORKFLOW_TITLES[req.workflow_id], 'workflow_id': req.workflow_id})}\n\n"
 
@@ -441,6 +451,20 @@ async def run_workflow(req: WorkflowRequest):
             "Connection": "keep-alive",
         },
     )
+
+
+@app.get("/api/preview/{job_id}")
+def preview_html(job_id: str):
+    """Serve page-design HTML output as a rendered page."""
+    job = db_get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.get("workflow_id") != "page-design":
+        raise HTTPException(status_code=400, detail="Preview only available for page-design workflows")
+    content = job.get("content", "")
+    if not content:
+        raise HTTPException(status_code=404, detail="No content available")
+    return HTMLResponse(content=content)
 
 
 @app.get("/api/download/{job_id}")
@@ -467,8 +491,17 @@ def download_docx(job_id: str):
 
 
 def _strip_markdown(text: str, max_len: int = 200) -> str:
-    """Strip markdown formatting for clean plain-text previews."""
+    """Strip markdown or HTML formatting for clean plain-text previews."""
     import re
+    t = text.strip()
+    # HTML detection — strip tags for preview
+    if t.startswith('<!DOCTYPE') or t.startswith('<html') or t.startswith('<HTML'):
+        t = re.sub(r'<style[^>]*>[\s\S]*?</style>', '', t, flags=re.IGNORECASE)
+        t = re.sub(r'<script[^>]*>[\s\S]*?</script>', '', t, flags=re.IGNORECASE)
+        t = re.sub(r'<!--[\s\S]*?-->', '', t)
+        t = re.sub(r'<[^>]+>', ' ', t)
+        t = re.sub(r'\s+', ' ', t).strip()
+        return t[:max_len] + "..." if len(t) > max_len else t
     t = text
     t = re.sub(r'^#{1,6}\s+', '', t, flags=re.MULTILINE)  # headings
     t = re.sub(r'\*\*(.+?)\*\*', r'\1', t)                 # bold
@@ -540,7 +573,8 @@ Rules:
 - Only change what the instruction asks for — leave everything else intact
 - Maintain the same professional tone and style throughout
 - Do NOT include any preamble, explanation, or commentary — return ONLY the document content
-- Start your response immediately with the document content"""
+- Start your response immediately with the document content
+- If the document is HTML, return valid HTML. If markdown, return markdown. Never change the format."""
 
 
 @app.post("/api/edit-document")
@@ -583,18 +617,19 @@ async def edit_document(req: EditDocumentRequest):
             job = db_get_job(req.job_id)
             if job:
                 await asyncio.to_thread(update_job_content, req.job_id, new_content)
-                # Regenerate the docx with updated content
-                job_data = {
-                    "client_name": job["client_name"],
-                    "workflow_title": job["workflow_title"],
-                    "workflow_id": job.get("workflow_id", ""),
-                    "inputs": job["inputs"],
-                    "content": new_content,
-                    "created_at": job.get("created_at", ""),
-                    "client_id": job.get("client_id", 0),
-                }
-                docx_path = await asyncio.to_thread(generate_docx, req.job_id, job_data)
-                await asyncio.to_thread(update_docx_path, req.job_id, str(docx_path))
+                # Regenerate the docx with updated content (skip for HTML workflows)
+                if job.get("workflow_id") != "page-design":
+                    job_data = {
+                        "client_name": job["client_name"],
+                        "workflow_title": job["workflow_title"],
+                        "workflow_id": job.get("workflow_id", ""),
+                        "inputs": job["inputs"],
+                        "content": new_content,
+                        "created_at": job.get("created_at", ""),
+                        "client_id": job.get("client_id", 0),
+                    }
+                    docx_path = await asyncio.to_thread(generate_docx, req.job_id, job_data)
+                    await asyncio.to_thread(update_docx_path, req.job_id, str(docx_path))
         except Exception:
             pass  # Non-fatal — the streamed edit still worked
 

@@ -495,6 +495,16 @@
       </div>
       <!-- Document view (new — rendered markdown) -->
       <div class="jm-doc-wrap" id="jmDocWrap" style="display:none;">
+        <!-- Viewport toggle for HTML preview -->
+        <div class="viewport-toggle" id="viewportToggle" style="display:none;">
+          <button class="vp-btn active" onclick="setViewport('100%', this)">Desktop</button>
+          <button class="vp-btn" onclick="setViewport('768px', this)">Tablet</button>
+          <button class="vp-btn" onclick="setViewport('375px', this)">Mobile</button>
+        </div>
+        <!-- Iframe for HTML content -->
+        <div class="doc-iframe-wrap" id="docIframeWrap" style="display:none;">
+          <iframe id="docIframe" sandbox="allow-same-origin allow-scripts" style="width:100%; height:100%; border:none; border-radius:6px;"></iframe>
+        </div>
         <div class="doc-panel" id="docPanel"></div>
         <!-- Version navigation -->
         <div class="doc-version-bar" id="docVersionBar" style="display:none;">
@@ -513,6 +523,7 @@
       <div class="jm-done-bar" id="jmDoneBar" style="display:none;">
         <span class="jm-done-check">✓</span>
         <span id="jmDoneMsg"></span>
+        <a id="jmPreviewLink" class="jm-preview-btn" href="#" target="_blank" style="display:none;">Open Preview</a>
         <a id="jmDownloadLink" class="jm-download-btn" href="#" target="_blank">↓ Download .docx</a>
       </div>
     </div>
@@ -553,6 +564,7 @@
             <option value="service-page">Service Pages</option>
             <option value="location-page">Location Pages</option>
             <option value="programmatic-content">Programmatic Content</option>
+            <option value="page-design">Page Designs</option>
           </select>
         </div>
       </div>
@@ -647,6 +659,16 @@
         </div>
       </div>
       <div class="doc-viewer-body">
+        <!-- Viewport toggle for HTML preview in modal -->
+        <div class="viewport-toggle" id="modalViewportToggle" style="display:none;">
+          <button class="vp-btn active" onclick="setModalViewport('100%', this)">Desktop</button>
+          <button class="vp-btn" onclick="setModalViewport('768px', this)">Tablet</button>
+          <button class="vp-btn" onclick="setModalViewport('375px', this)">Mobile</button>
+        </div>
+        <!-- Iframe for HTML content in modal -->
+        <div class="doc-iframe-wrap" id="modalIframeWrap" style="display:none;">
+          <iframe id="modalIframe" sandbox="allow-same-origin allow-scripts" style="width:100%; height:100%; border:none; border-radius:6px;"></iframe>
+        </div>
         <div class="doc-panel" id="docViewerPanel"></div>
       </div>
       <!-- Version navigation in modal -->
@@ -1330,6 +1352,78 @@
             <div class="wf-modal-field optional">
               <label class="wf-field-label">Notes <span class="opt">optional</span></label>
               <input type="text" id="wfPMNotes" placeholder="Growth goals, target market..." />
+            </div>
+          </div>
+        </div>
+
+        <!-- page-design inputs -->
+        <div id="modalInputsPageDesign" style="display:none; flex-direction:column; gap:16px;">
+          <div class="wf-modal-2col">
+            <div class="wf-modal-field">
+              <label class="wf-field-label">Page Type <span class="req">*</span></label>
+              <select id="wfPDPageType" onchange="checkRunReady()">
+                <option value="">— Select page type —</option>
+                <option value="service">Service Page</option>
+                <option value="landing">Landing Page</option>
+                <option value="location">Location Page</option>
+                <option value="about">About Page</option>
+                <option value="homepage">Homepage</option>
+                <option value="contact">Contact Page</option>
+              </select>
+            </div>
+            <div class="wf-modal-field">
+              <label class="wf-field-label">Business Type <span class="req">*</span></label>
+              <input type="text" id="wfPDBusinessType" placeholder="e.g. electrician, plumber, HVAC" oninput="checkRunReady()" />
+            </div>
+          </div>
+          <div class="wf-modal-2col">
+            <div class="wf-modal-field">
+              <label class="wf-field-label">Service / Focus <span class="req">*</span></label>
+              <input type="text" id="wfPDService" placeholder="e.g. panel upgrade, drain cleaning" oninput="checkRunReady()" />
+            </div>
+            <div class="wf-modal-field">
+              <label class="wf-field-label">Location <span class="req">*</span></label>
+              <input type="text" id="wfPDLocation" placeholder="e.g. Chandler, AZ" oninput="checkRunReady()" />
+            </div>
+          </div>
+          <!-- Optional fields -->
+          <div class="wf-modal-optional-section">
+            <div class="wf-modal-optional-label">Optional — enhances design quality</div>
+            <div class="wf-modal-field optional">
+              <label class="wf-field-label">Client Website <span class="opt">optional</span></label>
+              <input type="text" id="wfPDDomain" placeholder="e.g. bearcreekplumbing.com" />
+              <div class="wf-field-hint">Auto-extracts brand colors & style from their site — overrides manual entries below</div>
+            </div>
+            <div class="wf-modal-2col">
+              <div class="wf-modal-field optional">
+                <label class="wf-field-label">Business Name <span class="opt">optional</span></label>
+                <input type="text" id="wfPDBusinessName" placeholder="e.g. All Thingz Electric" />
+                <div class="wf-field-hint">Uses client name if not provided</div>
+              </div>
+              <div class="wf-modal-field optional">
+                <label class="wf-field-label">Phone Number <span class="opt">optional</span></label>
+                <input type="text" id="wfPDPhone" placeholder="e.g. (480) 555-0182" />
+              </div>
+            </div>
+            <div class="wf-modal-2col">
+              <div class="wf-modal-field optional">
+                <label class="wf-field-label">Brand Colors <span class="opt">optional</span></label>
+                <input type="text" id="wfPDBrandColors" placeholder="Auto-detected from website, or enter manually" />
+                <div class="wf-field-hint">Hex codes — auto-filled if website is provided</div>
+              </div>
+              <div class="wf-modal-field optional">
+                <label class="wf-field-label">Style Direction <span class="opt">optional</span></label>
+                <input type="text" id="wfPDStyle" placeholder="Auto-detected from website, or enter manually" />
+              </div>
+            </div>
+            <div class="wf-modal-field optional">
+              <label class="wf-field-label">Existing Copy <span class="opt">optional</span></label>
+              <textarea id="wfPDExistingCopy" rows="4" placeholder="Paste existing copy to design around..."></textarea>
+              <div class="wf-field-hint">The agent will incorporate this into the page design</div>
+            </div>
+            <div class="wf-modal-field optional">
+              <label class="wf-field-label">Notes <span class="opt">optional</span></label>
+              <textarea id="wfPDNotes" rows="2" placeholder="Specific sections, emphasis, competitor reference..."></textarea>
             </div>
           </div>
         </div>
