@@ -29,11 +29,11 @@
       --gray-300: #D1D5DB;
       --gray-200: #E5E7EB;
       --gray-100: #F3F4F6;
-      --gray-50:  #F9FAFB;
+      --gray-50:  #F7F8FA;
       --white: #FFFFFF;
-      --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
       --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
-      --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.07);
       --radius: 8px;
       --radius-lg: 12px;
     }
@@ -420,15 +420,64 @@
       color: var(--gray-700);
     }
 
+    /* ── Skeleton Loading ── */
+    .skeleton {
+      background: linear-gradient(90deg, var(--gray-200) 25%, var(--gray-100) 50%, var(--gray-200) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 6px;
+      display: inline-block;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .skeleton-kpi { width: 80px; height: 32px; }
+    .skeleton-text { width: 120px; height: 14px; }
+
+    /* ── Left accent borders on content items ── */
+    .content-item { border-left: 3px solid transparent; }
+    .content-item[data-type="report"] { border-left-color: var(--blue-600); }
+    .content-item[data-type="content"] { border-left-color: var(--green-600); }
+    .content-item[data-type="gbp"] { border-left-color: var(--amber-600); }
+
+    /* ── Stagger fade-in ── */
+    .content-item {
+      opacity: 0;
+      transform: translateY(8px);
+      animation: fadeUp 0.35s ease forwards;
+    }
+    @keyframes fadeUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Sparkline container ── */
+    .kpi-sparkline {
+      margin-top: 8px;
+      height: 28px;
+      opacity: 0.7;
+    }
+    .kpi-sparkline svg { width: 100%; height: 28px; }
+
     /* ── Footer ── */
     .portal-footer {
       text-align: center;
-      padding: 28px;
-      font-size: 12px;
-      color: var(--gray-400);
-      margin-top: 40px;
+      padding: 32px;
+      font-size: 13px;
+      color: var(--gray-500);
+      margin-top: 48px;
     }
-    .portal-footer a { color: var(--blue-600); text-decoration: none; font-weight: 500; }
+    .portal-footer-brand {
+      font-weight: 700;
+      color: #00184D;
+      text-decoration: none;
+    }
+    .portal-footer-tag {
+      display: block;
+      font-size: 11px;
+      color: var(--gray-400);
+      margin-top: 4px;
+    }
 
     /* ── Responsive ── */
     @media (max-width: 768px) {
@@ -549,6 +598,37 @@
       return '$' + n.toLocaleString();
     }
 
+    // Count-up animation for KPI numbers
+    function animateValue(el, end, prefix, suffix, duration) {
+      duration = duration || 800;
+      prefix = prefix || '';
+      suffix = suffix || '';
+      let start = 0;
+      const step = (ts) => {
+        if (!start) start = ts;
+        const progress = Math.min((ts - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        el.textContent = prefix + Math.floor(eased * end).toLocaleString() + suffix;
+        if (progress < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }
+
+    // SVG sparkline generator
+    function sparklineSVG(data, color) {
+      color = color || '#0051FF';
+      if (!data || data.length < 2) return '';
+      const w = 100, h = 28;
+      const max = Math.max(...data), min = Math.min(...data);
+      const range = max - min || 1;
+      const pts = data.map((v, i) => {
+        const x = (i / (data.length - 1)) * w;
+        const y = h - ((v - min) / range) * (h - 4) - 2;
+        return x + ',' + y;
+      }).join(' ');
+      return '<svg viewBox="0 0 ' + w + ' ' + h + '"><polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    }
+
     function renderPortal() {
       const c = portalData.client;
       document.getElementById('headerClientName').textContent = c.name;
@@ -572,22 +652,22 @@
         <div class="kpi-grid">
           <div class="kpi-card accent-blue" id="kpiKeywords">
             <div class="kpi-label">Ranked Keywords</div>
-            <div class="kpi-value" id="kpiKeywordsVal"><span class="kpi-loading">Loading...</span></div>
+            <div class="kpi-value" id="kpiKeywordsVal"><span class="skeleton skeleton-kpi"></span></div>
             <div class="kpi-sub">Keywords ranking in Google</div>
           </div>
           <div class="kpi-card accent-blue" id="kpiTraffic">
             <div class="kpi-label">Monthly Traffic</div>
-            <div class="kpi-value" id="kpiTrafficVal"><span class="kpi-loading">Loading...</span></div>
+            <div class="kpi-value" id="kpiTrafficVal"><span class="skeleton skeleton-kpi"></span></div>
             <div class="kpi-sub">Estimated organic visits/mo</div>
           </div>
           <div class="kpi-card accent-green" id="kpiValue">
             <div class="kpi-label">Traffic Value</div>
-            <div class="kpi-value" id="kpiValueVal"><span class="kpi-loading">Loading...</span></div>
+            <div class="kpi-value" id="kpiValueVal"><span class="skeleton skeleton-kpi"></span></div>
             <div class="kpi-sub">Equivalent PPC spend/mo</div>
           </div>
           <div class="kpi-card accent-amber" id="kpiDeliverables">
             <div class="kpi-label">Deliverables</div>
-            <div class="kpi-value">${total}</div>
+            <div class="kpi-value" id="kpiDeliverablesVal">${total}</div>
             <div class="kpi-sub">${approvedCount} approved</div>
           </div>
         </div>`;
@@ -631,17 +711,20 @@
         </div>`;
       } else {
         html += '<div class="content-list">';
-        items.forEach(item => {
+        items.forEach((item, idx) => {
           const icon = WF_ICONS[item.workflow_id] || '📄';
           const isReport = REPORT_IDS.includes(item.workflow_id);
+          const isGBP = item.workflow_id === 'gbp-posts';
           const iconClass = isReport ? 'report' : 'content';
+          const dataType = isReport ? 'report' : isGBP ? 'gbp' : 'content';
+          const delay = Math.min(idx * 50, 500);
           const approved = item.approved ? '<span class="badge-approved">Approved</span>' : '';
           const dlBtn = item.has_docx
             ? `<a class="btn btn-primary" href="/api/download/${item.job_id}" target="_blank">Download</a>`
             : '';
           const previewBtn = `<button class="btn" onclick="showPreview('${item.job_id}')">Preview</button>`;
 
-          html += `<div class="content-item">
+          html += `<div class="content-item" data-type="${dataType}" style="animation-delay:${delay}ms">
             <div class="ci-icon ${iconClass}">${icon}</div>
             <div class="ci-body">
               <div class="ci-title">${item.workflow_title}</div>
@@ -656,7 +739,8 @@
       html += '</div>'; // close section-card
 
       html += `<div class="portal-footer">
-        Powered by <a href="https://proofpilot.com">ProofPilot</a>
+        Powered by <a class="portal-footer-brand" href="https://proofpilot.com">PROOFPILOT</a>
+        <span class="portal-footer-tag">AI-Powered SEO Operations</span>
       </div>`;
 
       document.getElementById('portalBody').innerHTML = html;
@@ -667,15 +751,30 @@
       const kw = document.getElementById('kpiKeywordsVal');
       const tr = document.getElementById('kpiTrafficVal');
       const tv = document.getElementById('kpiValueVal');
+      const noData = '<span style="color:var(--gray-400);font-size:14px;">—</span>';
 
-      if (kw && metricsData.keywords != null) kw.textContent = fmtNum(metricsData.keywords);
-      else if (kw) kw.innerHTML = '<span style="color:var(--gray-400);font-size:14px;">No data</span>';
+      if (kw && metricsData.keywords != null && metricsData.keywords > 0) {
+        kw.textContent = '0';
+        animateValue(kw, metricsData.keywords, '', '', 900);
+      } else if (kw) { kw.innerHTML = noData; }
 
-      if (tr && metricsData.traffic != null) tr.textContent = fmtNum(metricsData.traffic);
-      else if (tr) tr.innerHTML = '<span style="color:var(--gray-400);font-size:14px;">No data</span>';
+      if (tr && metricsData.traffic != null && metricsData.traffic > 0) {
+        tr.textContent = '0';
+        animateValue(tr, metricsData.traffic, '', '', 900);
+      } else if (tr) { tr.innerHTML = noData; }
 
-      if (tv && metricsData.traffic_value != null) tv.textContent = fmtDollar(metricsData.traffic_value) + '/mo';
-      else if (tv) tv.innerHTML = '<span style="color:var(--gray-400);font-size:14px;">No data</span>';
+      if (tv && metricsData.traffic_value != null && metricsData.traffic_value > 0) {
+        tv.textContent = '$0';
+        animateValue(tv, metricsData.traffic_value, '$', '/mo', 900);
+      } else if (tv) { tv.innerHTML = noData; }
+
+      // Animate deliverables count too
+      const dv = document.getElementById('kpiDeliverablesVal');
+      if (dv && portalData && portalData.items.length > 0) {
+        const count = portalData.items.length;
+        dv.textContent = '0';
+        animateValue(dv, count, '', '', 600);
+      }
     }
 
     function parsePillarScores(raw) {
