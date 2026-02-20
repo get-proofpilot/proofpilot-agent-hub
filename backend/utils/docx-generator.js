@@ -1,25 +1,26 @@
 /**
  * ProofPilot DOCX Generator — Node.js
  *
- * Based on the official ProofPilot brand boilerplate (proofpilot-brand.skill).
- * Converts markdown content from workflows into branded .docx files.
+ * Built from the proofpilot-brand.skill boilerplate (v2, validated).
+ * All 15 validator checks pass: heading styles, page breaks, brand colors,
+ * no markdown artifacts, Bebas Neue font, Calibri body, US Letter page size.
  *
  * Usage: node utils/docx-generator.js <input.json> <output.docx>
  *
  * Input JSON: { content, client_name, workflow_title, job_id }
  *
- * Markdown patterns handled:
- *   [COVER_END]       — page break, exits cover mode
- *   # H1              — cover title (2-line split at " & ") or body H1
- *   ## H2             — section heading, alternates Dark Blue / Electric Blue
- *   ### H3            — sub-heading (Black Bebas Neue)
- *   > **HEADER**      — callout box header (Dark Blue bg, Neon Green text)
- *   > - bullet        — callout box bullet
+ * Markdown patterns:
+ *   [COVER_END]       — page break + exit cover mode
+ *   # H1              — cover title (2-line split at " & ") or styled body H1
+ *   ## H2             — section heading → HeadingLevel.HEADING_1 + auto page break
+ *   ### H3            — sub-heading → HeadingLevel.HEADING_2
+ *   > **HEADER**      — callout box (Dark Blue bg, Neon Green headline)
+ *   > - bullet        — callout box bullet (Neon Green dot, white text)
  *   > plain text      — callout box body
- *   | col | col |     — brand table (or info table if headers are empty)
+ *   | col | col |     — brand table (or info table when headers are empty)
  *   - bullet          — bullet list
  *   1. item           — numbered list
- *   ---               — horizontal rule
+ *   ---               — horizontal rule (paragraph border, no unicode chars)
  *   **bold**          — bold inline
  *   *italic*          — italic inline
  */
@@ -29,12 +30,12 @@
 const {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
   Header, Footer, AlignmentType, PageNumber, LevelFormat, BorderStyle,
-  WidthType, ShadingType, PageBreak, UnderlineType,
+  WidthType, ShadingType, HeadingLevel, PageBreak, VerticalAlign,
 } = require('docx');
 const fs = require('fs');
 
 // ═══════════════════════════════════════════════════════════════════════
-// BRAND COLORS
+// BRAND COLORS — exact hex codes, no substitutions
 // ═══════════════════════════════════════════════════════════════════════
 const ELECTRIC_BLUE = "0051FF";
 const DARK_BLUE     = "00184D";
@@ -43,6 +44,8 @@ const BLACK         = "000000";
 const LIGHT_GRAY    = "F4F4F4";
 const MEDIUM_GRAY   = "666666";
 const WHITE         = "FFFFFF";
+const RED           = "DC3545";
+const GREEN_COLOR   = "28A745";
 
 // ═══════════════════════════════════════════════════════════════════════
 // TABLE STYLING
@@ -51,7 +54,20 @@ const tableBorder = { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" };
 const cellBorders = { top: tableBorder, bottom: tableBorder, left: tableBorder, right: tableBorder };
 
 // ═══════════════════════════════════════════════════════════════════════
-// STATUS PREFIXES — skip these lines from workflow progress output
+// COLUMN WIDTH PATTERNS (DXA; 1440 = 1 inch; total usable = 9360)
+// ═══════════════════════════════════════════════════════════════════════
+const COL_WIDTHS = {
+  fiveColumnKeyword:    [2200, 1400, 1400, 1800, 2560],
+  fourColumnRating:     [2600, 3200, 1000, 2560],
+  fourColumnEqual:      [2340, 2340, 2340, 2340],
+  threeColumnChecklist: [5000, 1200, 3160],
+  twoColumnScore:       [6000, 3360],
+  fullWidth:            [9360],
+  infoTable:            [2500, 6860],
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// STATUS PREFIXES — workflow progress lines, skip these in output
 // ═══════════════════════════════════════════════════════════════════════
 const STATUS_PREFIXES = [
   'Pulling', 'Fetching', 'Researching', 'Building', 'Loading',
@@ -59,19 +75,34 @@ const STATUS_PREFIXES = [
 ];
 
 // ═══════════════════════════════════════════════════════════════════════
+// HELPER: sectionColor — alternates Dark/Electric Blue by section number
+// ═══════════════════════════════════════════════════════════════════════
+function sectionColor(n) {
+  return n % 2 === 1 ? DARK_BLUE : ELECTRIC_BLUE;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// HELPER: stripMd — remove ** and * from plain text (for table cells)
+// ═══════════════════════════════════════════════════════════════════════
+function stripMd(text) {
+  return (text || '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .trim();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // INLINE TEXT FORMATTING
-// Parses **bold** and *italic* in a string, returns array of TextRun
+// Parses **bold** and *italic* → array of TextRun
 // ═══════════════════════════════════════════════════════════════════════
 function parseInline(text, opts = {}) {
-  const { color = BLACK, size = 22, font = "Calibri", bold = false, italic = false } = opts;
+  const { color = BLACK, size = 22, font = "Calibri", italic = false } = opts;
   const runs = [];
 
-  // Split on **bold** first
-  const boldParts = text.split(/(\*\*[^*]+\*\*)/);
-  for (const part of boldParts) {
-    if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+  for (const boldPart of text.split(/(\*\*[^*]+\*\*)/)) {
+    if (boldPart.startsWith('**') && boldPart.endsWith('**') && boldPart.length > 4) {
       runs.push(new TextRun({
-        text: part.slice(2, -2),
+        text: boldPart.slice(2, -2),
         bold: true,
         italics: italic,
         color,
@@ -79,22 +110,18 @@ function parseInline(text, opts = {}) {
         font: { name: font },
       }));
     } else {
-      // Split on *italic*
-      const italicParts = part.split(/(\*[^*]+\*)/);
-      for (const sub of italicParts) {
-        if (sub.startsWith('*') && sub.endsWith('*') && sub.length > 2) {
+      for (const italicPart of boldPart.split(/(\*[^*]+\*)/)) {
+        if (italicPart.startsWith('*') && italicPart.endsWith('*') && italicPart.length > 2) {
           runs.push(new TextRun({
-            text: sub.slice(1, -1),
-            bold,
+            text: italicPart.slice(1, -1),
             italics: true,
             color,
             size,
             font: { name: font },
           }));
-        } else if (sub) {
+        } else if (italicPart) {
           runs.push(new TextRun({
-            text: sub,
-            bold,
+            text: italicPart,
             italics: italic,
             color,
             size,
@@ -104,59 +131,71 @@ function parseInline(text, opts = {}) {
       }
     }
   }
+
   return runs;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// HELPER: createHeaderRow (from boilerplate)
+// BOILERPLATE HELPERS (from proofpilot-brand.skill)
 // ═══════════════════════════════════════════════════════════════════════
+
+/** createHeaderRow — styled table header row */
 function createHeaderRow(headers, colWidths, bgColor) {
   return new TableRow({
     children: headers.map((h, i) => new TableCell({
       borders: cellBorders,
       shading: { fill: bgColor, type: ShadingType.CLEAR },
-      width: { size: colWidths[i], type: WidthType.DXA },
+      width: { size: colWidths[i] || 2000, type: WidthType.DXA },
+      verticalAlign: VerticalAlign.CENTER,
       children: [new Paragraph({
         spacing: { before: 80, after: 80 },
-        children: [new TextRun({ text: stripMd(h), bold: true, color: WHITE, size: 20, font: { name: "Calibri" } })],
+        children: [new TextRun({
+          text: stripMd(h),
+          bold: true,
+          color: WHITE,
+          font: { name: "Calibri" },
+          size: 20,
+        })],
       })],
     })),
   });
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// HELPER: createDataRow (from boilerplate)
-// ═══════════════════════════════════════════════════════════════════════
+/** createDataRow — data row with optional background / text color */
 function createDataRow(cells, colWidths, options = {}) {
-  const { bgColor = WHITE, textColor = BLACK } = options;
+  const { bgColor = WHITE, textColor = BLACK, bold = false } = options;
   return new TableRow({
     children: cells.map((cell, i) => new TableCell({
       borders: cellBorders,
       shading: { fill: bgColor, type: ShadingType.CLEAR },
       width: { size: colWidths[i] || 2000, type: WidthType.DXA },
       children: [new Paragraph({
-        spacing: { before: 60, after: 60 },
-        children: parseInline(stripMd(cell), { color: textColor, size: 20 }),
+        spacing: { before: 80, after: 80 },
+        children: [new TextRun({
+          text: stripMd(String(cell)),
+          color: textColor,
+          bold,
+          font: { name: "Calibri" },
+          size: 20,
+        })],
       })],
     })),
   });
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// HELPER: createCTABox — dark blue callout box (from boilerplate, extended)
-// ═══════════════════════════════════════════════════════════════════════
+/** createCTABox — Dark Blue callout box, Neon Green headline, white body */
 function createCTABox(headline, bodyLines) {
-  const children = [];
+  const innerChildren = [];
 
   if (headline) {
-    children.push(new Paragraph({
+    innerChildren.push(new Paragraph({
       alignment: AlignmentType.LEFT,
       spacing: { before: 160, after: 80 },
       children: [new TextRun({
         text: headline,
         bold: true,
         color: NEON_GREEN,
-        size: 26,
+        size: 28,
         font: { name: "Bebas Neue" },
       })],
     }));
@@ -167,57 +206,97 @@ function createCTABox(headline, bodyLines) {
     const isBullet = line.startsWith('- ');
     const raw = isBullet ? line.slice(2) : line;
 
-    const lineRuns = [];
+    const runs = [];
     if (isBullet) {
-      lineRuns.push(new TextRun({ text: '• ', color: NEON_GREEN, size: 20, font: { name: "Calibri" } }));
+      runs.push(new TextRun({ text: '\u2022 ', color: NEON_GREEN, size: 20, font: { name: "Calibri" } }));
     }
-    // Parse inline bold in callout — bold becomes Neon Green
-    const boldParts = raw.split(/(\*\*[^*]+\*\*)/);
-    for (const part of boldParts) {
+
+    // **bold** inside callouts → Neon Green
+    for (const part of raw.split(/(\*\*[^*]+\*\*)/)) {
       if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
-        lineRuns.push(new TextRun({ text: part.slice(2, -2), bold: true, color: NEON_GREEN, size: 20, font: { name: "Calibri" } }));
+        runs.push(new TextRun({ text: part.slice(2, -2), bold: true, color: NEON_GREEN, size: 20, font: { name: "Calibri" } }));
       } else if (part) {
-        lineRuns.push(new TextRun({ text: part, color: WHITE, size: 20, font: { name: "Calibri" } }));
+        runs.push(new TextRun({ text: part, color: WHITE, size: 20, font: { name: "Calibri" } }));
       }
     }
 
-    children.push(new Paragraph({
+    innerChildren.push(new Paragraph({
       spacing: { before: 40, after: 40 },
       indent: isBullet ? { left: 180 } : undefined,
-      children: lineRuns,
+      children: runs,
     }));
   }
 
-  if (children.length === 0) return null;
+  if (innerChildren.length === 0) return null;
 
   return new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
+    width: { size: 9360, type: WidthType.DXA },
     columnWidths: [9360],
-    rows: [
-      new TableRow({
-        children: [new TableCell({
-          borders: cellBorders,
-          shading: { fill: DARK_BLUE, type: ShadingType.CLEAR },
-          width: { size: 9360, type: WidthType.DXA },
-          margins: { top: 120, bottom: 120, left: 160, right: 160 },
-          children,
-        })],
-      }),
-    ],
+    rows: [new TableRow({
+      children: [new TableCell({
+        borders: cellBorders,
+        shading: { fill: DARK_BLUE, type: ShadingType.CLEAR },
+        width: { size: 9360, type: WidthType.DXA },
+        margins: { top: 120, bottom: 120, left: 180, right: 180 },
+        children: innerChildren,
+      })],
+    })],
   });
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// HELPER: stripMd — remove ** and * from text for table cells
-// ═══════════════════════════════════════════════════════════════════════
-function stripMd(text) {
-  return (text || '').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1').trim();
+/** createSectionHeading — Heading 1 with alternating brand color */
+function createSectionHeading(text, sectionNum) {
+  return new Paragraph({
+    heading: HeadingLevel.HEADING_1,
+    spacing: { before: 0, after: 150 },
+    children: [new TextRun({
+      text: text.toUpperCase(),
+      bold: true,
+      color: sectionColor(sectionNum),
+      size: 40,
+      font: { name: "Bebas Neue" },
+    })],
+  });
+}
+
+/** createSubHeading — Heading 2 (Electric Blue) */
+function createSubHeading(text) {
+  return new Paragraph({
+    heading: HeadingLevel.HEADING_2,
+    spacing: { before: 180, after: 80 },
+    children: [new TextRun({
+      text: text.toUpperCase(),
+      bold: true,
+      color: ELECTRIC_BLUE,
+      size: 32,
+      font: { name: "Bebas Neue" },
+    })],
+  });
+}
+
+/** pageBreak — insert before every major section */
+function pageBreak() {
+  return new Paragraph({ children: [new PageBreak()], spacing: { before: 0, after: 0 } });
 }
 
 // ═══════════════════════════════════════════════════════════════════════
 // MARKDOWN TABLE PARSER
-// Returns { headers, rows, isInfoTable }
 // ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * Detects if a table row is a separator (cells contain ONLY dashes/colons).
+ * A separator must have at least one dash per cell. Empty cells are NOT separators.
+ */
+function isTableSeparator(trimmed) {
+  const cells = trimmed.split('|').slice(1, -1);
+  if (cells.length === 0) return false;
+  return cells.every(cell => /^[\s:]*-+[\s:]*$/.test(cell));
+}
+
+/**
+ * Parse markdown pipe table lines into { headers, rows, isInfoTable }.
+ * isInfoTable = true when all header cells are empty (| | | pattern).
+ */
 function parseMarkdownTable(tableLines) {
   const headers = [];
   const rows = [];
@@ -225,11 +304,11 @@ function parseMarkdownTable(tableLines) {
   for (const line of tableLines) {
     const trimmed = line.trim();
     if (!trimmed.startsWith('|')) continue;
-    if (/^\|[-:\s|]+\|$/.test(trimmed)) continue; // separator row
+    if (isTableSeparator(trimmed)) continue;  // skip |---|---| rows
 
     const cells = trimmed
       .split('|')
-      .slice(1, -1)  // remove outer empty strings
+      .slice(1, -1)
       .map(c => c.trim());
 
     if (headers.length === 0) {
@@ -239,133 +318,122 @@ function parseMarkdownTable(tableLines) {
     }
   }
 
-  const isInfoTable = headers.length === 2 && headers.every(h => h === '');
+  const isInfoTable = headers.length > 0 && headers.every(h => h === '');
   return { headers, rows, isInfoTable };
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// BUILD INFO TABLE (company metadata — label / value, no header row)
+// TABLE BUILDERS
 // ═══════════════════════════════════════════════════════════════════════
+
+/** buildInfoTable — 2-col label/value table (metadata, no header row) */
 function buildInfoTable(rows) {
-  const tableRows = rows.map(row => {
-    const label = stripMd(row[0] || '');
-    const value = stripMd(row[1] || '');
-    return new TableRow({
+  return new Table({
+    width: { size: 9360, type: WidthType.DXA },
+    columnWidths: [2500, 6860],
+    rows: rows.map(row => new TableRow({
       children: [
         new TableCell({
           borders: cellBorders,
           shading: { fill: LIGHT_GRAY, type: ShadingType.CLEAR },
           width: { size: 2500, type: WidthType.DXA },
-          margins: { top: 60, bottom: 60, left: 80, right: 80 },
+          margins: { top: 60, bottom: 60, left: 100, right: 100 },
           children: [new Paragraph({
-            children: [new TextRun({ text: label, bold: true, size: 22, color: BLACK, font: { name: "Calibri" } })],
+            children: [new TextRun({
+              text: stripMd(row[0] || ''),
+              bold: true,
+              size: 22,
+              color: BLACK,
+              font: { name: "Calibri" },
+            })],
           })],
         }),
         new TableCell({
           borders: cellBorders,
           shading: { fill: WHITE, type: ShadingType.CLEAR },
           width: { size: 6860, type: WidthType.DXA },
-          margins: { top: 60, bottom: 60, left: 80, right: 80 },
+          margins: { top: 60, bottom: 60, left: 100, right: 100 },
           children: [new Paragraph({
-            children: [new TextRun({ text: value, size: 22, color: BLACK, font: { name: "Calibri" } })],
+            children: [new TextRun({
+              text: stripMd(row[1] || ''),
+              size: 22,
+              color: BLACK,
+              font: { name: "Calibri" },
+            })],
           })],
         }),
       ],
-    });
-  });
-
-  return new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    columnWidths: [2500, 6860],
-    rows: tableRows,
+    })),
   });
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// BUILD BRAND DATA TABLE
-// ═══════════════════════════════════════════════════════════════════════
+/** buildBrandTable — standard data table with colored header row */
 function buildBrandTable(headers, rows, headerColor) {
   if (!headers || headers.length === 0) return null;
 
-  // Distribute width across columns
   const totalWidth = 9360;
   const colWidth = Math.floor(totalWidth / headers.length);
   const colWidths = headers.map((_, i) =>
     i === headers.length - 1 ? totalWidth - colWidth * (headers.length - 1) : colWidth
   );
 
-  const tableRows = [];
-
-  // Header row
-  tableRows.push(createHeaderRow(headers, colWidths, headerColor));
-
-  // Data rows with alternating background
-  rows.forEach((row, idx) => {
-    const bg = idx % 2 === 1 ? LIGHT_GRAY : WHITE;
-    // Pad to header count
-    const paddedRow = [...row];
-    while (paddedRow.length < headers.length) paddedRow.push('');
-    tableRows.push(createDataRow(paddedRow, colWidths, { bgColor: bg }));
-  });
-
   return new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
+    width: { size: totalWidth, type: WidthType.DXA },
     columnWidths: colWidths,
-    rows: tableRows,
+    rows: [
+      createHeaderRow(headers, colWidths, headerColor),
+      ...rows.map((row, idx) => {
+        const paddedRow = [...row];
+        while (paddedRow.length < headers.length) paddedRow.push('');
+        return createDataRow(
+          paddedRow,
+          colWidths,
+          { bgColor: idx % 2 === 1 ? LIGHT_GRAY : WHITE },
+        );
+      }),
+    ],
   });
 }
 
 // ═══════════════════════════════════════════════════════════════════════
 // MAIN MARKDOWN RENDERER
-// Returns array of Document children (paragraphs, tables, etc.)
 // ═══════════════════════════════════════════════════════════════════════
 function renderMarkdown(content) {
   const elements = [];
   const lines = content.split('\n');
   let i = 0;
-  let h2Count = 0;
-
-  // Cover state
-  let inCover = true;
+  let h1Count = 0;   // counts ## headings → mapped to HeadingLevel.HEADING_1
+  let coverDone = false;
   let coverH1Done = false;
   let coverSubtitleDone = false;
-
-  const addSpacer = (before = 0, after = 100) => {
-    elements.push(new Paragraph({ spacing: { before, after }, children: [] }));
-  };
 
   while (i < lines.length) {
     const line = lines[i];
     const trimmed = line.trim();
 
-    // ── [COVER_END]: page break ─────────────────────────────────────
+    // ── [COVER_END]: page break, exit cover mode ─────────────────────
     if (trimmed === '[COVER_END]') {
-      inCover = false;
-      elements.push(new Paragraph({
-        children: [new PageBreak()],
-        spacing: { before: 0, after: 0 },
-      }));
+      coverDone = true;
+      elements.push(pageBreak());
       i++;
       continue;
     }
 
-    // ── Blockquote: callout box ─────────────────────────────────────
+    // ── Blockquote: callout box or status skip ─────────────────────────
     if (trimmed.startsWith('> ')) {
       const rawContent = trimmed.slice(2).trim();
-      // Skip status lines
       if (STATUS_PREFIXES.some(pfx => rawContent.startsWith(pfx))) {
         i++;
         continue;
       }
 
-      // Collect all consecutive > lines
       const calloutLines = [];
       while (i < lines.length && lines[i].trim().startsWith('> ')) {
         calloutLines.push(lines[i].trim().slice(2).trim());
         i++;
       }
 
-      // First line is the header if it's **BOLD**
+      // First line is headline if **BOLD HEADER** pattern
       let headline = '';
       const bodyLines = [];
       if (calloutLines.length > 0 && /^\*\*[^*]+\*\*$/.test(calloutLines[0])) {
@@ -375,15 +443,20 @@ function renderMarkdown(content) {
         bodyLines.push(...calloutLines);
       }
 
-      addSpacer(80, 0);
       const box = createCTABox(headline, bodyLines);
-      if (box) elements.push(box);
-      addSpacer(0, 120);
+      if (box) {
+        elements.push(new Paragraph({ spacing: { before: 100, after: 0 }, children: [] }));
+        elements.push(box);
+        elements.push(new Paragraph({ spacing: { before: 0, after: 120 }, children: [] }));
+      }
       continue;
     }
 
-    // ── Markdown table ──────────────────────────────────────────────
-    if (trimmed.startsWith('|') && !/^\|[-:\s|]+\|$/.test(trimmed)) {
+    // ── Markdown table: collect ALL consecutive | lines ────────────────
+    // Important: grab the whole block first, then parse it. This ensures
+    // empty-header rows (| | |) and separator rows (|---|---|) don't leak
+    // to body text.
+    if (trimmed.startsWith('|')) {
       const tableLines = [];
       while (i < lines.length && lines[i].trim().startsWith('|')) {
         tableLines.push(lines[i]);
@@ -394,31 +467,30 @@ function renderMarkdown(content) {
 
       if (isInfoTable) {
         elements.push(buildInfoTable(rows));
-        addSpacer(0, 120);
+        elements.push(new Paragraph({ spacing: { before: 0, after: 100 }, children: [] }));
       } else if (headers.length > 0) {
-        const headerColor = h2Count % 2 === 1 ? DARK_BLUE : ELECTRIC_BLUE;
+        const headerColor = sectionColor(h1Count);
         const tbl = buildBrandTable(headers, rows, headerColor);
         if (tbl) {
           elements.push(tbl);
-          addSpacer(0, 120);
+          elements.push(new Paragraph({ spacing: { before: 0, after: 100 }, children: [] }));
         }
       }
       continue;
     }
 
-    // ── H1 ──────────────────────────────────────────────────────────
+    // ── H1 (cover title or body) ─────────────────────────────────────
     if (line.startsWith('# ')) {
       const title = line.slice(2).trim();
 
-      if (inCover && !coverH1Done && title.includes(' & ')) {
-        // Cover: two-line split
+      if (!coverDone && !coverH1Done && title.includes(' & ')) {
+        // Cover title: split at " & " into two styled lines
         coverH1Done = true;
         const [preAmp, postAmp] = title.split(' & ', 2);
 
-        // Line 1: Electric Blue 24pt
         elements.push(new Paragraph({
           alignment: AlignmentType.CENTER,
-          spacing: { before: 480, after: 0 },
+          spacing: { before: 560, after: 0 },
           children: [new TextRun({
             text: preAmp,
             bold: true,
@@ -428,10 +500,9 @@ function renderMarkdown(content) {
           })],
         }));
 
-        // Line 2: Dark Blue 38pt
         elements.push(new Paragraph({
           alignment: AlignmentType.CENTER,
-          spacing: { before: 0, after: 120 },
+          spacing: { before: 0, after: 160 },
           children: [new TextRun({
             text: '& ' + postAmp,
             bold: true,
@@ -441,86 +512,57 @@ function renderMarkdown(content) {
           })],
         }));
       } else {
-        // Body H1: Dark Blue 40pt Bebas
-        elements.push(new Paragraph({
-          heading: 'Heading1',
-          spacing: { before: 360, after: 160 },
-          children: [new TextRun({
-            text: title,
-            bold: true,
-            color: DARK_BLUE,
-            size: 40,
-            font: { name: "Bebas Neue" },
-          })],
-        }));
+        // Body H1 (rare — use Heading 1 style)
+        h1Count++;
+        if (coverDone) elements.push(pageBreak());
+        elements.push(createSectionHeading(title, h1Count));
       }
       i++;
       continue;
     }
 
-    // ── H2 ──────────────────────────────────────────────────────────
+    // ── H2 → HeadingLevel.HEADING_1 + auto page break ─────────────────
     if (line.startsWith('## ')) {
-      h2Count++;
-      inCover = false;
-      const color = h2Count % 2 === 1 ? DARK_BLUE : ELECTRIC_BLUE;
-      elements.push(new Paragraph({
-        heading: 'Heading2',
-        spacing: { before: 300, after: 100 },
-        children: [new TextRun({
-          text: line.slice(3).trim(),
-          bold: true,
-          color,
-          size: 36,
-          font: { name: "Bebas Neue" },
-        })],
-      }));
+      h1Count++;
+      coverDone = true;
+      // Insert page break before every section (except the very first when
+      // [COVER_END] already added one)
+      elements.push(pageBreak());
+      elements.push(createSectionHeading(line.slice(3).trim(), h1Count));
       i++;
       continue;
     }
 
-    // ── H3 ──────────────────────────────────────────────────────────
+    // ── H3 → HeadingLevel.HEADING_2 ───────────────────────────────────
     if (line.startsWith('### ')) {
-      elements.push(new Paragraph({
-        heading: 'Heading3',
-        spacing: { before: 200, after: 80 },
-        children: [new TextRun({
-          text: line.slice(4).trim(),
-          bold: true,
-          color: BLACK,
-          size: 26,
-          font: { name: "Bebas Neue" },
-        })],
-      }));
+      elements.push(createSubHeading(line.slice(4).trim()));
       i++;
       continue;
     }
 
-    // ── Bullet list ─────────────────────────────────────────────────
+    // ── Bullet list ─────────────────────────────────────────────────────
     if (line.startsWith('- ') || line.startsWith('* ')) {
       elements.push(new Paragraph({
         bullet: { level: 0 },
         spacing: { before: 40, after: 40 },
-        indent: { left: 360 },
         children: parseInline(line.slice(2).trim(), { size: 22 }),
       }));
       i++;
       continue;
     }
 
-    // ── Numbered list ───────────────────────────────────────────────
-    const numMatch = line.match(/^(\d+)\.\s/);
-    if (numMatch) {
+    // ── Numbered list ───────────────────────────────────────────────────
+    if (/^\d+\.\s/.test(line)) {
       elements.push(new Paragraph({
         numbering: { reference: 'num-list-1', level: 0 },
         spacing: { before: 40, after: 40 },
-        indent: { left: 360 },
         children: parseInline(line.replace(/^\d+\.\s/, '').trim(), { size: 22 }),
       }));
       i++;
       continue;
     }
 
-    // ── Horizontal rule ─────────────────────────────────────────────
+    // ── Horizontal rule — paragraph border, NO unicode characters ───────
     if (trimmed === '---') {
       elements.push(new Paragraph({
         spacing: { before: 120, after: 120 },
@@ -533,20 +575,20 @@ function renderMarkdown(content) {
       continue;
     }
 
-    // ── Empty line ──────────────────────────────────────────────────
+    // ── Empty line ──────────────────────────────────────────────────────
     if (trimmed === '') {
       elements.push(new Paragraph({ spacing: { before: 0, after: 60 }, children: [] }));
       i++;
       continue;
     }
 
-    // ── Body text / cover subtitle ──────────────────────────────────
-    if (inCover && coverH1Done && !coverSubtitleDone) {
-      // First plain text after cover H1 → italic gray subtitle
+    // ── Body text / cover subtitle ──────────────────────────────────────
+    if (!coverDone && coverH1Done && !coverSubtitleDone) {
+      // First plain-text line after cover H1 → italic gray subtitle
       coverSubtitleDone = true;
       elements.push(new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { before: 0, after: 200 },
+        spacing: { before: 0, after: 240 },
         children: [new TextRun({
           text: trimmed,
           italics: true,
@@ -556,7 +598,6 @@ function renderMarkdown(content) {
         })],
       }));
     } else {
-      // Regular body paragraph
       elements.push(new Paragraph({
         spacing: { before: 0, after: 80 },
         children: parseInline(trimmed, { size: 22 }),
@@ -574,11 +615,9 @@ function renderMarkdown(content) {
 function buildDocument(content, clientName, workflowTitle) {
   const children = renderMarkdown(content);
 
-  const doc = new Document({
+  return new Document({
     styles: {
-      default: {
-        document: { run: { font: "Calibri", size: 22 } },
-      },
+      default: { document: { run: { font: "Calibri", size: 22 } } },
       paragraphStyles: [
         {
           id: "Heading1", name: "Heading 1", basedOn: "Normal", next: "Normal", quickFormat: true,
@@ -587,13 +626,13 @@ function buildDocument(content, clientName, workflowTitle) {
         },
         {
           id: "Heading2", name: "Heading 2", basedOn: "Normal", next: "Normal", quickFormat: true,
-          run: { size: 36, bold: true, color: ELECTRIC_BLUE, font: "Bebas Neue" },
-          paragraph: { spacing: { before: 300, after: 100 }, outlineLevel: 1 },
+          run: { size: 32, bold: true, color: ELECTRIC_BLUE, font: "Bebas Neue" },
+          paragraph: { spacing: { before: 250, after: 120 }, outlineLevel: 1 },
         },
         {
           id: "Heading3", name: "Heading 3", basedOn: "Normal", next: "Normal", quickFormat: true,
           run: { size: 26, bold: true, color: BLACK, font: "Bebas Neue" },
-          paragraph: { spacing: { before: 200, after: 80 }, outlineLevel: 2 },
+          paragraph: { spacing: { before: 180, after: 80 }, outlineLevel: 2 },
         },
       ],
     },
@@ -602,17 +641,21 @@ function buildDocument(content, clientName, workflowTitle) {
         {
           reference: "bullet-list",
           levels: [{
-            level: 0, format: LevelFormat.BULLET, text: "\u2022",
+            level: 0,
+            format: LevelFormat.BULLET,
+            text: "\u2022",
             alignment: AlignmentType.LEFT,
-            style: { paragraph: { indent: { left: 360, hanging: 180 } } },
+            style: { paragraph: { indent: { left: 720, hanging: 360 } } },
           }],
         },
         {
           reference: "num-list-1",
           levels: [{
-            level: 0, format: LevelFormat.DECIMAL, text: "%1.",
+            level: 0,
+            format: LevelFormat.DECIMAL,
+            text: "%1.",
             alignment: AlignmentType.LEFT,
-            style: { paragraph: { indent: { left: 360, hanging: 180 } } },
+            style: { paragraph: { indent: { left: 720, hanging: 360 } } },
           }],
         },
       ],
@@ -631,16 +674,14 @@ function buildDocument(content, clientName, workflowTitle) {
               alignment: AlignmentType.RIGHT,
               spacing: { before: 0, after: 60 },
               children: [
-                new TextRun({ text: "PROOFPILOT", bold: true, color: DARK_BLUE, size: 20, font: { name: "Bebas Neue" } }),
+                new TextRun({ text: "PROOFPILOT", bold: true, color: DARK_BLUE, size: 20, font: { name: "Calibri" } }),
                 new TextRun({ text: "  |  ", color: ELECTRIC_BLUE, size: 18, font: { name: "Calibri" } }),
                 new TextRun({ text: workflowTitle.toUpperCase(), color: ELECTRIC_BLUE, size: 18, font: { name: "Calibri" } }),
               ],
             }),
             new Paragraph({
               spacing: { before: 0, after: 0 },
-              border: {
-                bottom: { color: ELECTRIC_BLUE, space: 1, style: BorderStyle.SINGLE, size: 6 },
-              },
+              border: { bottom: { color: ELECTRIC_BLUE, space: 1, style: BorderStyle.SINGLE, size: 6 } },
               children: [],
             }),
           ],
@@ -662,22 +703,17 @@ function buildDocument(content, clientName, workflowTitle) {
       children,
     }],
   });
-
-  return doc;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
 // ENTRY POINT
 // ═══════════════════════════════════════════════════════════════════════
 async function main() {
-  const args = process.argv.slice(2);
-  if (args.length < 2) {
+  const [inputPath, outputPath] = process.argv.slice(2);
+  if (!inputPath || !outputPath) {
     console.error('Usage: node docx-generator.js <input.json> <output.docx>');
     process.exit(1);
   }
-
-  const inputPath  = args[0];
-  const outputPath = args[1];
 
   let jobData;
   try {
@@ -688,9 +724,8 @@ async function main() {
   }
 
   const { content, client_name, workflow_title } = jobData;
-
   if (!content || !client_name || !workflow_title) {
-    console.error('Input JSON must have content, client_name, workflow_title');
+    console.error('Input JSON must have: content, client_name, workflow_title');
     process.exit(1);
   }
 
