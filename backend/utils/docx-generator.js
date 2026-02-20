@@ -50,7 +50,7 @@ const GREEN_COLOR   = "28A745";
 // ═══════════════════════════════════════════════════════════════════════
 // TABLE STYLING
 // ═══════════════════════════════════════════════════════════════════════
-const tableBorder = { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" };
+const tableBorder = { style: BorderStyle.SINGLE, size: 4, color: "CCCCCC" };
 const cellBorders = { top: tableBorder, bottom: tableBorder, left: tableBorder, right: tableBorder };
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -96,7 +96,7 @@ function stripMd(text) {
 // Parses **bold** and *italic* → array of TextRun
 // ═══════════════════════════════════════════════════════════════════════
 function parseInline(text, opts = {}) {
-  const { color = BLACK, size = 22, font = "Calibri", italic = false } = opts;
+  const { color = BLACK, size = 26, font = "Calibri", italic = false } = opts;
   const runs = [];
 
   for (const boldPart of text.split(/(\*\*[^*]+\*\*)/)) {
@@ -146,15 +146,16 @@ function createHeaderRow(headers, colWidths, bgColor) {
       borders: cellBorders,
       shading: { fill: bgColor, type: ShadingType.CLEAR },
       width: { size: colWidths[i] || 2000, type: WidthType.DXA },
+      margins: { top: 0, bottom: 0, left: 115, right: 115 },
       verticalAlign: VerticalAlign.CENTER,
       children: [new Paragraph({
-        spacing: { before: 80, after: 80 },
+        spacing: { before: 60, after: 60 },
         children: [new TextRun({
           text: stripMd(h),
           bold: true,
           color: WHITE,
           font: { name: "Calibri" },
-          size: 20,
+          size: 26,
         })],
       })],
     })),
@@ -169,14 +170,15 @@ function createDataRow(cells, colWidths, options = {}) {
       borders: cellBorders,
       shading: { fill: bgColor, type: ShadingType.CLEAR },
       width: { size: colWidths[i] || 2000, type: WidthType.DXA },
+      margins: { top: 0, bottom: 0, left: 115, right: 115 },
       children: [new Paragraph({
-        spacing: { before: 80, after: 80 },
+        spacing: { before: 60, after: 60 },
         children: [new TextRun({
           text: stripMd(String(cell)),
           color: textColor,
           bold,
           font: { name: "Calibri" },
-          size: 20,
+          size: 26,
         })],
       })],
     })),
@@ -244,17 +246,36 @@ function createCTABox(headline, bodyLines) {
   });
 }
 
-/** createSectionHeading — Heading 1 with alternating brand color */
+/** createSectionHeading — full-width banner with Dark Blue bg, Neon Green Bebas Neue heading */
 function createSectionHeading(text, sectionNum) {
-  return new Paragraph({
-    heading: HeadingLevel.HEADING_1,
-    spacing: { before: 0, after: 150 },
-    children: [new TextRun({
-      text: text.toUpperCase(),
-      bold: true,
-      color: sectionColor(sectionNum),
-      size: 40,
-      font: { name: "Bebas Neue" },
+  // Use a full-width single-cell table as the section banner.
+  // The paragraph inside uses HeadingLevel.HEADING_1 so the validator finds w:val="Heading1".
+  return new Table({
+    width: { size: 9360, type: WidthType.DXA },
+    columnWidths: [9360],
+    rows: [new TableRow({
+      children: [new TableCell({
+        borders: {
+          top: { style: BorderStyle.NONE },
+          bottom: { style: BorderStyle.NONE },
+          left: { style: BorderStyle.NONE },
+          right: { style: BorderStyle.NONE },
+        },
+        shading: { fill: DARK_BLUE, type: ShadingType.CLEAR },
+        width: { size: 9360, type: WidthType.DXA },
+        margins: { top: 120, bottom: 120, left: 200, right: 200 },
+        children: [new Paragraph({
+          heading: HeadingLevel.HEADING_1,
+          spacing: { before: 0, after: 0 },
+          children: [new TextRun({
+            text: text.toUpperCase(),
+            bold: true,
+            color: NEON_GREEN,
+            size: 32,
+            font: { name: "Bebas Neue" },
+          })],
+        })],
+      })],
     })],
   });
 }
@@ -337,12 +358,13 @@ function buildInfoTable(rows) {
           borders: cellBorders,
           shading: { fill: LIGHT_GRAY, type: ShadingType.CLEAR },
           width: { size: 2500, type: WidthType.DXA },
-          margins: { top: 60, bottom: 60, left: 100, right: 100 },
+          margins: { top: 0, bottom: 0, left: 115, right: 115 },
           children: [new Paragraph({
+            spacing: { before: 80, after: 80 },
             children: [new TextRun({
               text: stripMd(row[0] || ''),
               bold: true,
-              size: 22,
+              size: 26,
               color: BLACK,
               font: { name: "Calibri" },
             })],
@@ -352,11 +374,12 @@ function buildInfoTable(rows) {
           borders: cellBorders,
           shading: { fill: WHITE, type: ShadingType.CLEAR },
           width: { size: 6860, type: WidthType.DXA },
-          margins: { top: 60, bottom: 60, left: 100, right: 100 },
+          margins: { top: 0, bottom: 0, left: 115, right: 115 },
           children: [new Paragraph({
+            spacing: { before: 80, after: 80 },
             children: [new TextRun({
               text: stripMd(row[1] || ''),
-              size: 22,
+              size: 26,
               color: BLACK,
               font: { name: "Calibri" },
             })],
@@ -545,7 +568,7 @@ function renderMarkdown(content) {
       elements.push(new Paragraph({
         bullet: { level: 0 },
         spacing: { before: 40, after: 40 },
-        children: parseInline(line.slice(2).trim(), { size: 22 }),
+        children: parseInline(line.slice(2).trim(), { size: 26 }),
       }));
       i++;
       continue;
@@ -556,7 +579,7 @@ function renderMarkdown(content) {
       elements.push(new Paragraph({
         numbering: { reference: 'num-list-1', level: 0 },
         spacing: { before: 40, after: 40 },
-        children: parseInline(line.replace(/^\d+\.\s/, '').trim(), { size: 22 }),
+        children: parseInline(line.replace(/^\d+\.\s/, '').trim(), { size: 26 }),
       }));
       i++;
       continue;
@@ -593,14 +616,14 @@ function renderMarkdown(content) {
           text: trimmed,
           italics: true,
           color: MEDIUM_GRAY,
-          size: 26,
+          size: 28,
           font: { name: "Calibri" },
         })],
       }));
     } else {
       elements.push(new Paragraph({
-        spacing: { before: 0, after: 80 },
-        children: parseInline(trimmed, { size: 22 }),
+        spacing: { before: 0, after: 150 },
+        children: parseInline(trimmed, { size: 26 }),
       }));
     }
     i++;
@@ -617,7 +640,7 @@ function buildDocument(content, clientName, workflowTitle) {
 
   return new Document({
     styles: {
-      default: { document: { run: { font: "Calibri", size: 22 } } },
+      default: { document: { run: { font: "Calibri", size: 26 } } },
       paragraphStyles: [
         {
           id: "Heading1", name: "Heading 1", basedOn: "Normal", next: "Normal", quickFormat: true,
