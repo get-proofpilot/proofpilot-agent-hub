@@ -156,6 +156,180 @@ New workflow types that expand what ProofPilot can deliver.
 - [ ] Maps seasonal demand peaks to content calendar
 - [ ] Output: 12-month content calendar with recommended publish dates tied to search demand
 
+### 4.6 — Page Design Agent
+
+**The problem:** Current content workflows (service page, location page, blog post) output copy only — markdown text that still needs a designer and developer to turn into an actual page. That handoff gap costs hours per page and produces inconsistent results across clients. A developer receiving a 1,000-word markdown doc has to make every layout decision from scratch: where the CTA goes, how the trust signals are arranged, what the hero looks like on mobile, where images sit relative to text.
+
+**The solution:** A new workflow that outputs a complete, developer-ready page design — full HTML/CSS with responsive layout, visual hierarchy, section architecture, image art direction, and conversion-optimized component placement. The output is a page a developer can drop into WordPress, Webflow, or any CMS with minimal adaptation. It's also a standalone artifact Matthew can open in a browser to review the design before handing it off.
+
+**Why this matters for growth:** This turns ProofPilot from a copy shop into a full page production system. Instead of delivering a Word doc that needs 2-4 hours of design/dev work per page, we deliver a ready-to-implement design. For programmatic content (bulk location pages, service pages across cities), this is the difference between "here are 30 docs of text" and "here are 30 pages ready to go live."
+
+#### Workflow: `page-design`
+
+**File:** `workflows/page_design.py`
+
+**Inputs:**
+```json
+{
+  "page_type": "service-page | location-page | landing-page | blog-post",
+  "domain": "allthingzelectric.com",
+  "business_type": "electrician",
+  "service": "panel upgrade",
+  "location": "Chandler, AZ",
+  "brand_colors": "#1a3a5c, #f59e0b, #ffffff",
+  "brand_style": "modern and clean | bold and industrial | warm and friendly",
+  "differentiators": "same-day service, master electrician, 15 years",
+  "price_range": "$1,200–$3,500",
+  "phone": "(480) 555-0123",
+  "cta_text": "Schedule Your Free Estimate",
+  "image_notes": "has hero photo of technician at panel, customer testimonial headshots",
+  "reference_url": "optional — URL of a page whose layout/style to reference",
+  "notes": "optional"
+}
+```
+
+#### What the Agent Outputs
+
+A single, self-contained HTML file with embedded CSS that includes:
+
+**1. Full Page Layout (HTML + CSS)**
+- Complete semantic HTML5 structure — `<header>`, `<main>`, `<section>`, `<footer>`
+- Inline CSS (no external dependencies) so the file renders standalone in any browser
+- Responsive design with three breakpoints: mobile (< 768px), tablet (768–1024px), desktop (> 1024px)
+- CSS Grid / Flexbox layouts — no frameworks, no Bootstrap, clean modern CSS
+- The HTML is clean enough to extract sections and drop into WordPress page builders (Elementor, Divi, Gutenberg blocks) or Webflow
+
+**2. Section-by-Section Design Architecture**
+
+Every page type gets a conversion-optimized section sequence. For service pages:
+
+| Section | Layout | Purpose |
+|---------|--------|---------|
+| **Hero** | Full-width, split layout (text left / image right on desktop, stacked on mobile) | Headline + subhead + primary CTA + trust badges |
+| **Trust Bar** | Horizontal strip with icon + stat pairs | License, insurance, years, review count — visible without scrolling |
+| **Problem / Pain** | Centered text block, max-width 720px | Name the customer's problem before pitching the solution |
+| **Service Details** | Two-column cards or icon grid | What's included — specific scope items, not vague promises |
+| **Pricing Transparency** | Highlighted callout box with range | Real price ranges + what affects cost |
+| **Process Steps** | Numbered vertical timeline or horizontal stepper | Step-by-step from call to completion |
+| **Social Proof** | Testimonial cards (photo + quote + name + service) | Real reviews, not generic praise |
+| **Local Proof** | Map embed placeholder + neighborhood list | Geographic anchors for local SEO |
+| **FAQ** | Accordion component (expand/collapse) | Schema-ready Q&A — real Google queries |
+| **Final CTA** | Full-width colored band, large button, phone number | Urgency close with contact options |
+| **Footer** | Multi-column: nav, contact, service areas, legal | Standard footer with local business info |
+
+Location pages, landing pages, and blog posts each get their own section sequence optimized for their conversion goal.
+
+**3. Visual Design System (per page)**
+- Typography hierarchy: H1 size/weight, H2, H3, body, caption — using web-safe fonts or Google Fonts `<link>` tags
+- Color application: primary for CTAs and headings, secondary for accents and hover states, neutral for body text and backgrounds
+- Spacing rhythm: consistent vertical spacing between sections (e.g., 80px desktop, 48px mobile)
+- Button styles: primary CTA (filled, bold), secondary CTA (outlined), with hover/active states
+- Card and container styles: border-radius, box-shadow, padding patterns
+- Image treatment: aspect ratios, object-fit rules, overlay styles for hero images
+
+**4. Image Art Direction**
+Since the workflow won't have actual images, it includes:
+- Placeholder `<div>`s with exact dimensions and aspect ratios for every image slot
+- Background color placeholders that match the brand palette
+- Alt text pre-written for SEO
+- Detailed comments in the HTML describing what image should go in each slot:
+  ```html
+  <!-- IMAGE: Hero photo — technician working at electrical panel,
+       professional lighting, customer's home visible in background.
+       Recommended: 1200x600px, landscape orientation.
+       If no real photo: use a high-quality stock photo of electrical work. -->
+  <div class="hero-image" style="aspect-ratio: 2/1; background: #e5e7eb;">
+    <span class="placeholder-label">Hero Image — 1200×600</span>
+  </div>
+  ```
+
+**5. Interactive Components**
+- FAQ accordion with CSS-only expand/collapse (no JavaScript dependencies)
+- Smooth scroll navigation from hero CTA to contact section
+- Mobile hamburger menu (CSS-only or minimal vanilla JS)
+- Sticky header on scroll (CSS `position: sticky`)
+- Optional: before/after image slider placeholder, review carousel placeholder
+
+**6. SEO Built Into the HTML**
+- Proper heading hierarchy (single H1, logical H2/H3 nesting)
+- Meta title and meta description pre-written in `<head>`
+- Open Graph tags for social sharing
+- JSON-LD LocalBusiness + Service schema embedded in `<script type="application/ld+json">`
+- Canonical URL placeholder
+- Image alt text on every image slot
+- Semantic HTML elements for accessibility (`<nav>`, `<main>`, `<article>`, `<aside>`)
+
+**7. Developer Handoff Notes**
+A comment block at the top of the HTML file with:
+- Platform-specific implementation notes (WordPress, Webflow, custom)
+- Which sections map to which page builder components
+- Font loading instructions (Google Fonts links or self-hosted font files)
+- Image specs: exact dimensions, format recommendations (WebP with JPEG fallback)
+- Performance notes: lazy loading attributes, critical CSS identification
+- Any JavaScript that should be added for enhanced interactivity (form validation, analytics events)
+
+#### Output Formats
+
+| Format | Description |
+|--------|-------------|
+| **HTML preview** | Self-contained `.html` file — open in browser to see the full design |
+| **Branded `.docx`** | Design specification document with section descriptions, layout diagrams (ASCII), color specs, typography specs, and the full copy — for clients or designers who prefer a document |
+
+#### Implementation Plan
+
+**Backend**
+- [ ] Create `workflows/page_design.py` with page-type-specific system prompts
+- [ ] System prompt includes CSS best practices, responsive patterns, accessibility requirements, conversion layout patterns
+- [ ] Separate section prompt templates per page type (service, location, landing, blog)
+- [ ] Claude generates the full HTML/CSS in a single streaming pass — the HTML IS the design
+- [ ] Post-processing: extract the HTML from Claude's response, validate it's well-formed, save as `.html`
+- [ ] Generate `.docx` companion with: design overview, section-by-section specs, copy text, implementation notes
+- [ ] Add `/api/preview/{job_id}` endpoint — serves the generated HTML file directly so it renders in-browser
+- [ ] Register workflow in `server.py` with `WORKFLOW_TITLES` and `event_stream()` routing
+
+**Frontend**
+- [ ] Add `page-design` to `WORKFLOWS` array in `script.js` (category: `content`)
+- [ ] New modal panel `#modalInputsPageDesign` with fields: page_type dropdown, domain, business_type, service, location, brand_colors (color picker or text), brand_style dropdown, differentiators, price_range, phone, cta_text, image_notes, reference_url, notes
+- [ ] Wire into `selectWorkflow()`, `checkRunReady()`, `launchWorkflow()`
+- [ ] After job completion: "Preview Design" button alongside "Download .docx" — opens the HTML preview in a new tab via `/api/preview/{job_id}`
+- [ ] In Content Library: page design jobs show a thumbnail preview or "View Design" link
+
+**Preview System**
+- [ ] `POST /api/run-workflow` returns the streaming copy as usual (the HTML source)
+- [ ] On completion, save the HTML file to `temp_docs/{job_id}.html`
+- [ ] `GET /api/preview/{job_id}` serves the HTML with `Content-Type: text/html` — browser renders the full design
+- [ ] Preview opens in a new tab so Matthew can review the design at full width, test responsive behavior by resizing
+- [ ] Optional: add a simple toolbar at the top of the preview (injected via JS) with "Desktop / Tablet / Mobile" viewport toggles using iframe resizing
+
+**Prompt Engineering (the hard part)**
+- [ ] Build a master system prompt that teaches Claude modern frontend design: CSS Grid, Flexbox, custom properties, responsive units (clamp, min/max), accessible patterns
+- [ ] Include a "design library" of proven section patterns in the system prompt — hero layouts, trust bars, testimonial cards, FAQ accordions, CTA bands — so Claude assembles from proven components rather than inventing from scratch
+- [ ] Page-type-specific conversion architecture: service pages optimize for phone calls, location pages optimize for "near me" intent, landing pages optimize for form fills, blog posts optimize for time-on-page and internal link clicks
+- [ ] Brand adaptation instructions: how to apply provided brand colors to the design system (primary → CTAs and headings, secondary → accents, neutral → backgrounds)
+- [ ] Test with 5+ real client scenarios, iterate the prompt until output quality is consistent
+- [ ] Consider a two-pass approach if single-pass quality isn't sufficient: Pass 1 generates the design architecture + copy, Pass 2 generates the full HTML/CSS implementation
+
+#### Quality Bar
+
+A page design output should meet these criteria before we consider the workflow production-ready:
+
+- [ ] Opens in Chrome, Firefox, Safari and renders correctly without errors
+- [ ] Looks good at 375px (mobile), 768px (tablet), and 1440px (desktop) — not just "doesn't break" but actually looks designed for each
+- [ ] Every section has a clear visual purpose — no "wall of text" sections
+- [ ] CTA buttons are prominent, above the fold, and repeated throughout
+- [ ] Page loads instantly (no external dependencies except Google Fonts)
+- [ ] A developer can read the HTML and understand the intended structure in under 5 minutes
+- [ ] Copy quality matches or exceeds the existing service-page workflow output
+- [ ] JSON-LD schema is valid (test with Google Rich Results tester)
+
+#### Stretch Goals (post-launch)
+- [ ] **Style variants:** Generate 2-3 design variants per request (e.g., "minimal," "bold," "editorial") — Matthew picks the one that fits the client
+- [ ] **Component library:** Build a reusable component library over time from the best sections Claude generates — feed it back into the prompt as examples
+- [ ] **Figma export:** Generate a Figma-compatible design file (via Figma API or `.fig` format) for clients who want pixel-perfect handoff
+- [ ] **WordPress theme snippet:** Output a WordPress-specific version with proper theme function calls, Elementor widget mappings, or Gutenberg block markup
+- [ ] **A/B variant generation:** Generate two hero/CTA variants for split testing with conversion tracking recommendations
+- [ ] **Chain with existing workflows:** Run the service-page copy workflow first, then feed its output into page-design as the copy layer — separating content strategy from visual design
+
 ---
 
 ## Phase 5 — Publishing & Distribution
