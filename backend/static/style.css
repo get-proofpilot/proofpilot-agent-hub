@@ -3460,6 +3460,12 @@ body {
   color: var(--text);
 }
 
+/* ── Approval filter tabs ── */
+.content-approval-tabs {
+  display: flex;
+  gap: 4px;
+}
+
 /* ── Main library grid container ── */
 .content-library-grid {
   display: flex;

@@ -529,6 +529,11 @@
             <option value="programmatic-content">Programmatic Content</option>
           </select>
         </div>
+        <div class="content-approval-tabs">
+          <button class="filter-tab active" data-approval-filter="all" onclick="setApprovalFilter('all')">All</button>
+          <button class="filter-tab" data-approval-filter="approved" onclick="setApprovalFilter('approved')">Approved</button>
+          <button class="filter-tab" data-approval-filter="pending" onclick="setApprovalFilter('pending')">Pending</button>
+        </div>
       </div>
 
       <!-- Client sections — populated by renderContentLibrary() -->
@@ -985,6 +990,48 @@
               <label class="wf-field-label">Notes &amp; Strategy <span class="opt">optional</span></label>
               <textarea id="wfProgNotes" rows="3"
                 placeholder="Any additional context, competitor intel, brand voice notes, emphasis areas — applied to all pages..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- gbp-posts inputs -->
+        <div id="modalInputsGBPPosts" style="display:none; flex-direction:column; gap:16px;">
+          <div class="wf-modal-2col">
+            <div class="wf-modal-field">
+              <label class="wf-field-label">Business Type <span class="req">*</span></label>
+              <input type="text" id="wfGBPBusinessType" placeholder="e.g. electrician, plumber, HVAC" oninput="checkRunReady()" />
+            </div>
+            <div class="wf-modal-field">
+              <label class="wf-field-label">Location <span class="req">*</span></label>
+              <input type="text" id="wfGBPLocation" placeholder="e.g. Chandler, AZ" oninput="checkRunReady()" />
+            </div>
+          </div>
+          <div class="wf-modal-field">
+            <label class="wf-field-label">Number of Posts <span class="req">*</span></label>
+            <select id="wfGBPCount" oninput="checkRunReady()">
+              <option value="4">4 posts</option>
+              <option value="8" selected>8 posts</option>
+              <option value="12">12 posts</option>
+            </select>
+            <div class="wf-field-hint">Google recommends 1-3 posts per week for active profiles</div>
+          </div>
+          <!-- Optional fields section -->
+          <div class="wf-modal-optional-section">
+            <div class="wf-modal-optional-label">Optional — improves post relevance and variety</div>
+            <div class="wf-modal-field optional">
+              <label class="wf-field-label">Services to Feature <span class="opt">optional</span></label>
+              <input type="text" id="wfGBPServices" placeholder="e.g. panel upgrade, EV charger, whole-home rewire" />
+              <div class="wf-field-hint">Comma-separated — each post will spotlight different services</div>
+            </div>
+            <div class="wf-modal-field optional">
+              <label class="wf-field-label">Promotions / Seasonal Hooks <span class="opt">optional</span></label>
+              <input type="text" id="wfGBPPromos" placeholder="e.g. 10% off panel upgrades, summer AC tune-up special" />
+              <div class="wf-field-hint">Current offers or seasonal angles to weave into posts</div>
+            </div>
+            <div class="wf-modal-field optional">
+              <label class="wf-field-label">Notes <span class="opt">optional</span></label>
+              <textarea id="wfGBPNotes" rows="3"
+                placeholder="Brand voice, topics to avoid, recent wins, holiday tie-ins..."></textarea>
             </div>
           </div>
         </div>

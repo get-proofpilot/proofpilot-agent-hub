@@ -90,6 +90,10 @@ const WORKFLOWS = [
     desc: 'SEO articles for electricians, plumbers, HVAC, and other home service businesses. Built for local rank.',
     time: '~5 min', status: 'active', skill: 'home-service-seo-content', category: 'content',
     preview: '# 7 Signs Your Home Needs an Electrical Panel Upgrade\n\nMost homeowners in Chandler don\'t think about their electrical panel until something goes wrong. By then, the warning signs had been there for months — tripping breakers, flickering lights, outlets that stopped working.\n\nHere\'s what to look for, and when to call a licensed electrician:\n\n**1. Breakers That Keep Tripping**\nA breaker trips once — that\'s it doing its job. If the same breaker trips twice a week, the circuit is consistently overloaded. This is the most common panel issue in Chandler homes built before 2000...' },
+  { id: 'gbp-posts', icon: '📱', title: 'GBP Posts',
+    desc: 'Batch Google Business Profile posts — seasonal, promotional, and evergreen. Ready to copy-paste into GBP.',
+    time: '~4 min', status: 'active', skill: 'gbp-posts', category: 'content',
+    preview: '# GBP Posts: All Thingz Electric — Chandler, AZ\n\n---\n\n## Post 1: Seasonal\n**Is your electrical panel ready for Arizona summer?**\nChandler hits 115° and your AC runs 18 hours a day. If your panel is 20+ years old, that\'s a circuit breaker waiting to trip at 2 AM.\n\nAll Thingz Electric offers free panel inspections for Chandler homeowners. Call (480) 555-0182.\n\n#ChandlerElectrician #PanelUpgrade #ArizonaSummer\n\n---\n\n## Post 2: Service Spotlight\n**EV charger installation — done right the first time.**\nLevel 2 home charging installed by a licensed Chandler master electrician. Permit pulled, inspection scheduled, charging by dinner.\n\nBook your install: (480) 555-0182\n\n#EVCharger #ChandlerAZ #ElectricVehicle' },
   { id: 'seo-blog-generator', icon: '✍️', title: 'SEO Blog Generator',
     desc: 'Full SEO blog post workflow for service businesses — keyword-targeted, structured, and ready to publish.',
     time: '~6 min', status: 'soon', category: 'content' },
@@ -135,10 +139,24 @@ const CONTENT = [];
 // Content Library — persists workflow outputs indexed by client
 // Each item: {id, job_id, client_name, client_id, workflow_id, workflow_title, created_at, has_docx, preview}
 let CONTENT_ITEMS = [];
+let activeApprovalFilter = 'all';
 
 /* job progress simulation */
 const jobProgresses = {};
 JOBS.forEach(j => { jobProgresses[j.id] = j.pct; });
+
+/* ── DOMAIN VALIDATION ── */
+function cleanDomain(raw) {
+  let d = raw.trim().toLowerCase();
+  d = d.replace(/^https?:\/\//, '');
+  d = d.replace(/^www\./, '');
+  d = d.replace(/\/+$/, '');
+  return d;
+}
+function isValidDomain(d) {
+  if (!d) return false;
+  return /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*\.[a-z]{2,}$/.test(d);
+}
 
 /* ── CONFIG ── */
 const API_BASE = '';
@@ -450,6 +468,7 @@ function selectWorkflow(id) {
     'modalInputsServicePage':   id === 'service-page',
     'modalInputsLocationPage':  id === 'location-page',
     'modalInputsProgrammatic':  id === 'programmatic-content',
+    'modalInputsGBPPosts':      id === 'gbp-posts',
   };
   Object.entries(panels).forEach(([panelId, show]) => {
     const panel = document.getElementById(panelId);
@@ -472,7 +491,8 @@ function selectWorkflow(id) {
    'wfBlogBusinessType','wfBlogLocation','wfBlogKeyword','wfBlogAudience','wfBlogTone','wfBlogInternalLinks','wfBlogNotes',
    'wfSvcBusinessType','wfSvcService','wfSvcLocation','wfSvcDifferentiators','wfSvcPriceRange','wfSvcNotes',
    'wfLocBusinessType','wfLocPrimaryService','wfLocTargetLocation','wfLocHomeBase','wfLocLocalDetails','wfLocServicesList','wfLocNotes',
-   'wfProgContentType','wfProgBusinessType','wfProgPrimaryService','wfProgLocation','wfProgHomeBase','wfProgItemsList','wfProgServicesList','wfProgDifferentiators','wfProgNotes'].forEach(fid => {
+   'wfProgContentType','wfProgBusinessType','wfProgPrimaryService','wfProgLocation','wfProgHomeBase','wfProgItemsList','wfProgServicesList','wfProgDifferentiators','wfProgNotes',
+   'wfGBPBusinessType','wfGBPLocation','wfGBPServices','wfGBPPromos','wfGBPNotes'].forEach(fid => {
     const el = document.getElementById(fid);
     if (el) el.value = '';
   });
@@ -512,10 +532,10 @@ function checkRunReady() {
   if (selectedWorkflow === 'prospect-audit') {
     // Prospect-audit uses its own name field — no client dropdown needed
     const name     = document.getElementById('wfProspectName')?.value.trim();
-    const domain   = document.getElementById('wfProspectDomain')?.value.trim();
+    const domain   = cleanDomain(document.getElementById('wfProspectDomain')?.value || '');
     const service  = document.getElementById('wfProspectService')?.value.trim();
     const location = document.getElementById('wfProspectLocation')?.value.trim();
-    ready = !!(name && domain && service && location);
+    ready = !!(name && isValidDomain(domain) && service && location);
   } else {
     // All other workflows require a client to be selected
     const clientVal = document.getElementById('wfClientSelect')?.value;
@@ -529,17 +549,17 @@ function checkRunReady() {
     }
 
     if (selectedWorkflow === 'website-seo-audit' && ready) {
-      const domain   = document.getElementById('wfAuditDomain')?.value.trim();
+      const domain   = cleanDomain(document.getElementById('wfAuditDomain')?.value || '');
       const service  = document.getElementById('wfAuditService')?.value.trim();
       const location = document.getElementById('wfAuditLocation')?.value.trim();
-      ready = !!(domain && service && location);
+      ready = !!(isValidDomain(domain) && service && location);
     }
 
     if (selectedWorkflow === 'keyword-gap' && ready) {
-      const domain   = document.getElementById('wfGapDomain')?.value.trim();
+      const domain   = cleanDomain(document.getElementById('wfGapDomain')?.value || '');
       const service  = document.getElementById('wfGapService')?.value.trim();
       const location = document.getElementById('wfGapLocation')?.value.trim();
-      ready = !!(domain && service && location);
+      ready = !!(isValidDomain(domain) && service && location);
     }
 
     if (selectedWorkflow === 'seo-blog-post' && ready) {
@@ -562,6 +582,12 @@ function checkRunReady() {
       const targetLocation   = document.getElementById('wfLocTargetLocation')?.value.trim();
       const homeBase         = document.getElementById('wfLocHomeBase')?.value.trim();
       ready = !!(businessType && primaryService && targetLocation && homeBase);
+    }
+
+    if (selectedWorkflow === 'gbp-posts' && ready) {
+      const businessType = document.getElementById('wfGBPBusinessType')?.value.trim();
+      const location     = document.getElementById('wfGBPLocation')?.value.trim();
+      ready = !!(businessType && location);
     }
 
     if (selectedWorkflow === 'programmatic-content' && ready) {
@@ -810,14 +836,14 @@ async function launchWorkflow() {
     };
   } else if (selectedWorkflow === 'website-seo-audit') {
     inputs = {
-      domain:   document.getElementById('wfAuditDomain')?.value.trim() || '',
+      domain:   cleanDomain(document.getElementById('wfAuditDomain')?.value || ''),
       service:  document.getElementById('wfAuditService')?.value.trim() || '',
       location: document.getElementById('wfAuditLocation')?.value.trim() || '',
       notes:    document.getElementById('wfAuditNotes')?.value.trim() || '',
     };
   } else if (selectedWorkflow === 'prospect-audit') {
     inputs = {
-      domain:          document.getElementById('wfProspectDomain')?.value.trim() || '',
+      domain:          cleanDomain(document.getElementById('wfProspectDomain')?.value || ''),
       service:         document.getElementById('wfProspectService')?.value.trim() || '',
       location:        document.getElementById('wfProspectLocation')?.value.trim() || '',
       monthly_revenue: document.getElementById('wfProspectRevenue')?.value.trim() || '',
@@ -826,7 +852,7 @@ async function launchWorkflow() {
     };
   } else if (selectedWorkflow === 'keyword-gap') {
     inputs = {
-      domain:             document.getElementById('wfGapDomain')?.value.trim() || '',
+      domain:             cleanDomain(document.getElementById('wfGapDomain')?.value || ''),
       service:            document.getElementById('wfGapService')?.value.trim() || '',
       location:           document.getElementById('wfGapLocation')?.value.trim() || '',
       competitor_domains: document.getElementById('wfGapCompetitors')?.value.trim() || '',
@@ -861,6 +887,15 @@ async function launchWorkflow() {
       services_list:    document.getElementById('wfLocServicesList')?.value.trim() || '',
       notes:            document.getElementById('wfLocNotes')?.value.trim() || '',
     };
+  } else if (selectedWorkflow === 'gbp-posts') {
+    inputs = {
+      business_type: document.getElementById('wfGBPBusinessType')?.value.trim() || '',
+      location:      document.getElementById('wfGBPLocation')?.value.trim() || '',
+      post_count:    document.getElementById('wfGBPCount')?.value || '8',
+      services:      document.getElementById('wfGBPServices')?.value.trim() || '',
+      promos:        document.getElementById('wfGBPPromos')?.value.trim() || '',
+      notes:         document.getElementById('wfGBPNotes')?.value.trim() || '',
+    };
   } else if (selectedWorkflow === 'programmatic-content') {
     inputs = {
       content_type:     document.getElementById('wfProgContentType')?.value || '',
@@ -875,7 +910,7 @@ async function launchWorkflow() {
     };
   }
 
-  const liveWorkflows = ['home-service-content', 'website-seo-audit', 'prospect-audit', 'keyword-gap', 'seo-blog-post', 'service-page', 'location-page', 'programmatic-content'];
+  const liveWorkflows = ['home-service-content', 'website-seo-audit', 'prospect-audit', 'keyword-gap', 'seo-blog-post', 'service-page', 'location-page', 'programmatic-content', 'gbp-posts'];
 
   if (liveWorkflows.includes(selectedWorkflow)) {
     const payload = {
@@ -1788,12 +1823,26 @@ function _contentCard(item) {
     </div>`;
 }
 
+function setApprovalFilter(filter) {
+  activeApprovalFilter = filter;
+  document.querySelectorAll('.content-approval-tabs .filter-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.approvalFilter === filter);
+  });
+  filterContentLibrary();
+}
+
 function filterContentLibrary() {
   const search = (document.getElementById('contentSearch')?.value || '').toLowerCase().trim();
   const clientFilter = document.getElementById('contentClientFilter')?.value || '';
   const typeFilter = document.getElementById('contentTypeFilter')?.value || '';
 
   let filtered = CONTENT_ITEMS;
+
+  if (activeApprovalFilter === 'approved') {
+    filtered = filtered.filter(c => c.approved);
+  } else if (activeApprovalFilter === 'pending') {
+    filtered = filtered.filter(c => !c.approved);
+  }
 
   if (clientFilter) {
     filtered = filtered.filter(c => c.client_name === clientFilter);

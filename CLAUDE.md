@@ -22,7 +22,7 @@ ProofPilot Agent Hub exists to **remove Matthew from the fulfillment bottleneck*
 ## Current State
 
 **Phase 1 (Core Platform): COMPLETE**
-- 8 live workflows with real-time SSE streaming
+- 9 live workflows with real-time SSE streaming
 - Branded `.docx` export on every job
 - SQLite persistence (jobs + clients) on Railway Volume
 - Content Library with client grouping, search, and filters
@@ -34,16 +34,15 @@ ProofPilot Agent Hub exists to **remove Matthew from the fulfillment bottleneck*
 - Client CRUD API (`/api/clients` — create, read, update, soft-delete)
 - Job approval system (`/api/jobs/{id}/approve`)
 
-**Phase 2 (Client Data Layer): ~80% DONE**
+**Phase 2 (Client Data Layer): COMPLETE**
 - [x] Client CRUD API + SQLite table
 - [x] Frontend client management
 - [x] Job approval with badges
-- [ ] Content approval filtering (All / Approved / Pending)
-- [ ] Domain format validation on workflow launch
-- [ ] TTL cleanup for `temp_docs/`
+- [x] Content approval filtering (All / Approved / Pending)
+- [x] Domain format validation on workflow launch
+- [x] TTL cleanup for `temp_docs/` (7-day retention, auto-cleans on startup)
 
 **What's NOT built yet (high priority per growth plan):**
-- GBP Post workflow (Month 1 priority — highest client visibility)
 - Monthly Client Report workflow (Month 1 — justifies retainers)
 - Google Drive integration (Phase 3 — zero-friction content handoff to Jo Paula)
 - Scheduled automations / cron (makes the platform run without Matthew)
@@ -56,13 +55,11 @@ Ordered by business impact. Each item maps to the master growth plan at `~/Agenc
 
 | Priority | Feature | Why | Effort |
 |----------|---------|-----|--------|
-| 1 | **GBP Post Workflow** | Every client needs 8-12 posts/month. Currently manual. Highest visibility deliverable. | Low |
-| 2 | **Monthly Client Report** | Auto-pull SA + DFS data + job history → narrative report. Stops clients from forgetting what we do. | Medium |
-| 3 | **Google Drive Integration** | Approved content auto-uploads to client folders. Jo Paula's inbox becomes zero-friction. | Medium |
-| 4 | **Finish Phase 2** | Content approval filters, domain validation, temp_docs cleanup. | Low |
-| 5 | **On-Page Technical Audit** | Async DFS crawl → ranked issue list. Sells as one-time audit or recurring monitoring. | Medium |
-| 6 | **Scheduled Automations** | Monthly reports on the 1st, GBP posts on the 28th, competitor monitoring daily. | High |
-| 7 | **WordPress Direct Publish** | Push approved content straight to client WordPress sites as drafts. | Medium |
+| 1 | **Monthly Client Report** | Auto-pull SA + DFS data + job history → narrative report. Stops clients from forgetting what we do. | Medium |
+| 2 | **Google Drive Integration** | Approved content auto-uploads to client folders. Jo Paula's inbox becomes zero-friction. | Medium |
+| 3 | **On-Page Technical Audit** | Async DFS crawl → ranked issue list. Sells as one-time audit or recurring monitoring. | Medium |
+| 4 | **Scheduled Automations** | Monthly reports on the 1st, GBP posts on the 28th, competitor monitoring daily. | High |
+| 5 | **WordPress Direct Publish** | Push approved content straight to client WordPress sites as drafts. | Medium |
 
 Full roadmap with implementation details: `ROADMAP.md`
 
@@ -184,6 +181,7 @@ backend/
     location_page.py     — Location page (Claude only)
     home_service_content.py — Home service article (Claude only)
     programmatic_content.py — Bulk generation agent (batch mode)
+    gbp_posts.py         — GBP post batch generator (Claude only)
   static/
     index.html           — Full SPA markup (all views, modals)
     script.js            — WORKFLOWS array, view routing, SSE streaming, workflow launch
@@ -216,7 +214,7 @@ backend/
 
 ---
 
-## Live Workflows (8 Active)
+## Live Workflows (9 Active)
 
 | Workflow ID | Title | Data Sources | File |
 |-------------|-------|-------------|------|
@@ -228,6 +226,7 @@ backend/
 | `service-page` | Service Page | Claude only | `workflows/service_page.py` |
 | `location-page` | Location Page | Claude only | `workflows/location_page.py` |
 | `programmatic-content` | Programmatic Content Agent | Claude + optional DFS | `workflows/programmatic_content.py` |
+| `gbp-posts` | GBP Posts | Claude only | `workflows/gbp_posts.py` |
 
 ### How Workflows Work
 1. Frontend POSTs to `/api/run-workflow` with `workflow_id`, `client_name`, `inputs`, `strategy_context`
@@ -364,6 +363,12 @@ type: "error" → { type, message }
   "home_base": "Chandler, AZ", "local_details": "optional local context", "services_list": "optional", "notes": "optional" }
 ```
 
+### `gbp-posts`
+```json
+{ "business_type": "electrician", "location": "Chandler, AZ", "post_count": "8",
+  "services": "panel upgrade, EV charger", "promos": "10% off panel upgrades", "notes": "optional" }
+```
+
 ---
 
 ## DataForSEO Integration
@@ -449,7 +454,5 @@ Configured in Claude Code global config. Key: `SEARCHATLAS_API_KEY`.
 | Issue | Impact | Planned Fix |
 |-------|--------|-------------|
 | US-only location parsing | International clients get wrong format | DFS appendix/locations API |
-| No domain format validation | Invalid domains sent to APIs | Phase 2.4 |
-| `temp_docs/` not cleaned up | Disk fills over time | TTL cleanup in Phase 2.4 |
 | No test coverage | Risky deploys | Add pytest for keyword gap, docx gen |
 | No request logging | Hard to debug production issues | Structured logging |

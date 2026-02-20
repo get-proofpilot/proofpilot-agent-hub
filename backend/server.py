@@ -8,6 +8,7 @@ import os
 import json
 import uuid
 import asyncio
+import time
 from pathlib import Path
 
 import anthropic
@@ -25,7 +26,8 @@ from workflows.seo_blog_post import run_seo_blog_post
 from workflows.service_page import run_service_page
 from workflows.location_page import run_location_page
 from workflows.programmatic_content import run_programmatic_content
-from utils.docx_generator import generate_docx
+from workflows.gbp_posts import run_gbp_posts
+from utils.docx_generator import generate_docx, TEMP_DIR
 from utils.db import (
     init_db, save_job, update_docx_path, get_job as db_get_job, get_all_jobs,
     create_client, get_client as db_get_client, get_all_clients,
@@ -46,6 +48,29 @@ app.add_middleware(
 # ── Initialise SQLite on startup ───────────────────────────
 init_db()
 
+
+def cleanup_temp_docs(max_age_days: int = 7) -> int:
+    """Delete .docx files in temp_docs/ older than max_age_days. Returns count removed."""
+    if not TEMP_DIR.exists():
+        return 0
+    cutoff = time.time() - (max_age_days * 86400)
+    removed = 0
+    for f in TEMP_DIR.glob("*.docx"):
+        try:
+            if f.stat().st_mtime < cutoff:
+                f.unlink()
+                removed += 1
+        except OSError:
+            pass
+    return removed
+
+
+@app.on_event("startup")
+async def startup_cleanup():
+    removed = await asyncio.to_thread(cleanup_temp_docs, 7)
+    if removed:
+        print(f"[cleanup] Removed {removed} temp_docs file(s) older than 7 days")
+
 WORKFLOW_TITLES = {
     "home-service-content":   "Home Service SEO Content",
     "seo-blog-generator":     "SEO Blog Generator",
@@ -64,6 +89,7 @@ WORKFLOW_TITLES = {
     "frontend-design":        "Frontend Interface Builder",
     "lovable-prompting":      "Lovable App Builder",
     "programmatic-content":   "Programmatic Content Agent",
+    "gbp-posts":              "GBP Posts",
 }
 
 
@@ -286,6 +312,13 @@ async def run_workflow(req: WorkflowRequest):
                 )
             elif req.workflow_id == "programmatic-content":
                 generator = run_programmatic_content(
+                    client=client,
+                    inputs=req.inputs,
+                    strategy_context=req.strategy_context or "",
+                    client_name=req.client_name,
+                )
+            elif req.workflow_id == "gbp-posts":
+                generator = run_gbp_posts(
                     client=client,
                     inputs=req.inputs,
                     strategy_context=req.strategy_context or "",
