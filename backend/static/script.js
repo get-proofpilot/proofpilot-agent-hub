@@ -1849,10 +1849,10 @@ function renderClientHub() {
     ? completedJobs.slice(0, 10).map(j => {
         const icon = wfIconMap[j.wf] || '📄';
         const dlBtn = j.server_job_id
-          ? `<a class="ch-dl-btn" href="${API_BASE}/api/download/${j.server_job_id}" target="_blank">↓ .docx</a>`
+          ? `<a class="ch-dl-btn" href="${API_BASE}/api/download/${j.server_job_id}" target="_blank" onclick="event.stopPropagation()">↓ .docx</a>`
           : `<span class="ch-dl-btn" style="opacity:0.4;cursor:default;">↓ .docx</span>`;
         return `
-          <div class="ch-done-card">
+          <div class="ch-done-card" onclick="${j.server_job_id ? `viewContentItem('${j.server_job_id}')` : `showJobMonitor('${j.id}')`}" style="cursor:pointer;">
             <div class="ch-done-icon">${icon}</div>
             <div class="ch-done-info">
               <div class="ch-done-title">${j.wf}</div>
@@ -1881,7 +1881,7 @@ function renderClientHub() {
         const icon = wfIconMap[j.wf] || '📄';
         const hasDocx = !!j.server_job_id;
         return `
-          <div class="ch-content-item">
+          <div class="ch-content-item" onclick="${j.server_job_id ? `viewContentItem('${j.server_job_id}')` : ''}" style="cursor:pointer;">
             <div class="ch-content-item-header">
               <span class="ch-content-wf-icon">${icon}</span>
               <span class="ch-content-wf-type">${j.wf.split(' ').slice(0, 2).join(' ')}</span>
@@ -1890,7 +1890,7 @@ function renderClientHub() {
             <div class="ch-content-footer">
               <span class="ch-content-date">${j.started}</span>
               ${hasDocx
-                ? `<a class="ch-content-dl" href="${API_BASE}/api/download/${j.server_job_id}" target="_blank">↓ .docx</a>`
+                ? `<a class="ch-content-dl" href="${API_BASE}/api/download/${j.server_job_id}" target="_blank" onclick="event.stopPropagation()">↓ .docx</a>`
                 : `<span class="ch-content-dl" style="opacity:0.35;cursor:default;">↓ .docx</span>`}
             </div>
           </div>
@@ -2524,6 +2524,14 @@ async function syncContentLibrary() {
         existing.approved = !!item.approved;
         existing.approved_at = item.approved_at || null;
       } else {
+        // Parse created_at from ISO string or fall back to now
+        let displayDate;
+        if (item.created_at) {
+          const d = new Date(item.created_at);
+          displayDate = isNaN(d) ? item.created_at : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        } else {
+          displayDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
         CONTENT_ITEMS.push({
           id: item.job_id,
           job_id: item.job_id,
@@ -2533,7 +2541,7 @@ async function syncContentLibrary() {
           workflow_title: item.workflow_title,
           has_docx: item.has_docx,
           preview: item.content_preview || '',
-          created_at: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          created_at: displayDate,
           approved: !!item.approved,
           approved_at: item.approved_at || null,
         });

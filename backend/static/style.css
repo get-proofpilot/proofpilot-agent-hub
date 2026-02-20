@@ -3073,7 +3073,7 @@ body {
 }
 
 .ch-done-card:last-child { border-bottom: none; }
-.ch-done-card:hover { background: rgba(0,0,0,0.03); }
+.ch-done-card:hover { background: rgba(0,81,255,0.04); cursor: pointer; }
 
 .ch-done-icon {
   font-size: 14px;
@@ -3290,12 +3290,12 @@ body {
   flex-direction: column;
   gap: 6px;
   transition: border-color var(--t-fast), box-shadow var(--t-fast);
-  cursor: default;
+  cursor: pointer;
 }
 
 .ch-content-item:hover {
-  border-color: var(--border2);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  border-color: var(--elec-blue);
+  box-shadow: 0 2px 12px rgba(0,81,255,0.1);
 }
 
 .ch-content-item-header {

@@ -466,6 +466,27 @@ def download_docx(job_id: str):
     )
 
 
+def _strip_markdown(text: str, max_len: int = 200) -> str:
+    """Strip markdown formatting for clean plain-text previews."""
+    import re
+    t = text
+    t = re.sub(r'^#{1,6}\s+', '', t, flags=re.MULTILINE)  # headings
+    t = re.sub(r'\*\*(.+?)\*\*', r'\1', t)                 # bold
+    t = re.sub(r'\*(.+?)\*', r'\1', t)                      # italic
+    t = re.sub(r'__(.+?)__', r'\1', t)                      # bold alt
+    t = re.sub(r'_(.+?)_', r'\1', t)                        # italic alt
+    t = re.sub(r'`(.+?)`', r'\1', t)                        # inline code
+    t = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', t)          # links
+    t = re.sub(r'^[-*+]\s+', '', t, flags=re.MULTILINE)     # list markers
+    t = re.sub(r'^\d+\.\s+', '', t, flags=re.MULTILINE)     # numbered lists
+    t = re.sub(r'^>\s*', '', t, flags=re.MULTILINE)          # blockquotes
+    t = re.sub(r'---+|===+|\*\*\*+', '', t)                 # hr
+    t = re.sub(r'\|', ' ', t)                                # table pipes
+    t = re.sub(r'\n{2,}', ' ', t)                            # collapse newlines
+    t = re.sub(r'\s+', ' ', t).strip()                       # normalize spaces
+    return t[:max_len] + "..." if len(t) > max_len else t
+
+
 @app.get("/api/content")
 def list_content():
     """Return all completed jobs as content library items."""
@@ -481,7 +502,8 @@ def list_content():
             "workflow_title": job.get("workflow_title", ""),
             "workflow_id": job.get("workflow_id", ""),
             "has_docx": bool(job.get("docx_path")),
-            "content_preview": content_str[:200] + "..." if len(content_str) > 200 else content_str,
+            "content_preview": _strip_markdown(content_str, 200),
+            "created_at": job.get("created_at", ""),
             "approved": bool(job.get("approved", 0)),
             "approved_at": job.get("approved_at"),
         })
@@ -501,7 +523,7 @@ def get_job_detail(job_id: str):
         "workflow_id": job.get("workflow_id", ""),
         "has_docx": bool(job.get("docx_path")),
         "content": content,
-        "content_preview": content[:300] + "..." if len(content) > 300 else content,
+        "content_preview": _strip_markdown(content, 300),
         "approved": bool(job.get("approved", 0)),
         "approved_at": job.get("approved_at"),
     }
