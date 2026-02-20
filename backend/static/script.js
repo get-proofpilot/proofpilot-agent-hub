@@ -158,6 +158,28 @@ let activeTerminalEl = null;
 let monitorJobId = null;
 const activeSSEJobs = new Set();
 
+/* ── MOBILE SIDEBAR ── */
+function toggleMobileSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebarBackdrop');
+  const isOpen = sidebar.classList.contains('mobile-open');
+  if (isOpen) {
+    closeMobileSidebar();
+  } else {
+    sidebar.classList.add('mobile-open');
+    backdrop.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function closeMobileSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebarBackdrop');
+  sidebar.classList.remove('mobile-open');
+  backdrop.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
 function showView(viewId) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -2116,6 +2138,7 @@ document.querySelectorAll('.nav-item[data-view]').forEach(item => {
   item.addEventListener('click', e => {
     e.preventDefault();
     showView(item.dataset.view);
+    closeMobileSidebar();
   });
 });
 

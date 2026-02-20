@@ -2682,6 +2682,55 @@ body {
   animation: jm-pulse 1.8s ease-in-out infinite;
 }
 
+/* ══════════════════════════════════════ MOBILE SIDEBAR ══ */
+
+/* Hamburger button — hidden on desktop */
+.mobile-menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+
+.mobile-menu-btn svg {
+  width: 18px;
+  height: 18px;
+  color: var(--text2);
+}
+
+.mobile-menu-btn:hover {
+  background: var(--blue-bg);
+  border-color: var(--elec-blue);
+}
+
+.mobile-menu-btn:hover svg {
+  color: var(--elec-blue);
+}
+
+/* Sidebar backdrop — hidden by default */
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 199;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.sidebar-backdrop.active {
+  display: block;
+  opacity: 1;
+}
+
 /* ══════════════════════════════════════ RESPONSIVE ══ */
 @media (max-width: 1200px) {
   .dash-grid { grid-template-columns: 1fr; }
@@ -2694,19 +2743,268 @@ body {
 }
 
 @media (max-width: 768px) {
-  .sidebar { display: none; }
-  .view { padding: 16px; }
-  .kpi-row { grid-template-columns: repeat(2, 1fr); }
-  .dash-grid { grid-template-columns: 1fr; }
-  .dash-right { grid-template-columns: 1fr; }
-  .workflow-cards-grid { grid-template-columns: 1fr; }
-  .topbar { padding: 0 16px; }
+
+  /* ── Hamburger visible ── */
+  .mobile-menu-btn { display: flex; }
+
+  /* ── Sidebar: off-canvas slide-in ── */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 200;
+    width: 272px;
+    min-width: 272px;
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: none;
+  }
+
+  .sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: 4px 0 30px rgba(0, 0, 0, 0.5);
+  }
+
+  /* ── Topbar adjustments ── */
+  .topbar {
+    padding: 0 12px;
+    height: 50px;
+    gap: 8px;
+  }
+
+  .topbar-crumb { display: none; }
+  .topbar-sep { display: none; }
+
+  .topbar-cur {
+    font-size: 16px;
+  }
+
+  .topbar-right {
+    gap: 8px;
+  }
+
+  /* Hide less critical topbar items on mobile */
+  .tb-clock { display: none; }
+  .btn-ghost { display: none; }
+  .tb-avatar { display: none; }
+
+  .btn-primary-top {
+    padding: 7px 12px;
+    font-size: 11px;
+  }
+
+  .btn-primary-top svg {
+    width: 10px;
+    height: 10px;
+  }
+
+  /* ── Views ── */
+  .view { padding: 14px 12px 32px; }
+
+  /* ── KPI row ── */
+  .kpi-row { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+
+  .kpi-card { padding: 14px 14px 12px; }
+
+  .kpi-value { font-size: 36px; }
+
+  .kpi-label { font-size: 10px; gap: 5px; margin-bottom: 6px; }
+
+  .kpi-label svg { width: 11px; height: 11px; }
+
+  /* ── Dashboard grid ── */
+  .dash-grid { grid-template-columns: 1fr; gap: 10px; }
+  .dash-right { display: flex; flex-direction: column; gap: 10px; }
+
+  /* ── Panel tweaks ── */
+  .panel-header { padding: 9px 12px; }
+  .panel-title { font-size: 13px; gap: 6px; }
+  .panel-title svg { width: 12px; height: 12px; }
+  .ph-badge { font-size: 9px; padding: 2px 7px; }
+  .ph-btn { font-size: 9px; padding: 3px 8px; }
+
+  /* ── Terminal ── */
+  .panel-terminal { min-height: 180px; max-height: 220px; }
+  .terminal-body { padding: 10px 12px; font-size: 11px; line-height: 1.8; }
+
+  /* ── Tables — horizontal scroll ── */
+  .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  .data-table { min-width: 640px; }
+
+  .c-table { min-width: 580px; }
+
+  .c-table th, .c-table td { padding: 8px 10px; font-size: 12px; }
+
+  /* ── Workflow cards ── */
+  .workflow-cards-grid { grid-template-columns: 1fr; gap: 10px; }
+
+  .wf-card { min-height: 140px; padding: 14px 14px 12px; }
+
+  /* ── Clients toolbar ── */
+  .clients-toolbar {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .clients-toolbar .table-search {
+    width: 100%;
+  }
+
+  .clients-toolbar .btn-primary-top {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* ── Jobs toolbar ── */
+  .jobs-toolbar { flex-wrap: wrap; }
+
+  .filter-tabs {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+  }
+
+  .filter-tab {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* ── Workflow modal ── */
+  .wf-modal {
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    margin: 0;
+  }
+
+  .wf-modal-body { padding: 16px 14px; }
+  .wf-modal-header { padding: 14px 14px 12px; }
+  .wf-modal-footer { padding: 12px 14px 16px; }
+  .wf-modal-2col { grid-template-columns: 1fr; }
+
+  /* ── Job monitor ── */
+  .jm-header {
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .jm-job-info { flex-wrap: wrap; gap: 6px; }
+  .jm-sep { display: none; }
+  .jm-wf-name { font-size: 14px; }
+
+  .jm-terminal-wrap { padding: 10px 12px; }
+
+  .terminal {
+    font-size: 11px;
+    line-height: 1.7;
+    padding: 12px 14px;
+  }
+
+  .jm-done-bar {
+    flex-wrap: wrap;
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .jm-download-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 12px 20px;
+  }
+
+  /* ── Content library ── */
+  .content-lib-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .content-lib-controls { width: 100%; flex-direction: column; gap: 8px; }
+  .content-search-input { width: 100%; }
+  .content-filter-select { width: 100%; flex: unset; min-width: unset; }
+
+  /* ── Activity log ── */
+  .log-toolbar {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .log-filter-tabs {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .log-stream {
+    font-size: 11px;
+  }
+
+  /* ── Client Hub ── */
+  .ch-header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .ch-stats-bar { grid-template-columns: repeat(2, 1fr); }
+  .ch-stat:nth-child(2) { border-right: none; }
+
+  .ch-columns { grid-template-columns: 1fr; }
+
+  /* ── Ad Studio ── */
+  .ads-header {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .ads-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* ── Add/Edit Client modals ── */
+  #addClientModal .wf-modal,
+  #editClientModal .wf-modal {
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+  }
+
+  /* ── Misc input sizing ── */
   .wf-input-row { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 480px) {
   .kpi-row { grid-template-columns: 1fr; }
+
+  .kpi-value { font-size: 32px; }
+
   .wf-input-row { grid-template-columns: 1fr; }
+
+  /* Smaller topbar on very small screens */
+  .topbar { height: 46px; }
+  .topbar-cur { font-size: 14px; }
+
+  .btn-primary-top {
+    padding: 6px 10px;
+    font-size: 10px;
+  }
+
+  /* Stack task items more compactly */
+  .task-item { padding: 8px 12px; gap: 8px; }
+  .task-name { font-size: 12px; }
+  .task-client { font-size: 10px; }
+
+  /* Roster items */
+  .roster-item { padding: 8px 12px; gap: 8px; }
+  .roster-name { font-size: 12px; }
+
+  /* Content library cards */
+  .cl-cards-row { grid-template-columns: 1fr; }
+  .cl-card { min-height: unset; padding: 14px; }
 }
 
 /* ══════════════════════════════════════ CLIENT HUB ══ */
