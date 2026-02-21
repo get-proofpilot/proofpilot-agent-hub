@@ -5,8 +5,30 @@ a home service business — targeting high-intent "[service] [city]" keywords
 and built to rank locally and convert at 8%+.
 """
 
+import re
 import anthropic
 from typing import AsyncGenerator
+
+
+def _clean_content(text: str) -> str:
+    """Remove AI writing patterns: em dashes and colon headlines."""
+    # Fix bullet format: **Bold** — description → **Bold.** Description
+    text = re.sub(r'\*\*([^*]+)\*\*\s*—\s*', r'**\1.** ', text)
+    # Fix sentence em dashes: word — word → word, word
+    text = re.sub(r'(\w)\s*—\s*(\w)', r'\1, \2', text)
+    # Clean up remaining em dashes
+    text = text.replace(' — ', ', ')
+    text = text.replace(' —\n', '.\n')
+    text = text.replace(' —', ',')
+    text = text.replace('— ', ', ')
+    text = text.replace('—', ', ')
+    # Fix colon headlines: "## Label: Rest" → "## Rest in Label" (short labels ≤4 words)
+    text = re.sub(
+        r'^(#{2,3})\s+([A-Za-z][A-Za-z\s,]+?):\s+(.+)$',
+        lambda m: f"{m.group(1)} {m.group(3)} in {m.group(2)}" if len(m.group(2).split()) <= 4 else f"{m.group(1)} {m.group(3)}",
+        text, flags=re.MULTILINE
+    )
+    return text
 
 SYSTEM_PROMPT = """You are a conversion copywriter and local SEO specialist writing service pages for home service businesses under the ProofPilot agency.
 
@@ -115,11 +137,16 @@ async def run_service_page(
     lines += [
         "",
         "Write the complete service page now. Start immediately with the # H1. No preamble.",
+        "",
+        "BEFORE YOU WRITE ANYTHING — commit to these two rules:",
+        "1. ZERO EM DASHES (—) in your entire response. Not one. Use a comma or start a new sentence instead.",
+        "2. ZERO COLONS IN ANY H2 OR H3 HEADLINE. Headlines must be natural phrases. Wrong: 'Our Process: What to Expect' / Right: 'What to Expect When You Call'. Read every headline before writing it.",
     ]
 
     user_prompt = "\n".join(lines)
 
-    # ── Stream from Claude ─────────────────────────────────
+    # ── Generate from Claude (buffered for post-processing) ────────────────
+    chunks: list[str] = []
     async with client.messages.stream(
         model="claude-sonnet-4-6",
         max_tokens=10000,
@@ -128,4 +155,9 @@ async def run_service_page(
         messages=[{"role": "user", "content": user_prompt}],
     ) as stream:
         async for text in stream.text_stream:
-            yield text
+            chunks.append(text)
+
+    # ── Post-process to remove AI writing patterns ──────────────────────
+    raw = "".join(chunks)
+    cleaned = _clean_content(raw)
+    yield cleaned
