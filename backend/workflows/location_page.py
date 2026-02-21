@@ -5,8 +5,47 @@ a specific city or neighborhood — built to rank for "[service] in [city]"
 queries while feeling genuinely local, not templated.
 """
 
+import re
 import anthropic
 from typing import AsyncGenerator
+
+
+def _clean_content(text: str) -> str:
+    """
+    Post-process generated content to remove AI writing patterns:
+    - Em dashes (—) replaced with commas or restructured
+    - H2/H3 headlines with colons rewritten as natural phrases
+    - Bullet bold-labels using em dashes fixed to use periods
+    """
+    # Fix bullet format: **Bold** — description → **Bold.** Description
+    text = re.sub(r'\*\*([^*]+)\*\*\s*—\s*', r'**\1.** ', text)
+
+    # Fix sentence em dashes: word — word → word, word
+    text = re.sub(r'(\w)\s*—\s*(\w)', r'\1, \2', text)
+
+    # Clean up any remaining em dashes with surrounding spaces
+    text = text.replace(' — ', ', ')
+    text = text.replace(' —\n', '.\n')
+    text = text.replace(' —', ',')
+    text = text.replace('— ', ', ')
+    text = text.replace('—', ', ')
+
+    # Fix common headline colon patterns for location pages
+    # "## City Homes: What We See Most" → "## What We See Most in City Homes"
+    text = re.sub(
+        r'^(#{1,3})\s+(.+?)\s+Homes:\s+What We See Most',
+        r'\1 What We See Most in \2 Homes',
+        text, flags=re.MULTILINE
+    )
+    # Generic headline colon flattener: "## Label: Rest of Title" → "## Rest of Title in Label"
+    # Only apply to H2/H3 where a short label precedes the colon
+    text = re.sub(
+        r'^(#{2,3})\s+([A-Za-z][A-Za-z\s,]+?):\s+(.+)$',
+        lambda m: f"{m.group(1)} {m.group(3)} in {m.group(2)}" if len(m.group(2).split()) <= 4 else f"{m.group(1)} {m.group(3)}",
+        text, flags=re.MULTILINE
+    )
+
+    return text
 
 SYSTEM_PROMPT = """ABSOLUTE WRITING RULES — READ THESE FIRST AND FOLLOW THEM THROUGHOUT:
 
@@ -154,7 +193,8 @@ async def run_location_page(
 
     user_prompt = "\n".join(lines)
 
-    # ── Stream from Claude ─────────────────────────────────
+    # ── Generate from Claude (buffered for post-processing) ────────────────
+    chunks: list[str] = []
     async with client.messages.stream(
         model="claude-sonnet-4-6",
         max_tokens=10000,
@@ -163,4 +203,9 @@ async def run_location_page(
         messages=[{"role": "user", "content": user_prompt}],
     ) as stream:
         async for text in stream.text_stream:
-            yield text
+            chunks.append(text)
+
+    # ── Post-process to remove AI writing patterns ──────────────────────
+    raw = "".join(chunks)
+    cleaned = _clean_content(raw)
+    yield cleaned
