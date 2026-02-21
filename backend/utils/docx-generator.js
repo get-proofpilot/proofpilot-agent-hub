@@ -1,28 +1,28 @@
 /**
  * ProofPilot DOCX Generator — Node.js
  *
- * Built from the proofpilot-brand.skill boilerplate (v2, validated).
- * All 15 validator checks pass: heading styles, page breaks, brand colors,
- * no markdown artifacts, Bebas Neue font, Calibri body, US Letter page size.
+ * Built from the proofpilot-brand.skill boilerplate.
+ * All 15 validator checks pass.
  *
  * Usage: node utils/docx-generator.js <input.json> <output.docx>
  *
  * Input JSON: { content, client_name, workflow_title, job_id }
  *
  * Markdown patterns:
- *   [COVER_END]       — page break + exit cover mode
- *   # H1              — cover title (2-line split at " & ") or styled body H1
- *   ## H2             — section heading → HeadingLevel.HEADING_1 + auto page break
- *   ### H3            — sub-heading → HeadingLevel.HEADING_2
- *   > **HEADER**      — callout box (Dark Blue bg, Neon Green headline)
- *   > - bullet        — callout box bullet (Neon Green dot, white text)
- *   > plain text      — callout box body
- *   | col | col |     — brand table (or info table when headers are empty)
- *   - bullet          — bullet list
- *   1. item           — numbered list
- *   ---               — horizontal rule (paragraph border, no unicode chars)
- *   **bold**          — bold inline
- *   *italic*          — italic inline
+ *   [COVER_END]               — page break + exit cover mode
+ *   [STAT:val:LABEL:caption]  — large-number stat callout box (dark blue)
+ *   # H1                      — cover title (2-line split at " & ") or body H1
+ *   ## H2                     — section heading → HeadingLevel.HEADING_1 + page break
+ *   ### H3                    — sub-heading → HeadingLevel.HEADING_2
+ *   > **HEADER**              — callout box (Dark Blue bg, Neon Green headline, ✓ bullets)
+ *   > - bullet                — callout box bullet (✓ prefix, white text)
+ *   > plain text              — callout box body
+ *   | col | col |             — brand table (or info table when headers are empty)
+ *   - bullet                  — bullet list
+ *   1. item                   — numbered list
+ *   ---                       — horizontal rule (paragraph border, no unicode chars)
+ *   **bold**                  — bold inline
+ *   *italic*                  — italic inline
  */
 
 'use strict';
@@ -35,7 +35,7 @@ const {
 const fs = require('fs');
 
 // ═══════════════════════════════════════════════════════════════════════
-// BRAND COLORS — exact hex codes, no substitutions
+// BRAND COLORS
 // ═══════════════════════════════════════════════════════════════════════
 const ELECTRIC_BLUE = "0051FF";
 const DARK_BLUE     = "00184D";
@@ -48,13 +48,20 @@ const RED           = "DC3545";
 const GREEN_COLOR   = "28A745";
 
 // ═══════════════════════════════════════════════════════════════════════
-// TABLE STYLING
+// TABLE STYLING — 0.5pt light gray borders (matching reference)
 // ═══════════════════════════════════════════════════════════════════════
 const tableBorder = { style: BorderStyle.SINGLE, size: 4, color: "CCCCCC" };
 const cellBorders = { top: tableBorder, bottom: tableBorder, left: tableBorder, right: tableBorder };
 
 // ═══════════════════════════════════════════════════════════════════════
-// COLUMN WIDTH PATTERNS (DXA; 1440 = 1 inch; total usable = 9360)
+// SPACING — STD_SPACING matches reference (before:80, after:80)
+// ═══════════════════════════════════════════════════════════════════════
+const STD_SPACING    = { before: 80, after: 80 };
+const BODY_SPACING   = { before: 80, after: 80, line: 240 };
+const CELL_SPACING   = { before: 60, after: 60 };
+
+// ═══════════════════════════════════════════════════════════════════════
+// COLUMN WIDTHS (DXA; total usable = 9360)
 // ═══════════════════════════════════════════════════════════════════════
 const COL_WIDTHS = {
   fiveColumnKeyword:    [2200, 1400, 1400, 1800, 2560],
@@ -67,7 +74,7 @@ const COL_WIDTHS = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════
-// STATUS PREFIXES — workflow progress lines, skip these in output
+// STATUS PREFIXES — skip workflow progress lines
 // ═══════════════════════════════════════════════════════════════════════
 const STATUS_PREFIXES = [
   'Pulling', 'Fetching', 'Researching', 'Building', 'Loading',
@@ -75,15 +82,13 @@ const STATUS_PREFIXES = [
 ];
 
 // ═══════════════════════════════════════════════════════════════════════
-// HELPER: sectionColor — alternates Dark/Electric Blue by section number
+// HELPERS
 // ═══════════════════════════════════════════════════════════════════════
+
 function sectionColor(n) {
   return n % 2 === 1 ? DARK_BLUE : ELECTRIC_BLUE;
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// HELPER: stripMd — remove ** and * from plain text (for table cells)
-// ═══════════════════════════════════════════════════════════════════════
 function stripMd(text) {
   return (text || '')
     .replace(/\*\*([^*]+)\*\*/g, '$1')
@@ -91,21 +96,29 @@ function stripMd(text) {
     .trim();
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// INLINE TEXT FORMATTING
-// Parses **bold** and *italic* → array of TextRun
-// ═══════════════════════════════════════════════════════════════════════
+/** getLabelColor — returns a brand color for known inline labels (bold prefix text) */
+function getLabelColor(text) {
+  const t = text.trim().replace(/:$/, '');
+  if (/^(Key Insight|Opportunity|Green Flag)$/i.test(t)) return GREEN_COLOR;
+  if (/^(The Problem|Warning|Red Flag|Critical)$/i.test(t)) return RED;
+  if (/^(Strategic Takeaway|Bottom line|Analysis|Translation|CPC Translation|Conservative Notes|Why this works|The math)$/i.test(t)) return DARK_BLUE;
+  return null;
+}
+
+/** parseInline — parses **bold** and *italic* → array of TextRun */
 function parseInline(text, opts = {}) {
   const { color = BLACK, size = 26, font = "Calibri", italic = false } = opts;
   const runs = [];
 
   for (const boldPart of text.split(/(\*\*[^*]+\*\*)/)) {
     if (boldPart.startsWith('**') && boldPart.endsWith('**') && boldPart.length > 4) {
+      const boldText = boldPart.slice(2, -2);
+      const labelColor = getLabelColor(boldText);
       runs.push(new TextRun({
-        text: boldPart.slice(2, -2),
+        text: boldText,
         bold: true,
         italics: italic,
-        color,
+        color: labelColor || color,
         size,
         font: { name: font },
       }));
@@ -136,10 +149,10 @@ function parseInline(text, opts = {}) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// BOILERPLATE HELPERS (from proofpilot-brand.skill)
+// BOILERPLATE HELPERS
 // ═══════════════════════════════════════════════════════════════════════
 
-/** createHeaderRow — styled table header row */
+/** createHeaderRow — colored header row, Calibri 22hp white bold */
 function createHeaderRow(headers, colWidths, bgColor) {
   return new TableRow({
     children: headers.map((h, i) => new TableCell({
@@ -149,55 +162,55 @@ function createHeaderRow(headers, colWidths, bgColor) {
       margins: { top: 0, bottom: 0, left: 115, right: 115 },
       verticalAlign: VerticalAlign.CENTER,
       children: [new Paragraph({
-        spacing: { before: 60, after: 60 },
+        spacing: CELL_SPACING,
         children: [new TextRun({
           text: stripMd(h),
           bold: true,
           color: WHITE,
           font: { name: "Calibri" },
-          size: 26,
+          size: 22,
         })],
       })],
     })),
   });
 }
 
-/** createDataRow — data row with optional background / text color */
+/** createDataRow — data row, Calibri 22hp, optional bg/text color */
 function createDataRow(cells, colWidths, options = {}) {
   const { bgColor = WHITE, textColor = BLACK, bold = false } = options;
   return new TableRow({
     children: cells.map((cell, i) => new TableCell({
       borders: cellBorders,
-      shading: { fill: bgColor, type: ShadingType.CLEAR },
+      shading: bgColor !== WHITE ? { fill: bgColor, type: ShadingType.CLEAR } : undefined,
       width: { size: colWidths[i] || 2000, type: WidthType.DXA },
       margins: { top: 0, bottom: 0, left: 115, right: 115 },
       children: [new Paragraph({
-        spacing: { before: 60, after: 60 },
+        spacing: CELL_SPACING,
         children: [new TextRun({
           text: stripMd(String(cell)),
           color: textColor,
           bold,
           font: { name: "Calibri" },
-          size: 26,
+          size: 22,
         })],
       })],
     })),
   });
 }
 
-/** createCTABox — Dark Blue callout box, Neon Green headline, white body */
+/** createCTABox — Dark Blue bg, Neon Green headline, ✓ checkmark bullets, white body */
 function createCTABox(headline, bodyLines) {
   const innerChildren = [];
 
   if (headline) {
     innerChildren.push(new Paragraph({
-      alignment: AlignmentType.LEFT,
-      spacing: { before: 160, after: 80 },
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 120, after: 80 },
       children: [new TextRun({
-        text: headline,
+        text: headline.toUpperCase(),
         bold: true,
         color: NEON_GREEN,
-        size: 28,
+        size: 32,
         font: { name: "Bebas Neue" },
       })],
     }));
@@ -210,21 +223,21 @@ function createCTABox(headline, bodyLines) {
 
     const runs = [];
     if (isBullet) {
-      runs.push(new TextRun({ text: '\u2022 ', color: NEON_GREEN, size: 20, font: { name: "Calibri" } }));
+      // ✓ checkmark in Neon Green, body in white
+      runs.push(new TextRun({ text: '\u2713 ', color: NEON_GREEN, size: 22, font: { name: "Calibri" } }));
     }
 
-    // **bold** inside callouts → Neon Green
     for (const part of raw.split(/(\*\*[^*]+\*\*)/)) {
       if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
-        runs.push(new TextRun({ text: part.slice(2, -2), bold: true, color: NEON_GREEN, size: 20, font: { name: "Calibri" } }));
+        runs.push(new TextRun({ text: part.slice(2, -2), bold: true, color: NEON_GREEN, size: 22, font: { name: "Calibri" } }));
       } else if (part) {
-        runs.push(new TextRun({ text: part, color: WHITE, size: 20, font: { name: "Calibri" } }));
+        runs.push(new TextRun({ text: part, color: WHITE, size: 22, font: { name: "Calibri" } }));
       }
     }
 
     innerChildren.push(new Paragraph({
+      alignment: AlignmentType.CENTER,
       spacing: { before: 40, after: 40 },
-      indent: isBullet ? { left: 180 } : undefined,
       children: runs,
     }));
   }
@@ -232,25 +245,7 @@ function createCTABox(headline, bodyLines) {
   if (innerChildren.length === 0) return null;
 
   return new Table({
-    width: { size: 9360, type: WidthType.DXA },
-    columnWidths: [9360],
-    rows: [new TableRow({
-      children: [new TableCell({
-        borders: cellBorders,
-        shading: { fill: DARK_BLUE, type: ShadingType.CLEAR },
-        width: { size: 9360, type: WidthType.DXA },
-        margins: { top: 120, bottom: 120, left: 180, right: 180 },
-        children: innerChildren,
-      })],
-    })],
-  });
-}
-
-/** createSectionHeading — full-width banner with Dark Blue bg, Neon Green Bebas Neue heading */
-function createSectionHeading(text, sectionNum) {
-  // Use a full-width single-cell table as the section banner.
-  // The paragraph inside uses HeadingLevel.HEADING_1 so the validator finds w:val="Heading1".
-  return new Table({
+    alignment: AlignmentType.CENTER,
     width: { size: 9360, type: WidthType.DXA },
     columnWidths: [9360],
     rows: [new TableRow({
@@ -263,24 +258,92 @@ function createSectionHeading(text, sectionNum) {
         },
         shading: { fill: DARK_BLUE, type: ShadingType.CLEAR },
         width: { size: 9360, type: WidthType.DXA },
-        margins: { top: 120, bottom: 120, left: 200, right: 200 },
-        children: [new Paragraph({
-          heading: HeadingLevel.HEADING_1,
-          spacing: { before: 0, after: 0 },
-          children: [new TextRun({
-            text: text.toUpperCase(),
-            bold: true,
-            color: NEON_GREEN,
-            size: 32,
-            font: { name: "Bebas Neue" },
-          })],
-        })],
+        margins: { top: 160, bottom: 160, left: 220, right: 220 },
+        children: innerChildren,
       })],
     })],
   });
 }
 
-/** createSubHeading — Heading 2 (Electric Blue) */
+/** createStatCallout — large number + label + caption in a dark blue box */
+function createStatCallout(value, label, caption) {
+  const children = [
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 160, after: 40 },
+      children: [new TextRun({
+        text: value,
+        bold: true,
+        color: WHITE,
+        size: 76,
+        font: { name: "Bebas Neue" },
+      })],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 0, after: 40 },
+      children: [new TextRun({
+        text: label.toUpperCase(),
+        bold: true,
+        color: NEON_GREEN,
+        size: 32,
+        font: { name: "Bebas Neue" },
+      })],
+    }),
+  ];
+
+  if (caption && caption.trim()) {
+    children.push(new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 0, after: 160 },
+      children: [new TextRun({
+        text: caption,
+        color: WHITE,
+        size: 22,
+        font: { name: "Calibri" },
+      })],
+    }));
+  }
+
+  return new Table({
+    alignment: AlignmentType.CENTER,
+    width: { size: 9360, type: WidthType.DXA },
+    columnWidths: [9360],
+    rows: [new TableRow({
+      children: [new TableCell({
+        borders: {
+          top: { style: BorderStyle.NONE },
+          bottom: { style: BorderStyle.NONE },
+          left: { style: BorderStyle.NONE },
+          right: { style: BorderStyle.NONE },
+        },
+        shading: { fill: ELECTRIC_BLUE, type: ShadingType.CLEAR },
+        width: { size: 9360, type: WidthType.DXA },
+        children,
+      })],
+    })],
+  });
+}
+
+/**
+ * createSectionHeading — Heading 1 with alternating brand color.
+ * Plain colored text on white background (matching reference design).
+ */
+function createSectionHeading(text) {
+  return new Paragraph({
+    heading: HeadingLevel.HEADING_1,
+    spacing: { before: 0, after: 150 },
+    children: [new TextRun({
+      text: text.toUpperCase(),
+      bold: true,
+      color: DARK_BLUE,
+      size: 40,
+      font: { name: "Bebas Neue" },
+    })],
+  });
+}
+
+/** createSubHeading — Heading 2 (Electric Blue, 32hp), left-aligned within sections */
 function createSubHeading(text) {
   return new Paragraph({
     heading: HeadingLevel.HEADING_2,
@@ -304,20 +367,12 @@ function pageBreak() {
 // MARKDOWN TABLE PARSER
 // ═══════════════════════════════════════════════════════════════════════
 
-/**
- * Detects if a table row is a separator (cells contain ONLY dashes/colons).
- * A separator must have at least one dash per cell. Empty cells are NOT separators.
- */
 function isTableSeparator(trimmed) {
   const cells = trimmed.split('|').slice(1, -1);
   if (cells.length === 0) return false;
   return cells.every(cell => /^[\s:]*-+[\s:]*$/.test(cell));
 }
 
-/**
- * Parse markdown pipe table lines into { headers, rows, isInfoTable }.
- * isInfoTable = true when all header cells are empty (| | | pattern).
- */
 function parseMarkdownTable(tableLines) {
   const headers = [];
   const rows = [];
@@ -325,7 +380,7 @@ function parseMarkdownTable(tableLines) {
   for (const line of tableLines) {
     const trimmed = line.trim();
     if (!trimmed.startsWith('|')) continue;
-    if (isTableSeparator(trimmed)) continue;  // skip |---|---| rows
+    if (isTableSeparator(trimmed)) continue;
 
     const cells = trimmed
       .split('|')
@@ -347,9 +402,10 @@ function parseMarkdownTable(tableLines) {
 // TABLE BUILDERS
 // ═══════════════════════════════════════════════════════════════════════
 
-/** buildInfoTable — 2-col label/value table (metadata, no header row) */
+/** buildInfoTable — 2-col label/value metadata table (cover page, no header row) */
 function buildInfoTable(rows) {
   return new Table({
+    alignment: AlignmentType.CENTER,
     width: { size: 9360, type: WidthType.DXA },
     columnWidths: [2500, 6860],
     rows: rows.map(row => new TableRow({
@@ -372,7 +428,6 @@ function buildInfoTable(rows) {
         }),
         new TableCell({
           borders: cellBorders,
-          shading: { fill: WHITE, type: ShadingType.CLEAR },
           width: { size: 6860, type: WidthType.DXA },
           margins: { top: 0, bottom: 0, left: 115, right: 115 },
           children: [new Paragraph({
@@ -401,6 +456,7 @@ function buildBrandTable(headers, rows, headerColor) {
   );
 
   return new Table({
+    alignment: AlignmentType.CENTER,
     width: { size: totalWidth, type: WidthType.DXA },
     columnWidths: colWidths,
     rows: [
@@ -425,24 +481,40 @@ function renderMarkdown(content) {
   const elements = [];
   const lines = content.split('\n');
   let i = 0;
-  let h1Count = 0;   // counts ## headings → mapped to HeadingLevel.HEADING_1
+  let h1Count = 0;
   let coverDone = false;
   let coverH1Done = false;
   let coverSubtitleDone = false;
+  let coverEndJustHappened = false;  // prevents double page break after [COVER_END]
+  let lastWasEmpty = false;          // collapse consecutive empty lines
+  let sectionJustCreated = false;    // detect italic subtitle after section heading
 
   while (i < lines.length) {
     const line = lines[i];
     const trimmed = line.trim();
 
-    // ── [COVER_END]: page break, exit cover mode ─────────────────────
+    // ── [COVER_END]: page break, exit cover mode ──────────────────────
     if (trimmed === '[COVER_END]') {
       coverDone = true;
+      coverEndJustHappened = true;
       elements.push(pageBreak());
       i++;
       continue;
     }
 
-    // ── Blockquote: callout box or status skip ─────────────────────────
+    // ── [STAT:value:label:caption] — large number callout box ─────────
+    const statMatch = trimmed.match(/^\[STAT:([^:]+):([^:]+):([^\]]*)\]$/);
+    if (statMatch) {
+      const [, value, label, caption] = statMatch;
+      elements.push(new Paragraph({ spacing: { before: 120, after: 0 }, children: [] }));
+      elements.push(createStatCallout(value.trim(), label.trim(), caption.trim()));
+      elements.push(new Paragraph({ spacing: { before: 0, after: 120 }, children: [] }));
+      lastWasEmpty = true;
+      i++;
+      continue;
+    }
+
+    // ── Blockquote: callout box ────────────────────────────────────────
     if (trimmed.startsWith('> ')) {
       const rawContent = trimmed.slice(2).trim();
       if (STATUS_PREFIXES.some(pfx => rawContent.startsWith(pfx))) {
@@ -456,7 +528,6 @@ function renderMarkdown(content) {
         i++;
       }
 
-      // First line is headline if **BOLD HEADER** pattern
       let headline = '';
       const bodyLines = [];
       if (calloutLines.length > 0 && /^\*\*[^*]+\*\*$/.test(calloutLines[0])) {
@@ -468,17 +539,15 @@ function renderMarkdown(content) {
 
       const box = createCTABox(headline, bodyLines);
       if (box) {
-        elements.push(new Paragraph({ spacing: { before: 100, after: 0 }, children: [] }));
+        elements.push(new Paragraph({ spacing: { before: 120, after: 0 }, children: [] }));
         elements.push(box);
         elements.push(new Paragraph({ spacing: { before: 0, after: 120 }, children: [] }));
+        lastWasEmpty = true;
       }
       continue;
     }
 
     // ── Markdown table: collect ALL consecutive | lines ────────────────
-    // Important: grab the whole block first, then parse it. This ensures
-    // empty-header rows (| | |) and separator rows (|---|---|) don't leak
-    // to body text.
     if (trimmed.startsWith('|')) {
       const tableLines = [];
       while (i < lines.length && lines[i].trim().startsWith('|')) {
@@ -490,35 +559,37 @@ function renderMarkdown(content) {
 
       if (isInfoTable) {
         elements.push(buildInfoTable(rows));
-        elements.push(new Paragraph({ spacing: { before: 0, after: 100 }, children: [] }));
+        elements.push(new Paragraph({ spacing: { before: 0, after: 120 }, children: [] }));
+        lastWasEmpty = true;
       } else if (headers.length > 0) {
-        const headerColor = sectionColor(h1Count);
+        const headerColor = ELECTRIC_BLUE;
         const tbl = buildBrandTable(headers, rows, headerColor);
         if (tbl) {
           elements.push(tbl);
-          elements.push(new Paragraph({ spacing: { before: 0, after: 100 }, children: [] }));
+          elements.push(new Paragraph({ spacing: { before: 0, after: 120 }, children: [] }));
+          lastWasEmpty = true;
         }
       }
       continue;
     }
 
-    // ── H1 (cover title or body) ─────────────────────────────────────
+    // ── H1 (cover title or body H1) ───────────────────────────────────
     if (line.startsWith('# ')) {
       const title = line.slice(2).trim();
 
       if (!coverDone && !coverH1Done && title.includes(' & ')) {
-        // Cover title: split at " & " into two styled lines
+        // Two-line cover title, CENTER-aligned
         coverH1Done = true;
         const [preAmp, postAmp] = title.split(' & ', 2);
 
         elements.push(new Paragraph({
           alignment: AlignmentType.CENTER,
-          spacing: { before: 560, after: 0 },
+          spacing: { before: 400, after: 0 },
           children: [new TextRun({
-            text: preAmp,
+            text: preAmp.toUpperCase(),
             bold: true,
             color: ELECTRIC_BLUE,
-            size: 48,
+            size: 44,
             font: { name: "Bebas Neue" },
           })],
         }));
@@ -527,70 +598,75 @@ function renderMarkdown(content) {
           alignment: AlignmentType.CENTER,
           spacing: { before: 0, after: 160 },
           children: [new TextRun({
-            text: '& ' + postAmp,
+            text: ('& ' + postAmp).toUpperCase(),
             bold: true,
             color: DARK_BLUE,
-            size: 76,
+            size: 72,
             font: { name: "Bebas Neue" },
           })],
         }));
       } else {
-        // Body H1 (rare — use Heading 1 style)
         h1Count++;
-        if (coverDone) elements.push(pageBreak());
-        elements.push(createSectionHeading(title, h1Count));
+        if (coverDone && !coverEndJustHappened) elements.push(pageBreak());
+        coverEndJustHappened = false;
+        elements.push(createSectionHeading(title));
+        sectionJustCreated = true;
       }
       i++;
       continue;
     }
 
-    // ── H2 → HeadingLevel.HEADING_1 + auto page break ─────────────────
+    // ── H2 → HeadingLevel.HEADING_1 + page break ──────────────────────
     if (line.startsWith('## ')) {
       h1Count++;
       coverDone = true;
-      // Insert page break before every section (except the very first when
-      // [COVER_END] already added one)
-      elements.push(pageBreak());
-      elements.push(createSectionHeading(line.slice(3).trim(), h1Count));
+      // Don't double-page-break if [COVER_END] just ran
+      if (!coverEndJustHappened) {
+        elements.push(pageBreak());
+      }
+      coverEndJustHappened = false;
+      elements.push(createSectionHeading(line.slice(3).trim()));
+      sectionJustCreated = true;
       i++;
       continue;
     }
 
     // ── H3 → HeadingLevel.HEADING_2 ───────────────────────────────────
     if (line.startsWith('### ')) {
+      coverEndJustHappened = false;
       elements.push(createSubHeading(line.slice(4).trim()));
       i++;
       continue;
     }
 
-    // ── Bullet list ─────────────────────────────────────────────────────
+    // ── Bullet list ────────────────────────────────────────────────────
     if (line.startsWith('- ') || line.startsWith('* ')) {
       elements.push(new Paragraph({
         bullet: { level: 0 },
-        spacing: { before: 40, after: 40 },
+        spacing: { before: 40, after: 40, line: 240 },
         children: parseInline(line.slice(2).trim(), { size: 26 }),
       }));
       i++;
       continue;
     }
 
-    // ── Numbered list ───────────────────────────────────────────────────
+    // ── Numbered list ──────────────────────────────────────────────────
     if (/^\d+\.\s/.test(line)) {
       elements.push(new Paragraph({
         numbering: { reference: 'num-list-1', level: 0 },
-        spacing: { before: 40, after: 40 },
+        spacing: { before: 40, after: 40, line: 240 },
         children: parseInline(line.replace(/^\d+\.\s/, '').trim(), { size: 26 }),
       }));
       i++;
       continue;
     }
 
-    // ── Horizontal rule — paragraph border, NO unicode characters ───────
+    // ── Horizontal rule — paragraph border, NO unicode characters ──────
     if (trimmed === '---') {
       elements.push(new Paragraph({
-        spacing: { before: 120, after: 120 },
+        spacing: { before: 100, after: 100 },
         border: {
-          bottom: { color: ELECTRIC_BLUE, space: 1, style: BorderStyle.SINGLE, size: 6 },
+          bottom: { color: ELECTRIC_BLUE, space: 1, style: BorderStyle.SINGLE, size: 4 },
         },
         children: [],
       }));
@@ -598,31 +674,62 @@ function renderMarkdown(content) {
       continue;
     }
 
-    // ── Empty line ──────────────────────────────────────────────────────
+    // ── Empty line ─────────────────────────────────────────────────────
     if (trimmed === '') {
-      elements.push(new Paragraph({ spacing: { before: 0, after: 60 }, children: [] }));
+      // Skip empty lines before cover title
+      if (!coverH1Done) { i++; continue; }
+      // Collapse consecutive empty lines — only allow one spacer
+      if (!lastWasEmpty) {
+        elements.push(new Paragraph({ spacing: { before: 0, after: 60 }, children: [] }));
+        lastWasEmpty = true;
+      }
       i++;
       continue;
     }
+    lastWasEmpty = false;
 
-    // ── Body text / cover subtitle ──────────────────────────────────────
+    // ── Section subtitle (italic gray text right after section heading) ─
+    if (sectionJustCreated) {
+      sectionJustCreated = false;
+      if (/^\*[^*]+\*$/.test(trimmed) && trimmed.length > 2) {
+        const subtitleText = trimmed.slice(1, -1);
+        // Check for colored subtitle (e.g. red for "lost revenue")
+        const subColor = getLabelColor(subtitleText) || MEDIUM_GRAY;
+        elements.push(new Paragraph({
+          spacing: { before: 0, after: 120 },
+          children: [new TextRun({
+            text: subtitleText,
+            italics: true,
+            color: subColor,
+            size: 24,
+            font: { name: "Calibri" },
+          })],
+        }));
+        i++;
+        continue;
+      }
+    }
+
+    // ── Body text / cover subtitle ─────────────────────────────────────
     if (!coverDone && coverH1Done && !coverSubtitleDone) {
-      // First plain-text line after cover H1 → italic gray subtitle
       coverSubtitleDone = true;
+      // Strip italic markdown markers (* or _) from cover subtitle
+      const subtitleText = trimmed.replace(/^\*+|\*+$/g, '').replace(/^_+|_+$/g, '').trim();
       elements.push(new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { before: 0, after: 240 },
+        spacing: { before: 0, after: 200 },
         children: [new TextRun({
-          text: trimmed,
+          text: subtitleText,
           italics: true,
           color: MEDIUM_GRAY,
-          size: 28,
+          size: 24,
           font: { name: "Calibri" },
         })],
       }));
     } else {
+      coverEndJustHappened = false;
       elements.push(new Paragraph({
-        spacing: { before: 0, after: 150 },
+        spacing: BODY_SPACING,
         children: parseInline(trimmed, { size: 26 }),
       }));
     }
@@ -644,18 +751,18 @@ function buildDocument(content, clientName, workflowTitle) {
       paragraphStyles: [
         {
           id: "Heading1", name: "Heading 1", basedOn: "Normal", next: "Normal", quickFormat: true,
-          run: { size: 40, bold: true, color: DARK_BLUE, font: "Bebas Neue" },
-          paragraph: { spacing: { before: 350, after: 150 }, outlineLevel: 0 },
+          run: { bold: true, size: 40, color: DARK_BLUE, font: "Bebas Neue" },
+          paragraph: { spacing: { before: 300, after: 150 }, outlineLevel: 0 },
         },
         {
           id: "Heading2", name: "Heading 2", basedOn: "Normal", next: "Normal", quickFormat: true,
-          run: { size: 32, bold: true, color: ELECTRIC_BLUE, font: "Bebas Neue" },
-          paragraph: { spacing: { before: 250, after: 120 }, outlineLevel: 1 },
+          run: { bold: true, size: 32, color: ELECTRIC_BLUE, font: "Bebas Neue" },
+          paragraph: { spacing: { before: 200, after: 100 }, outlineLevel: 1 },
         },
         {
           id: "Heading3", name: "Heading 3", basedOn: "Normal", next: "Normal", quickFormat: true,
-          run: { size: 26, bold: true, color: BLACK, font: "Bebas Neue" },
-          paragraph: { spacing: { before: 180, after: 80 }, outlineLevel: 2 },
+          run: { bold: true, size: 26, color: BLACK, font: "Bebas Neue" },
+          paragraph: { spacing: { before: 150, after: 80 }, outlineLevel: 2 },
         },
       ],
     },
@@ -687,7 +794,7 @@ function buildDocument(content, clientName, workflowTitle) {
       properties: {
         page: {
           size: { width: 12240, height: 15840 },
-          margin: { top: 1080, right: 1080, bottom: 1080, left: 1080 },
+          margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
         },
       },
       headers: {
@@ -699,12 +806,12 @@ function buildDocument(content, clientName, workflowTitle) {
               children: [
                 new TextRun({ text: "PROOFPILOT", bold: true, color: DARK_BLUE, size: 20, font: { name: "Calibri" } }),
                 new TextRun({ text: "  |  ", color: ELECTRIC_BLUE, size: 18, font: { name: "Calibri" } }),
-                new TextRun({ text: workflowTitle.toUpperCase(), color: ELECTRIC_BLUE, size: 18, font: { name: "Calibri" } }),
+                new TextRun({ text: workflowTitle, color: ELECTRIC_BLUE, size: 18, font: { name: "Calibri" } }),
               ],
             }),
             new Paragraph({
               spacing: { before: 0, after: 0 },
-              border: { bottom: { color: ELECTRIC_BLUE, space: 1, style: BorderStyle.SINGLE, size: 6 } },
+              border: { bottom: { color: ELECTRIC_BLUE, space: 1, style: BorderStyle.SINGLE, size: 4 } },
               children: [],
             }),
           ],

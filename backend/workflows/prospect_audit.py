@@ -220,6 +220,27 @@ _EXCLUDED_DOMAINS = {
     "ziprecruiter.com", "indeed.com", "glassdoor.com",
 }
 
+# ── National/regional chains ─────────────────────────────────────────────────
+# These appear in SERPs but shouldn't be featured as the "local market leader."
+# They stay in the overview table but the deep-dive section features a LOCAL business.
+_LARGE_CHAIN_DOMAINS = {
+    # Plumbing
+    "rotorooter.com", "roto-rooter.com", "mrrooter.com",
+    "benjaminfranklinplumbing.com", "rooterhero.com",
+    "parkerandsons.com",
+    # HVAC / multi-trade
+    "onehourheatandair.com", "serviceexperts.com",
+    "callmrelectric.com", "ahs.com",
+    # General
+    "comfortsystemsusa.com",
+}
+
+
+def _is_large_chain(domain: str) -> bool:
+    """Return True if domain is a known national/regional chain."""
+    d = domain.lower().strip().replace("www.", "")
+    return d in _LARGE_CHAIN_DOMAINS or any(c in d for c in _LARGE_CHAIN_DOMAINS)
+
 
 def _is_excluded_domain(domain: str) -> bool:
     """Return True if the domain should be excluded from competitor analysis."""
@@ -516,7 +537,7 @@ async def _profile_competitors(
         try:
             overview, top_kws = await asyncio.gather(
                 get_domain_rank_overview(domain, location_name),
-                get_domain_ranked_keywords(domain, location_name, limit=15),
+                get_domain_ranked_keywords(domain, location_name, limit=200),
                 return_exceptions=True,
             )
             if isinstance(overview, Exception):
@@ -567,6 +588,9 @@ async def _profile_competitors(
     for p in profiles:
         if isinstance(p, Exception):
             continue
+        # Fill missing per-keyword traffic estimates using CTR curve
+        if p.get("top_kws"):
+            p["top_kws"] = _fill_traffic_estimates(p["top_kws"])
         out.append(p)
 
     # Sort by traffic descending — market leader first
@@ -579,51 +603,83 @@ async def _profile_competitors(
 def _build_metro_seeds(service: str, metro_cities: list[str]) -> list[str]:
     """
     Build keyword seeds across metro cities with service-aware specialty terms.
+    Generates 150-200 seeds for comprehensive market sizing.
 
     Logic (from Matthew's audit walkthrough):
-      - Core {service} {city} seeds for each metro city
-      - Near-me / high-intent seeds (emergency, best, near me)
-      - Service-specific specialty keywords × primary + secondary city
-        (e.g. for plumbing: water heater repair, drain cleaning, water softener)
-      - City-based keyword thinking: local businesses need city-qualified terms
+      - Core terms × every metro city (singular, plural, trade name)
+      - Near-me / high-intent / cost queries (20+ variations)
+      - Service-specific specialty keywords × ALL metro cities
+      - State-qualified variants ({service} {city} az)
+      - Reverse order variants ({city} {service})
     """
     s = service.lower().strip()
     service_type = _detect_service_type(s)
     specialty_terms = _SERVICE_SPECIALTY_KEYWORDS.get(service_type, [])
 
+    # Base term variations — singular, plural, trade name
+    _BASE_VARIANTS: dict[str, list[str]] = {
+        "plumbing":       ["plumber", "plumbers", "plumbing", "plumbing service", "plumbing company", "plumbing services"],
+        "electrician":    ["electrician", "electricians", "electrical", "electrical contractor", "electrical service"],
+        "hvac":           ["hvac", "hvac service", "ac repair", "air conditioning", "heating and cooling", "hvac company"],
+        "roofing":        ["roofer", "roofers", "roofing", "roofing company", "roofing contractor"],
+        "auto_detailing": ["auto detailing", "car detailing", "detailing", "auto detail", "detailing service"],
+        "concrete":       ["concrete contractor", "concrete company", "concrete", "concrete service"],
+        "landscaping":    ["landscaping", "landscaper", "lawn care", "lawn service", "landscape company"],
+        "painting":       ["painter", "painters", "painting", "painting company", "painting service"],
+        "cleaning":       ["cleaning service", "cleaners", "house cleaning", "cleaning company"],
+        "pest_control":   ["pest control", "exterminator", "pest control service", "pest control company"],
+    }
+    base_terms = _BASE_VARIANTS.get(service_type, [s, f"{s}s", f"{s} service", f"{s} company"])
+
     seeds = []
 
-    # Core per-city seeds (first 4 metro cities)
-    for city in metro_cities[:4]:
+    # ── Core per-city seeds (ALL metro cities × base terms) ──────────────
+    for city in metro_cities[:5]:
         c = city.lower()
-        seeds += [
-            f"{s} {c}",
-            f"best {s} {c}",
-        ]
+        for bt in base_terms[:4]:       # top 4 base terms per city
+            seeds.append(f"{bt} {c}")
+            seeds.append(f"{c} {bt}")       # reverse: "gilbert plumber"
+        # State-qualified
+        seeds.append(f"{base_terms[0]} {c} az")
+        seeds.append(f"{base_terms[2] if len(base_terms) > 2 else s} {c} az")
+        # High-intent per city
+        seeds.append(f"best {base_terms[0]} {c}")
+        seeds.append(f"emergency {base_terms[0]} {c}")
 
-    # High-commercial-intent near-me seeds
+    # ── Near-me / high-intent seeds ──────────────────────────────────────
+    for bt in base_terms[:3]:
+        seeds.append(f"{bt} near me")
+        seeds.append(f"best {bt} near me")
     seeds += [
-        f"{s} near me",
-        f"best {s} near me",
-        f"emergency {s} near me",
+        f"emergency {base_terms[0]} near me",
         f"{s} service near me",
         f"{s} prices near me",
+        f"affordable {base_terms[0]} near me",
+        f"licensed {base_terms[0]} near me",
+        f"24 hour {base_terms[0]}",
+        f"24 hour {base_terms[0]} near me",
+        f"same day {base_terms[0]}",
     ]
 
-    # Service specialty terms × primary city
-    city1 = metro_cities[0].lower() if metro_cities else ""
-    for spec in specialty_terms[:14]:
-        if city1:
-            seeds.append(f"{spec} {city1}")
-        seeds.append(spec)  # Include bare term for volume reference
+    # ── Specialty terms × ALL metro cities ───────────────────────────────
+    for city in metro_cities[:5]:
+        c = city.lower()
+        for spec in specialty_terms:
+            seeds.append(f"{spec} {c}")
 
-    # Service specialty terms × second city (metro coverage)
-    if len(metro_cities) > 1:
-        city2 = metro_cities[1].lower()
-        for spec in specialty_terms[:7]:
-            seeds.append(f"{spec} {city2}")
+    # ── Bare specialty terms (for volume reference) ──────────────────────
+    for spec in specialty_terms:
+        seeds.append(spec)
 
-    # Dedup, remove empties, cap at 50
+    # ── Cost / pricing queries ───────────────────────────────────────────
+    seeds += [
+        f"{base_terms[0]} cost",
+        f"how much does a {base_terms[0]} cost",
+        f"{s} prices",
+        f"average {s} cost",
+    ]
+
+    # Dedup, remove empties, cap at 200
     seen = set()
     out = []
     for kw in seeds:
@@ -631,7 +687,7 @@ def _build_metro_seeds(service: str, metro_cities: list[str]) -> list[str]:
         if kw and kw not in seen:
             seen.add(kw)
             out.append(kw)
-    return out[:50]
+    return out[:200]
 
 
 # ── Prospect traffic ──────────────────────────────────────────────────────────
@@ -641,6 +697,38 @@ async def _get_prospect_rank(domain: str, location_name: str) -> dict:
         return await get_domain_rank_overview(domain, location_name)
     except Exception:
         return {"domain": domain, "keywords": 0, "etv": 0, "etv_cost": 0}
+
+
+# ── CTR curve — fill missing traffic estimates ───────────────────────────────
+# Standard organic CTR by position (Advanced Web Ranking / Backlinko data)
+_CTR_CURVE = {
+    1: 0.28, 2: 0.15, 3: 0.11, 4: 0.08, 5: 0.07,
+    6: 0.05, 7: 0.04, 8: 0.03, 9: 0.03, 10: 0.02,
+}
+
+
+def _fill_traffic_estimates(kws: list[dict]) -> list[dict]:
+    """
+    Fill missing traffic_estimate values using rank × search_volume × CTR curve.
+    DFS Labs often returns etv=0 for local businesses at US-national scope.
+    This calculates realistic local traffic from position + volume.
+    """
+    for kw in kws:
+        traffic = kw.get("traffic_estimate") or 0
+        if traffic > 0:
+            continue  # DFS already provided an estimate
+        rank = kw.get("rank")
+        vol = kw.get("search_volume") or 0
+        if rank and vol:
+            try:
+                rank_int = int(rank)
+            except (ValueError, TypeError):
+                continue
+            ctr = _CTR_CURVE.get(rank_int, 0.01 if rank_int <= 20 else 0)
+            est_traffic = round(vol * ctr)
+            if est_traffic > 0:
+                kw["traffic_estimate"] = est_traffic
+    return kws
 
 
 # ── Formatting helpers ────────────────────────────────────────────────────────
@@ -675,37 +763,56 @@ def _build_competitor_overview_table(
 ) -> str:
     """
     Build the big competitor overview table.
-    Market leader row is first (highest traffic).
-    Prospect row at the bottom for contrast.
+    Matches reference format: Competitor | Monthly Traffic | Traffic Value | Top 10 Keywords | Focus Area
+    Local market leader first, prospect row at bottom for contrast.
     """
     lines = [
-        "| Competitor | Cities Found | Monthly Traffic | Traffic Value | Keywords | Market Position |",
-        "|-----------|-------------|-----------------|---------------|---------|----------------|",
+        "| Competitor | Monthly Traffic | Traffic Value | Keywords | Focus Area |",
+        "|-----------|----------------|---------------|---------|-----------|",
     ]
 
-    for i, p in enumerate(profiles[:6]):
+    for p in profiles[:6]:
         d = p["domain"]
-        cities_str = ", ".join(p.get("cities", [])[:3])
         traffic = _fmt_num(p.get("traffic"))
         value = _fmt_dollar(p.get("etv_cost"))
         kws = _fmt_num(p.get("keywords"))
-        if i == 0 and (p.get("traffic") or 0) > 0:
-            position = "**MARKET LEADER**"
-        elif i == 1:
-            position = "Strong contender"
-        else:
-            position = "Local competitor"
-        lines.append(f"| {d} | {cities_str} | {traffic}/mo | {value}/mo | {kws} | {position} |")
+        cities = p.get("cities", [])
+        focus = ", ".join(cities[:2]) if cities else "Local"
+        lines.append(f"| {d} | {traffic} | {value}/mo | {kws} | {focus} |")
 
-    # Prospect row
+    # Prospect row (highlighted)
     p_traffic = _fmt_num(prospect_rank.get("traffic"))
     p_value = _fmt_dollar(prospect_rank.get("etv_cost"))
     p_kws = _fmt_num(prospect_rank.get("keywords"))
     lines.append(
-        f"| **{client_name}** | Your market | **{p_traffic}/mo** | **{p_value}/mo** | **{p_kws}** | **Your Opportunity** |"
+        f"| **{client_name} (Est.)** | **{p_traffic}** | **{p_value}/mo** | **{p_kws}** | **Opportunity!** |"
     )
 
     return "\n".join(lines)
+
+
+def _build_comparison_table(competitor: dict, prospect_rank: dict, client_name: str) -> str:
+    """Side-by-side comparison: Competitor vs Prospect — shows the gap viscerally."""
+    d = competitor["domain"]
+    c_traffic = _fmt_num(competitor.get("traffic"))
+    c_value = _fmt_dollar(competitor.get("etv_cost"))
+    c_kws = _fmt_num(competitor.get("keywords"))
+    p_traffic = _fmt_num(prospect_rank.get("traffic")) if prospect_rank.get("traffic") else "~50-100"
+    p_value = _fmt_dollar(prospect_rank.get("etv_cost")) if prospect_rank.get("etv_cost") else "~$500/mo"
+    p_kws = _fmt_num(prospect_rank.get("keywords")) if prospect_rank.get("keywords") else "~10-20"
+
+    # Try to get the competitor's top keyword
+    top_kws = competitor.get("top_kws", [])
+    c_top_kw = f"{top_kws[0].get('keyword', '—')} ({_fmt_num(top_kws[0].get('search_volume'))} searches)" if top_kws else "—"
+
+    return "\n".join([
+        f"| Metric | {d.split('.')[0].title()} | {client_name} (Est.) |",
+        "|--------|--------|--------|",
+        f"| Monthly Organic Traffic | {c_traffic} | {p_traffic} |",
+        f"| Traffic Value (if paid) | {c_value}/mo | {p_value} |",
+        f"| Keywords Ranking | {c_kws} | {p_kws} |",
+        f"| Top Ranking Keyword | {c_top_kw} | None in top 10 |",
+    ])
 
 
 def _build_market_leader_section(leader: dict) -> str:
@@ -908,12 +1015,12 @@ def _build_why_this_matters_box(high_value_kws: list[dict], service: str) -> str
     annual_value = monthly_value * 12
 
     return (
-        f"**WHY THIS MATTERS**\n\n"
-        f"Every month, **{vol:,} people** search for \"{keyword}\".\n"
-        f"Google charges **{_fmt_cpc(cpc)} per click** for this keyword.\n"
-        f"At a 10% CTR that's **{monthly_clicks} monthly clicks** worth **{_fmt_dollar(int(monthly_value))}/month** in ad traffic.\n"
-        f"Over 12 months: **{_fmt_dollar(int(annual_value))} in Google Ads spend you never have to write a check for.**\n"
-        f"Rank organically — keep that money."
+        f"> **WHY THIS MATTERS**\n"
+        f"> Every month, **{vol:,} people** search for \"{keyword}\".\n"
+        f"> Google charges **{_fmt_cpc(cpc)} per click** for this keyword.\n"
+        f"> At a 10% CTR that's **{monthly_clicks} monthly clicks** worth **{_fmt_dollar(int(monthly_value))}/month** in ad traffic.\n"
+        f"> Over 12 months: **{_fmt_dollar(int(annual_value))} in Google Ads spend you never have to write a check for.**\n"
+        f"> Rank organically — keep that money."
     )
 
 
@@ -935,8 +1042,6 @@ def _build_total_ads_cost_callout(
     annual_cost    = monthly_cost * 12
 
     lines = [
-        "**THE COST OF GOOGLE ADS IN YOUR MARKET**",
-        "",
         f"To capture 10% of the {total_volume:,} monthly searches across your metro:",
         (
             f"**{monthly_clicks:,} clicks × {_fmt_cpc(avg_cpc)} avg CPC = "
@@ -979,11 +1084,24 @@ def _build_meta_bonus_block(city: str, metro_cities: list[str]) -> str:
     metro_str = "/".join(metro_cities[:3])
     return f"""---
 
-## BONUS: WHY META ADS ARE UNDERRATED FOR WATER TREATMENT
+## Bonus: Why Social/Meta Ads Are Underrated
 
-Water softeners and reverse osmosis systems are not emergency purchases. Nobody wakes up and searches "water softener." They need to be educated first. That makes Meta ads unusually effective here — you are creating demand instead of competing for it.
+*Google Ads get expensive because of intent — people are actively searching. But there's another way to build a pipeline.*
 
-**Example Campaign**
+### Meta/Facebook Ads for Water Treatment
+
+Water softeners and RO systems are not emergency purchases. People don't wake up and Google "water softener." They need to be educated. That makes Meta ads unusually effective — you are creating demand instead of competing for it.
+
+| Platform | Cost per 1,000 Impressions | Cost per Lead | Best For |
+|----------|---------------------------|---------------|----------|
+| Google Ads (Search) | $50-150 | $150-450 | Emergency, urgent needs |
+| Google Local Services | $25-75 per lead | $25-75 | Local trust, Google Guaranteed |
+| Meta/Facebook Ads | $8-15 | $15-75 | Awareness, education, water treatment |
+| Instagram Ads | $10-20 | $15-75 | Brand building, visual content |
+
+**Key Insight:** For water treatment specifically, Meta ads can generate leads at 1/3 the cost of Google because you're educating homeowners about water quality problems they don't know they have.
+
+### Example Meta Campaign for Water Treatment
 
 | Element | Spec |
 |---------|------|
@@ -1158,7 +1276,7 @@ def _build_service_subsection_tables(volumes: list[dict], service: str) -> str:
         kws_sorted = sorted(kws_in_section, key=lambda x: x.get("search_volume") or 0, reverse=True)
 
         lines = [
-            f"**{section_name}**",
+            f"### {section_name}",
             "",
             "| Keyword | Monthly Volume | CPC | Competition |",
             "|---------|---------------|-----|------------|",
@@ -1214,7 +1332,7 @@ def _build_per_city_keyword_tables(
             # Only add a section for cities explicitly mentioned in client context
             if city in (extra_cities or []):
                 sections.append(
-                    f"**{city.upper()}**\n\n"
+                    f"### {city.upper()}\n\n"
                     f"Search volume for keywords in {city} is below 10/month. "
                     f"Low population density means lower search demand but also near-zero competition. "
                     f"A single location page targeting this city can rank on page 1 with minimal effort — "
@@ -1225,7 +1343,7 @@ def _build_per_city_keyword_tables(
         city_kws_sorted = sorted(city_kws, key=lambda x: x.get("search_volume") or 0, reverse=True)
 
         lines = [
-            f"**{city.upper()}**",
+            f"### {city.upper()}",
             "",
             "| Keyword | Monthly Volume | CPC |",
             "|---------|---------------|-----|",
@@ -1249,6 +1367,7 @@ def _build_priority_keyword_table(
     difficulty: list[dict],
     service: str,
     city: str,
+    metro_cities: Optional[list] = None,
 ) -> str:
     if not volumes:
         return ""
@@ -1279,18 +1398,30 @@ def _build_priority_keyword_table(
         cpc = _fmt_cpc(kw.get("cpc"))
         diff_str = f"{diff}/100" if diff is not None else "—"
         kw_lower = keyword.lower()
-        if "emergency" in kw_lower:
-            reason = "Highest CPC — urgent buyers, premium value"
+        cpc_val = float(kw.get("cpc", 0) or 0)
+        if "emergency" in kw_lower and city.lower() in kw_lower:
+            reason = f"Urgent buyers in {city}, ${cpc_val:.0f}/click value"
+        elif "emergency" in kw_lower:
+            reason = "Highest CPC — urgent buyers pay premium"
         elif "near me" in kw_lower:
             reason = "High purchase intent, proximity signal"
         elif "ceramic" in kw_lower or "paint correction" in kw_lower:
             reason = "Premium service — highest avg job value"
+        elif "water softener" in kw_lower or "reverse osmosis" in kw_lower:
+            reason = "Low competition, premium service margin"
+        elif "water heater" in kw_lower:
+            reason = "High-value repair, strong buying intent"
         elif city.lower() in kw_lower:
-            reason = f"Core market — rank in {city} first"
+            reason = f"Your home base, lower competition"
+        elif metro_cities and any(c.lower() in kw_lower for c in metro_cities[1:4]):
+            matched = next(c for c in metro_cities[1:4] if c.lower() in kw_lower)
+            reason = f"Untapped market — expand to {matched}"
         elif diff is not None and diff < 30:
-            reason = "Low competition — quick ranking win"
-        elif kw.get("cpc") and float(kw.get("cpc", 0) or 0) > 10:
-            reason = "High commercial value, strong buying intent"
+            reason = "Low difficulty — quick ranking win"
+        elif cpc_val > 50:
+            reason = f"${cpc_val:.0f}/click — high value per visitor"
+        elif cpc_val > 10:
+            reason = "Strong commercial intent"
         else:
             reason = "Consistent local search demand"
         lines.append(f"| {idx} | {keyword} | {_fmt_num(vol)} | {cpc} | {diff_str} | {reason} |")
@@ -1302,11 +1433,17 @@ def _build_roi_table(
     total_traffic_goal: int,
     avg_job_value_str: str,
     service: str,
+    is_water_treatment: bool = False,
 ) -> tuple[str, str]:
     try:
         job_val = float(re.sub(r"[^\d.]", "", avg_job_value_str)) if avg_job_value_str else 350
     except (ValueError, TypeError):
         job_val = 350
+
+    # Blend in water treatment job values when detected ($2K-$5K avg)
+    # Reference used $850 blended rate for plumber + water treatment
+    if is_water_treatment and job_val < 700:
+        job_val = max(job_val, 850)
 
     con_traffic = max(500, min(total_traffic_goal // 4, 1000))
     con_leads = math.ceil(con_traffic * 0.03)
@@ -1360,14 +1497,30 @@ def _build_ads_comparison_table(avg_cpc: float) -> str:
     ])
 
 
+def _build_seo_vs_ads_table(max_cpc: float) -> str:
+    """Reference-style comparison: Factor | Google Ads | SEO side by side."""
+    low_cpc = max(45, int(max_cpc * 0.33)) if max_cpc else 45
+    high_cpc = int(max_cpc) if max_cpc else 135
+    return "\n".join([
+        "| Factor | Google Ads | SEO |",
+        "|--------|-----------|-----|",
+        f"| Cost per Click | ${low_cpc}-{high_cpc} | $0 (organic) |",
+        f"| Cost per Lead | $150-450 | $20-50 (amortized) |",
+        "| Traffic When Budget Runs Out | Zero | Continues forever |",
+        "| Click-Through Rate | 2-5% | 25-35% (position 1) |",
+        '| Trust Factor | "Sponsored" label | Earned authority |',
+        "| Long-term Asset Value | None | Builds equity |",
+    ])
+
+
 # ── System prompt ─────────────────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """You are a senior SEO strategist at ProofPilot. You have run market analyses for hundreds of home service businesses and know exactly what the data means the moment you see it.
+SYSTEM_PROMPT = """You are a senior SEO strategist at ProofPilot. You have run 500+ market analyses for home service businesses and know exactly what the data means the moment you see it.
 
-This document goes directly to a business owner. They will read it and decide whether to hire ProofPilot. Write like someone who has done this 500 times and has a clear opinion.
+This document goes directly to a business owner. They will read it and decide whether to hire ProofPilot. Write like a $15K/month consultant who has a clear opinion and backs it with data.
 
 ## Voice
-First person plural: "we analyzed," "we found," "here's what we're seeing." Address the prospect as "you" and "your business." Direct. Specific. Have a point of view.
+First person plural: "we analyzed," "we found," "here's what we're seeing." Address the prospect as "you" and "your business." Direct. Specific. Have a point of view. You are selling clarity and confidence, not hedging.
 
 WRITE LIKE THIS:
 "ezflowplumbingaz.com gets 3,124 free visits a month. They rank for water heater keywords worth $94K in ad value. You are not in that conversation yet. Here's how to change that."
@@ -1376,23 +1529,37 @@ NOT LIKE THIS:
 "Based on our analysis, EZFlow appears to perform well across multiple keyword categories in the Chandler market area, suggesting significant search visibility."
 
 ## Section headers
-Short. No colons. Use the template headers as given. Do not add your own.
+Use the exact ## and ### headers from the template. Do NOT invent your own section headers. Do NOT add extra ## sections.
+
+## Inline colored labels
+Use these bold labels at the start of key insight paragraphs. They render in color in the exported document:
+- **Key Insight:** followed by your observation (renders in green)
+- **Opportunity:** followed by the strategic opportunity (renders in green)
+- **The Problem:** followed by the issue (renders in red)
+- **Strategic Takeaway:** followed by the recommendation (renders in dark blue)
+- **Bottom line:** followed by the summary (renders in dark blue)
+
+Example: "**Key Insight:** EZFlow dominates Chandler plumbing. They rank for water heater installation keywords bringing 871 visitors/month worth $20K in ad value."
+
+Use these after data tables to interpret what the numbers mean for the prospect.
 
 ## Callout boxes
-Use this format for key insights, strategic observations, and math callouts. They render as branded dark-blue boxes in the exported document.
+Use this blockquote format for highlighted boxes. They render as branded dark-blue boxes with neon-green headers:
 
 > **KEY INSIGHT**
-> Sharp, specific observation. One or two sentences. Name the competitor or keyword.
+> Sharp, specific observation. Name the competitor or keyword. Include a number.
 
 > **WHY THIS MATTERS**
 > - Specific point with a number
 > - What it means for the prospect directly
 
 > **STRATEGIC TAKEAWAY**
-> What the prospect should do with this information. Not hedged. Direct.
+> What to do with this information. Not hedged. Direct.
+
+Use callout boxes AFTER competitor keyword tables and after major data sections.
 
 ## Writing bullets
-No colon after the action label. State the action directly.
+State the action directly. Strong verb first.
 
 WRONG: "GBP optimization: Claim and optimize Google Business Profile across all service areas"
 RIGHT: "Claim and fully build out the Google Business Profile for every service area. Add every city. Add photos weekly."
@@ -1401,13 +1568,18 @@ RIGHT: "Claim and fully build out the Google Business Profile for every service 
 Use exact figures from the data. "$94,163/month" not "significant traffic value." "3,124 visits" not "thousands of visits." If a number tells the story, lead with it.
 
 ## Rules
-- Start immediately with the # heading. Zero preamble.
+- Start immediately with the # heading. Zero preamble. No thinking out loud.
 - Fill every [bracketed instruction] with specific, data-driven content.
-- Do not modify pre-built data tables. Reproduce them exactly.
-- Every competitor section ends with a > callout box.
-- No colons after bullet labels. No semicolons. No em dashes in body text. Periods only.
+- Do not modify pre-built data tables. Reproduce them EXACTLY as given — including all pipes, dashes, and formatting.
+- Reproduce these markers EXACTLY: [COVER_END], [STAT:...] — copy character for character.
+- After each competitor's keyword table, add a > callout box with a KEY INSIGHT or STRATEGIC TAKEAWAY.
+- No colons after bullet labels. No semicolons. Periods only.
 - No filler phrases: "it's worth noting," "this is a great opportunity," "essentially," "importantly."
-- No passive voice."""
+- No passive voice. No "it appears." No "it seems." State it.
+- Italic section subtitles (lines starting and ending with *) should be reproduced exactly.
+
+## Strategy sections
+Bullet points only. Maximum 15 words per bullet. No prose paragraphs between bullets or after bullet lists. No setup sentences before the first bullet. Strong verb first on every bullet. If the instruction says "5 bullets" — write exactly 5 bullets and stop. No commentary."""
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1622,8 +1794,10 @@ async def run_prospect_audit(
     monthly_ad_val = total_searches * 0.10 * avg_cpc
     annual_ad_val = monthly_ad_val * 12
 
-    # Market leader = highest traffic competitor
-    market_leader = competitor_profiles[0] if competitor_profiles else None
+    # Market leader = highest traffic LOCAL competitor (skip national chains)
+    local_competitors = [p for p in competitor_profiles if not _is_large_chain(p.get("domain", ""))]
+    chain_competitors = [p for p in competitor_profiles if _is_large_chain(p.get("domain", ""))]
+    market_leader = local_competitors[0] if local_competitors else (competitor_profiles[0] if competitor_profiles else None)
     leader_traffic = market_leader.get("traffic", 0) if market_leader else 0
     leader_value = market_leader.get("etv_cost", 0) if market_leader else 0
     leader_domain = market_leader.get("domain", "your top competitor") if market_leader else "your top competitor"
@@ -1637,6 +1811,12 @@ async def run_prospect_audit(
         _build_market_leader_section(market_leader) if market_leader else ""
     )
 
+    # Side-by-side comparison table for the local market leader
+    leader_comparison_table = (
+        _build_comparison_table(market_leader, prospect_rank, client_name)
+        if market_leader else ""
+    )
+
     other_competitors_section = _build_other_competitors_section(competitor_profiles)
 
     pillar_table, high_value_kws = _build_keyword_pillar_table(kw_vol_list, service)
@@ -1645,7 +1825,7 @@ async def run_prospect_audit(
     service_subsections = _build_service_subsection_tables(kw_vol_list, service)
     # Gap 4: pass extra_cities so Queen Creek / San Tan Valley etc. appear even with no DFS volume
     per_city_tables = _build_per_city_keyword_tables(kw_vol_list, metro_cities, extra_cities=extra_cities)
-    priority_table = _build_priority_keyword_table(kw_vol_list, keyword_difficulty or [], service, city)
+    priority_table = _build_priority_keyword_table(kw_vol_list, keyword_difficulty or [], service, city, metro_cities=metro_cities)
 
     # Gap 3: aggregate "what Google Ads would cost you" callout
     total_ads_cost_callout = _build_total_ads_cost_callout(total_searches, avg_cpc, high_value_kws)
@@ -1657,9 +1837,10 @@ async def run_prospect_audit(
     meta_bonus_block = _build_meta_bonus_block(city, metro_cities) if is_water_treatment else ""
 
     con_roi_table, grow_roi_table = _build_roi_table(
-        total_searches, avg_job_value, service
+        total_searches, avg_job_value, service, is_water_treatment=is_water_treatment
     )
     ads_comparison_table = _build_ads_comparison_table(avg_cpc)
+    seo_vs_ads_table = _build_seo_vs_ads_table(max_cpc)
 
     # Company info table
     company_info = (
@@ -1705,6 +1886,11 @@ async def run_prospect_audit(
             "- A 90-day roadmap to start taking real market share",
         ]
     reveals_text = "\n".join(reveals_bullets)
+    # Callout box format: "> - clean text" (no bold markers, prefixed for blockquote)
+    reveals_callout_lines = "\n".join([
+        "> " + b.replace("**", "")
+        for b in reveals_bullets
+    ])
 
     # Context for Claude
     sa_context = "\n".join([
@@ -1747,7 +1933,11 @@ async def run_prospect_audit(
 
     leader_full_section = ""
     if market_leader_section:
-        leader_full_section = f"""### THE MARKET LEADER: {leader_domain.upper()}
+        leader_full_section = f"""### {leader_domain.upper()} — HIGHEST TRAFFIC
+
+{leader_comparison_table}
+
+### {leader_domain.split('.')[0].title()}'s Top Traffic-Driving Keywords
 
 {market_leader_section}"""
 
@@ -1792,165 +1982,164 @@ These keywords have CPCs above $20 — every organic click saves you that amount
     # Build optional sub-sections for the template
     service_subsections_block = ""
     if service_subsections:
-        service_subsections_block = f"### SERVICE-SPECIFIC KEYWORD BREAKDOWN\n\n{service_subsections}"
+        service_subsections_block = f"{service_subsections}"
 
     per_city_block = ""
     if per_city_tables:
-        per_city_block = f"### KEYWORDS BY CITY\n\n{per_city_tables}"
+        per_city_block = f"{per_city_tables}"
 
-    template = f"""# SEO MARKET OPPORTUNITY & COMPETITIVE ANALYSIS
+    template = f"""# SEO Market Opportunity & Competitive Analysis
 
-Real Data. Real Opportunity. Real ROI.
+*Real Data. Real Opportunity. Real ROI.*
 
 {company_info}
 
----
+> **WHAT THIS ANALYSIS REVEALS**
+{reveals_callout_lines}
 
-## WHAT THIS ANALYSIS REVEALS
+[COVER_END]
 
-{reveals_text}
+## Executive Summary: The Opportunity
 
-[Write an executive summary of 3-4 punchy sentences. Open with the total search volume — "{total_searches_display} people search for {service} across {', '.join(metro_cities[:3])} every month." Name {leader_name} and their exact traffic. One sentence on where {client_name} stands right now. Close with what this document proves. No hedging. No "it appears." State it.]
+*This analysis is based on real keyword data, competitor website analysis, and Google search results across {', '.join(metro_cities[:3])} and surrounding cities.*
 
-**{total_searches_display}**
-**MONTHLY METRO SEARCHES**
-People searching for {service} across {', '.join(metro_cities[:3])} every month
+[Write 3-4 punchy sentences. Open with: "{total_searches_display} people search for a {service} across {', '.join(metro_cities[:3])} every single month." Name {leader_name} and their exact traffic. One sentence on where {client_name} stands now. Close with what this analysis proves. No hedging.]
+
+**Bottom line:** [One sentence connecting the total ad value to the opportunity — e.g. "There's over {_fmt_dollar(annual_ad_val)} in annual advertising value sitting in Google search results. Your competitors are capturing a fraction of it. With the right SEO strategy, {client_name} can capture a significant share — without paying for ads."]
+
+[STAT:{total_searches_display}:Monthly Searches:People searching for {service} in your area every month]
 
 {market_metrics_table}
 
----
+## Competitor Analysis: Who's Winning
 
-## WHO'S WINNING YOUR MARKET
+*We analyzed {len(competitor_profiles)} competitors actively ranking in your market. Here's what they're getting that you're not.*
 
-We searched across {len(metro_cities)} cities — {', '.join(metro_cities)} — and filtered out every directory, every aggregator, every national chain. What's left is the real competition. The businesses actually getting the calls.
-
-[One sentence: name {leader_name} as the market leader and state their monthly traffic.]
+We searched across {len(metro_cities)} cities — {', '.join(metro_cities)} — and filtered out every directory, every aggregator, every national chain. What's left is the real competition: the businesses actually getting the calls you want.
 
 {competitor_section}
 
 {leader_full_section}
 
 > **KEY INSIGHT**
-> [Name {leader_name}. State exactly what they rank for and what that traffic is worth in ad dollars. One sharp sentence about what this means for {client_name} right now.]
+> [Name {leader_name}. State exactly what they rank for and what that traffic is worth. One sentence about what this means for {client_name}.]
 
 {other_section}
 {water_treatment_block}
 
----
+## Keyword Pillar Analysis
 
-## THE KEYWORD OPPORTUNITY
-
-[Lead with the biggest number. "We analyzed {total_searches_display} monthly searches across {', '.join(metro_cities)}." Name the highest-volume pillar. Then name the highest-CPC opportunity. Two sentences total. No filler.]
+*We grouped all keywords into service categories ("pillars"). This shows where the search volume is and what it costs to compete with ads.*
 
 {pillar_section}
 
+**Strategic Takeaway:** [One sentence about which pillar has the highest volume, which has the highest CPC, and where the strategic sweet spot is for {client_name}.]
+
 {high_value_section}
 
-> **STRATEGIC TAKEAWAY**
-> [Pick one keyword from the high-value table. Show the math: volume x 10% CTR x CPC = monthly ad value. "Rank organically for this one keyword and you never write that check." One more sentence about what the full keyword set represents.]
-
----
-
-## THE KEYWORDS WORTH CHASING
-
-[One sentence naming the top 3 keywords by volume with exact numbers. One sentence about which ones to target first and why — be specific about the reason (low competition, high CPC, or both).]
-
-### TOP KEYWORDS BY SEARCH VOLUME
-
-[Build a markdown table from this data:
-{top_kw_lines}
-
-Use this format:
-| Keyword | Volume | CPC | Competition |
-|---------|--------|-----|------------|
-(rows from data above, only keywords with volume > 0)]
-
 {service_subsections_block}
+
+## Keywords by City
+
+*Every city in your service area has its own search demand. Here's what people are searching for in each market.*
+
 {per_city_block}
 
----
+## ROI Projections: What SEO Can Deliver
 
-## WHAT SEO CAN DELIVER
+*Based on competitor traffic data and industry conversion benchmarks, here's what realistic SEO results look like.*
 
-[One sentence with avg job value of {avg_job_value or "standard for this trade"}. One sentence framing what the numbers below assume — realistic traffic, real conversion rates, standard close rates for a well-run {service} business.]
-
-**CONSERVATIVE SCENARIO (Month 6-12)**
+### Conservative Scenario (Month 6-12)
 
 {con_roi_table}
 
-**GROWTH SCENARIO (Month 12-18)**
+### Growth Scenario (Month 12-18)
 
 {grow_roi_table}
 
-**WHAT YOU'D PAY GOOGLE ADS FOR THE SAME TRAFFIC**
+### Ad Value Comparison
+
+What you'd pay Google Ads to get the same results:
 
 {ads_comparison_table}
 
----
+**SEO delivers the same traffic for a fraction of the cost — and the results compound over time.**
 
-## THE MATH: SEO VS. GOOGLE ADS
+## Why SEO Beats Google Ads for {client_name}
 
-| Factor | Google Ads | SEO |
-|--------|-----------|-----|
-| Cost per Click | {_fmt_cpc(max_cpc) if max_cpc else '$3-10'} per click | $0 once you rank |
-| Traffic when budget runs out | Stops immediately | Keeps compounding |
-| Click-Through Rate | 5-15% (labeled "Sponsored") | 30-40% at position 1 |
-| Trust | Buyers skip sponsored results | Organic = earned authority |
-| Long-term value | Renting visibility | Building an asset |
-| Annual cost for 2,000 visitors | {_fmt_dollar(int(2000 * avg_cpc * 12)) if avg_cpc else "$30,000+"} | Included in monthly retainer |
+*The numbers speak for themselves.*
 
-[Write 2 sentences. Use the actual CPC numbers from this market. Make the math feel real — specific to {client_name}'s keywords, not generic.]
+### The Math is Simple
+
+{seo_vs_ads_table}
+
+### The Cost of Google Ads in Your Market
+
 {total_ads_cost_block}
 
----
+### The Better Path: SEO + Strategic Ads
 
-## THE PLAN
+We recommend:
 
-### PHASE 1: FOUNDATION (Months 1-3)
+1. Build organic rankings for high-value keywords (Phase 2 of your growth roadmap)
+2. Use paid ads strategically for immediate leads while SEO builds
+3. Reduce ad spend as organic traffic grows
+4. Long-term: 70-80% organic, 20-30% paid for surge capacity
 
-[Write 5 bullets. Each is one direct action — no colon after the action label. Specific to {service} in {city}. Cover: GBP optimization across all service areas, service page creation for core services, technical SEO fixes, tracking setup, NAP consistency. Write each bullet like a practitioner giving instructions, not a consultant making recommendations.]
+## Recommended SEO Strategy
 
-**Paid + Organic Bridge:** SEO takes 3-6 months to show results. While rankings build, a targeted Google Ads campaign on your top 5 keywords (budget: $1,500-3,000/mo) captures leads immediately. As organic grows, ad spend comes down. By month 12: 70-80% organic, 20-30% paid for surge capacity.
+*Prioritized steps to capture this opportunity.*
 
-### PHASE 2: CONTENT AND AUTHORITY (Months 3-8)
+### Phase 1: Foundation (Months 1-3)
 
-[Write 5 bullets. Direct actions. Cover: location pages for {', '.join(metro_cities[1:4] if len(metro_cities) > 1 else ['nearby cities'])}, educational content specific to the local climate and water quality, citation building, review velocity system, local link outreach. No hedging.]
+[BULLETS ONLY. 5 bullets. Max 15 words each. No paragraphs. No elaboration. Strong verb first. Specific to {service} in {city}. Cover: GBP setup, service pages, technical fixes, tracking, NAP. Example format:
+- Build out GBP for all {len(metro_cities)} cities with photos, services, and weekly posts.
+DO NOT add sentences between bullets. DO NOT write a paragraph after the list.]
 
-### PHASE 3: DOMINATION (Months 8-12)
+### Phase 2: Content & Authority (Months 3-8)
 
-[Write 4 bullets. Cover: targeting {leader_name}'s specific keywords, expanding to all {len(metro_cities)} metro cities, scaling content output based on what ranked in Phase 2, owning the Map Pack across the metro. Write like you've done this before.]
+[BULLETS ONLY. 5 bullets. Max 15 words each. No paragraphs. Cover: location pages for {', '.join(metro_cities[1:4] if len(metro_cities) > 1 else ['nearby cities'])}, niche content, citations, reviews, local links. Same brevity rules as Phase 1.]
 
----
+### Phase 3: Domination (Months 8-12+)
 
-## WHERE TO START
+[BULLETS ONLY. 4 bullets. Max 15 words each. Cover: targeting {leader_name}'s keywords, expanding metro coverage, scaling what ranked, owning Map Pack. Same brevity rules.]
 
-[One sentence: these are the keywords with the best combination of search volume, commercial intent, and ranking difficulty. One sentence about the specific opportunity — low-hanging fruit first, then the high-value targets.]
+### Priority Keywords to Target First
 
 {priority_table_str}
 
----
+## Conclusion: The Path Forward
 
-## THE BOTTOM LINE
+*This isn't theoretical. This is real data from real competitors in your market.*
 
-This is not theoretical. This is real data from real competitors in your market.
+The opportunity is there. The question is whether {client_name} will capture it — or let competitors continue to dominate.
 
-[Name {leader_name}. Exact traffic number. Then: "That traffic should be going to {client_name}. Here's what capturing it looks like."]
+With a strategic SEO investment, {client_name} can:
 
-- [Specific outcome: rank page 1 for X keywords within Y months]
+- [Specific outcome: rank page 1 for X keywords within 12-18 months — use priority table count]
 - [Specific outcome: generate Z new customers per month — use the conservative scenario math]
-- [Specific outcome: dollar range — use the ROI table numbers]
-- [Specific outcome: what happens to {leader_name}'s market share when {client_name} starts ranking]
+- [Specific outcome: save $X-Y/year in Google Ads costs — use the ads comparison numbers]
+- [Specific outcome: become THE {service} authority in {city} and surrounding cities]
 
-The opportunity is real. The competitors are beatable. The only question is whether {client_name} moves now or watches another year of customers drive to {leader_name} instead.
-
-ProofPilot is ready to execute.
+> **THE BOTTOM LINE**
+> - {total_searches_display}+ monthly searches in your market
+> - {_fmt_dollar(annual_ad_val)} annual Google Ads value you can capture organically
+> - {leader_name} getting {_fmt_num(leader_traffic)} free visits/month — that should be you
+> - [Name the biggest keyword opportunity — e.g. "Emergency keywords worth $135/click — SEO makes them free"]
+> - [One sentence about the competitive gap — e.g. "Water treatment niche is wide open for domination"]
 {meta_bonus_block}"""
 
     # ── Phase 6: Stream Claude ─────────────────────────────────────────────
     user_prompt = f"""Write the complete SEO Market Analysis for **{client_name}** ({domain}).
 They are a **{service}** business serving **{location}** and the surrounding metro: {', '.join(metro_cities)}.
 
-Fill in every [bracketed instruction] with specific content based on the real data provided. Keep all pre-built tables exactly as shown. Every competitor section ends with a > callout box. Write like a strategist who has done this hundreds of times — direct, specific, no filler.
+Fill in every [bracketed instruction] with specific, data-driven content. Keep all pre-built tables, [COVER_END], and [STAT:...] markers exactly as shown — reproduce them character for character.
+
+After each competitor keyword table, write a > callout box with a KEY INSIGHT, STRATEGIC TAKEAWAY, or WHY THIS MATTERS — use the exact data to make it sharp.
+
+Use **Key Insight:**, **Opportunity:**, **The Problem:**, and **Strategic Takeaway:** inline labels throughout the document to interpret data for the prospect. These render in color in the exported document.
+
+Write like a $15K/month SEO strategist who has done this 500 times — direct, specific, opinionated. Every sentence should make the prospect think "I need to act on this."
 
 ---
 
@@ -1962,7 +2151,7 @@ DATA CONTEXT (use this to inform all narrative and callout boxes):
 
 {sa_context}
 
-Write the complete document now. Start with # SEO MARKET OPPORTUNITY."""
+Write the complete document now. Start with # SEO Market Opportunity."""
 
     async with client.messages.stream(
         model="claude-opus-4-6",
