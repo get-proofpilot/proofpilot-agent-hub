@@ -126,9 +126,9 @@ async def run_location_page(
 
     # ── Stream from Claude ─────────────────────────────────
     async with client.messages.stream(
-        model="claude-opus-4-6",
-        max_tokens=8000,
-        thinking={"type": "adaptive"},
+        model="claude-sonnet-4-6",
+        max_tokens=10000,
+        thinking={"type": "enabled", "budget_tokens": 5000},
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_prompt}],
     ) as stream:

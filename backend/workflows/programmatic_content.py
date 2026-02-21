@@ -619,9 +619,9 @@ async def run_programmatic_content(
 
         # ── Stream Claude response ──
         async with client.messages.stream(
-            model="claude-opus-4-6",
-            max_tokens=8000,
-            thinking={"type": "adaptive"},
+            model="claude-sonnet-4-6",
+            max_tokens=10000,
+            thinking={"type": "enabled", "budget_tokens": 5000},
             system=system_prompt,
             messages=[{"role": "user", "content": user_prompt}],
         ) as stream:

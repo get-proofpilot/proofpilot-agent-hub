@@ -480,9 +480,9 @@ async def run_keyword_gap(
 
     # ── Phase 8: Stream Claude's analysis ────────────────────────────────────
     async with client.messages.stream(
-        model="claude-opus-4-6",
-        max_tokens=8000,
-        thinking={"type": "adaptive"},
+        model="claude-sonnet-4-6",
+        max_tokens=16000,
+        thinking={"type": "enabled", "budget_tokens": 8000},
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_prompt}],
     ) as stream:
