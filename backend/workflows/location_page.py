@@ -32,12 +32,12 @@ Use local details provided. If none are provided, draw on real knowledge of typi
 ## Required sections (in order)
 1. **# H1**: [Primary Service] in [Target Location] | [Business Type]
 2. **Opening paragraph** (100–150 words): Establish we serve this area + why locals call us + 1–2 specific local context details. Include primary CTA.
-3. **## [Business Type] Services in [Target Location]**: Service list with brief, specific descriptions (not generic "we fix things"). Include any services_list provided.
-4. **## Why [Target Location] Residents Call Us**: Trust signals + the home base connection. Years serving the area, license/insurance, specific local experience (e.g. "We've serviced hundreds of homes in [subdivision]").
-5. **## [Target Location] Homes: What We See Most**: This section is the anti-template secret weapon. Describe what's actually common in homes in this city — the service problems that come up repeatedly, what the local housing stock looks like, why homeowners here specifically need this service. Be specific and real.
-6. **## Neighborhoods We Serve in [Target Location]**: Real neighborhood/area names. If local_details are provided, use them. Otherwise use genuine knowledge of the city.
-7. **## Frequently Asked Questions from [Target Location] Homeowners**: 5 Q&As that are location-specific — NOT generic questions. Example: "Do you serve north Mesa near the 202?" not "What is plumbing repair?" Use the format **Q: [question]** / A: [answer]
-8. **## Get Fast, Local Service in [Target Location]**: Final CTA paragraph — specific, urgent, local.
+3. **## [Business Type] Services in [Target Location]** — Service list with brief, specific descriptions (not generic "we fix things"). Include any services_list provided.
+4. **## Why [Target Location] Residents Call Us** — Trust signals + the home base connection. Years serving the area, license/insurance, specific local experience (e.g. "We've serviced hundreds of homes in [subdivision]").
+5. **## What We See Most in [Target Location] Homes** — This section is the anti-template secret weapon. Describe what's actually common in homes in this city — the service problems that come up repeatedly, what the local housing stock looks like, why homeowners here specifically need this service. Be specific and real.
+6. **## Neighborhoods We Serve in [Target Location]** — Real neighborhood/area names. If local_details are provided, use them. Otherwise use genuine knowledge of the city.
+7. **## Frequently Asked Questions from [Target Location] Homeowners** — 5 Q&As that are location-specific. NOT generic questions. Example: "Do you serve north Mesa near the 202?" not "What is plumbing repair?" Use the format **Q:** [question] / A: [answer]
+8. **## Electrical Service in [Target Location]** — Final CTA paragraph — specific, urgent, local. (Adjust service type to match the business.)
 
 ## Writing standards
 - CTA placement: opening paragraph, after "Why Residents Call Us", and in the final section
@@ -48,9 +48,11 @@ Use local details provided. If none are provided, draw on real knowledge of typi
 - Every section should add LOCAL value — if a section could appear on a page for any city, rewrite it
 - The FAQ questions must use the target city name and sound like something someone would actually type
 
-## Anti-AI writing rules — enforced on every word
-- **No em dashes (—) anywhere. Not one.** If you feel the urge to use one, rewrite the sentence with a comma or period instead.
-- **No colons in H2 or H3 headlines.** Headlines must read as natural phrases, not "Label: Description". Wrong: "Anaheim Homes: What We See Most" / Right: "What We See Most in Anaheim Homes". Wrong: "Colony Historic District: Old Wiring" / Right: "Old Wiring in the Colony Historic District".
+## Anti-AI writing rules — these are absolute, not suggestions
+**EM DASHES ARE BANNED.** Do not use — anywhere. Not in sentences, not between clauses, not anywhere. Rewrite the sentence. Use a comma or a period. This is non-negotiable.
+
+**COLONS IN HEADLINES ARE BANNED.** Every H2 and H3 must be a natural flowing phrase. Never "Label: Description" format. Examples: Wrong: "Anaheim Homes: What We See Most" / Correct: "What We See Most in Anaheim Homes". Wrong: "Our Process: Step by Step" / Correct: "How the Process Works". Wrong: "Colony Historic District: Old Wiring" / Correct: "Old Wiring in the Colony Historic District". Read every headline before writing it. If it has a colon, rewrite it.
+
 - **No bold inline labels ending in a colon inside paragraphs** (e.g. "**West Anaheim (1950s homes):**"). Write a normal sentence instead.
 - **Active voice only.** "We replaced the panel" not "The panel was replaced."
 - **Short sentences.** One idea per sentence. If a sentence runs past two clauses, split it.

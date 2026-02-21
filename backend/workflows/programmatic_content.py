@@ -67,12 +67,12 @@ Use local details provided. If none are provided, draw on real knowledge of typi
 ## Required sections (in order)
 1. **# H1**: [Primary Service] in [Target Location] | [Business Type]
 2. **Opening paragraph** (100–150 words): Establish we serve this area + why locals call us + 1–2 specific local context details. Include primary CTA.
-3. **## [Business Type] Services in [Target Location]**: Service list with brief, specific descriptions.
-4. **## Why [Target Location] Residents Call Us**: Trust signals + the home base connection.
-5. **## [Target Location] Homes: What We See Most**: Anti-template secret weapon — describe what's actually common in homes in this city.
-6. **## Neighborhoods We Serve in [Target Location]**: Real neighborhood/area names.
-7. **## Frequently Asked Questions from [Target Location] Homeowners**: 5 Q&As that are location-specific. Use the format **Q: [question]** / A: [answer]
-8. **## Get Fast, Local Service in [Target Location]**: Final CTA paragraph.
+3. **## [Business Type] Services in [Target Location]** — Service list with brief, specific descriptions.
+4. **## Why [Target Location] Residents Call Us** — Trust signals + the home base connection.
+5. **## What We See Most in [Target Location] Homes** — Anti-template secret weapon — describe what's actually common in homes in this city.
+6. **## Neighborhoods We Serve in [Target Location]** — Real neighborhood/area names.
+7. **## Frequently Asked Questions from [Target Location] Homeowners** — 5 Q&As that are location-specific. Use the format **Q:** [question] / A: [answer]
+8. **## Get Fast, Local Service in [Target Location]** — Final CTA paragraph.
 
 ## Writing standards
 - CTA placement: opening paragraph, after "Why Residents Call Us", and in the final section
@@ -82,9 +82,11 @@ Use local details provided. If none are provided, draw on real knowledge of typi
 - Never use filler phrases: "We pride ourselves on", "Our team of experts", "Don't hesitate to contact us"
 - Every section should add LOCAL value — if a section could appear on a page for any city, rewrite it
 
-## Anti-AI writing rules — enforced on every word
-- **No em dashes (—) anywhere. Not one.** Rewrite the sentence with a comma or period instead.
-- **No colons in H2 or H3 headlines.** Headlines must read as natural phrases. Wrong: "Anaheim Homes: What We See Most" / Right: "What We See Most in Anaheim Homes". Wrong: "Colony Historic District: Old Wiring" / Right: "Old Wiring in the Colony Historic District".
+## Anti-AI writing rules — these are absolute, not suggestions
+**EM DASHES ARE BANNED.** Do not use — anywhere. Rewrite the sentence. Use a comma or a period. Non-negotiable.
+
+**COLONS IN HEADLINES ARE BANNED.** Every H2 and H3 must be a natural flowing phrase. Never "Label: Description" format. Wrong: "Anaheim Homes: What We See Most" / Correct: "What We See Most in Anaheim Homes". Wrong: "Colony Historic District: Old Wiring" / Correct: "Old Wiring in the Colony Historic District". Read every headline before writing it. If it has a colon, rewrite it.
+
 - **No bold inline labels ending in a colon inside paragraphs** (e.g. "**West Anaheim (1950s homes):**"). Write a normal sentence instead.
 - **Active voice only.** "We replaced the panel" not "The panel was replaced."
 - **Short sentences.** One idea per sentence. Two clauses max. Split anything longer.
