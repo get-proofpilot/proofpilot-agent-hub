@@ -18,6 +18,11 @@ DB_PATH = os.environ.get(
 )
 
 
+def _get_db_path() -> str:
+    """Return the resolved database file path (used by content_db / tasks_db)."""
+    return DB_PATH
+
+
 def _connect() -> sqlite3.Connection:
     # Ensure parent directory exists (required when using a Railway Volume path)
     Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
@@ -75,6 +80,112 @@ def init_db() -> None:
                 conn.commit()
             except Exception:
                 pass  # Column already exists
+
+        # ── Clients table migrations ──────────────────────────────
+        for col_sql in [
+            "ALTER TABLE clients ADD COLUMN gsc_property TEXT DEFAULT ''",
+            "ALTER TABLE clients ADD COLUMN ga4_property_id TEXT DEFAULT ''",
+            "ALTER TABLE clients ADD COLUMN google_ads_customer_id TEXT DEFAULT ''",
+            "ALTER TABLE clients ADD COLUMN meta_ad_account_id TEXT DEFAULT ''",
+            "ALTER TABLE clients ADD COLUMN sheets_config TEXT DEFAULT ''",
+        ]:
+            try:
+                conn.execute(col_sql)
+                conn.commit()
+            except Exception:
+                pass  # Column already exists
+
+        # ── Metrics tables ─────────────────────────────────────────
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS metrics (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                client_id     INTEGER NOT NULL,
+                source        TEXT NOT NULL,
+                metric_type   TEXT NOT NULL,
+                dimension     TEXT NOT NULL DEFAULT '',
+                value         REAL NOT NULL,
+                date          TEXT NOT NULL,
+                metadata      TEXT NOT NULL DEFAULT '{}',
+                synced_at     TEXT NOT NULL,
+                UNIQUE(client_id, source, metric_type, dimension, date)
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_metrics_client_source
+            ON metrics(client_id, source, metric_type, date)
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_metrics_dimension
+            ON metrics(client_id, source, metric_type, dimension)
+        """)
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS sync_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                client_id INTEGER NOT NULL,
+                source TEXT NOT NULL,
+                status TEXT NOT NULL,
+                rows_synced INTEGER DEFAULT 0,
+                error_msg TEXT DEFAULT '',
+                started_at TEXT NOT NULL,
+                completed_at TEXT
+            )
+        """)
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS dashboard_tokens (
+                token TEXT PRIMARY KEY,
+                client_id INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT,
+                revoked INTEGER DEFAULT 0
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_tokens_client
+            ON dashboard_tokens(client_id)
+        """)
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS content_roadmap (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                client_id INTEGER NOT NULL,
+                month TEXT NOT NULL DEFAULT '',
+                title TEXT NOT NULL DEFAULT '',
+                page_type TEXT NOT NULL DEFAULT '',
+                content_silo TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'planned',
+                keyword TEXT NOT NULL DEFAULT '',
+                volume INTEGER DEFAULT 0,
+                difficulty INTEGER DEFAULT 0,
+                sheets_source TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_content_roadmap_client_month
+            ON content_roadmap(client_id, month)
+        """)
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS client_tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                client_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                category TEXT NOT NULL DEFAULT 'other',
+                status TEXT NOT NULL DEFAULT 'not_started',
+                month TEXT NOT NULL DEFAULT '',
+                job_id TEXT DEFAULT '',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_client_tasks_client_month
+            ON client_tasks(client_id, month)
+        """)
+        conn.commit()
 
         # ── Seed clients if table is empty ──────────────────────────
         count = conn.execute("SELECT COUNT(*) FROM clients").fetchone()[0]
@@ -265,6 +376,8 @@ def update_client(client_id: int, data: dict) -> Optional[dict]:
         "name", "domain", "service", "location", "plan",
         "monthly_revenue", "avg_job_value", "status",
         "color", "initials", "notes", "strategy_context",
+        "gsc_property", "ga4_property_id",
+        "google_ads_customer_id", "meta_ad_account_id", "sheets_config",
     }
     updates = {k: v for k, v in data.items() if k in allowed and v is not None}
     if not updates:
