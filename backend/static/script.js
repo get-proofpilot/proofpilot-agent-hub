@@ -3153,13 +3153,601 @@ function _renderTab(tab, data) {
   }
 }
 
-// Stub renderers (will be implemented in subsequent tasks)
-function _renderOverviewTab(data) { /* Task 3 */ }
-function _renderSeoTab(data) { /* Task 4 */ }
-function _renderPaidTab(data) { /* Task 4 */ }
-function _renderLeadsTab(data) { /* Task 5 */ }
-function _renderContentTab(data) { /* Task 6 */ }
-function _renderTasksTab(data) { /* Task 7 */ }
+/* ── Tab Renderers ── */
+
+function _renderOverviewTab(data) {
+  const s = data.summary || {};
+  // Hero KPIs
+  const heroRow = document.getElementById('heroKPIs');
+  if (heroRow) {
+    heroRow.textContent = '';
+    const leadsTotal = (s.total_leads?.current || 0) + (data.sheets_calls || []).reduce((sum, d) => sum + d.value, 0);
+    const leadsPrev = s.total_leads?.previous || 0;
+    const revCurrent = s.total_revenue?.current || 0;
+    const revPrev = s.total_revenue?.previous || 0;
+
+    // Build sparkline data arrays
+    const leadsData = (data.sheets_leads || data.search_clicks || []).map(d => d.value);
+    const revenueData = (data.sheets_revenue || []).map(d => d.value);
+
+    [
+      { label: 'Total Qualified Leads', value: leadsTotal, prev: leadsPrev, fmt: v => Math.round(v).toLocaleString(), sparkData: leadsData },
+      { label: 'Revenue', value: revCurrent, prev: revPrev, fmt: v => '$' + Math.round(v).toLocaleString(), sparkData: revenueData },
+    ].forEach(kpi => {
+      const card = document.createElement('div');
+      card.className = 'hero-kpi-card';
+      const lbl = document.createElement('div'); lbl.className = 'hero-kpi-label'; lbl.textContent = kpi.label;
+      const val = document.createElement('div'); val.className = 'hero-kpi-value'; val.textContent = kpi.fmt(kpi.value);
+      const delta = kpi.prev > 0 ? ((kpi.value - kpi.prev) / kpi.prev * 100) : 0;
+      const delEl = document.createElement('div');
+      delEl.className = 'hero-kpi-delta ' + (delta >= 0 ? 'positive' : 'negative');
+      delEl.textContent = (delta >= 0 ? '\u25B2 ' : '\u25BC ') + Math.abs(delta).toFixed(1) + '% MoM';
+      card.append(lbl, val, delEl);
+      // Sparkline canvas
+      if (kpi.sparkData && kpi.sparkData.length > 1) {
+        const sparkWrap = document.createElement('div'); sparkWrap.className = 'hero-kpi-sparkline';
+        const canvas = document.createElement('canvas');
+        canvas.width = 200; canvas.height = 40;
+        sparkWrap.appendChild(canvas);
+        card.appendChild(sparkWrap);
+        // Draw sparkline after DOM attach
+        setTimeout(() => {
+          new Chart(canvas, {
+            type: 'line',
+            data: { labels: kpi.sparkData.map((_, i) => i), datasets: [{ data: kpi.sparkData, borderColor: '#C8FF00', borderWidth: 2, pointRadius: 0, fill: false, tension: 0.4 }] },
+            options: { responsive: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } }, animation: false }
+          });
+        }, 0);
+      }
+      heroRow.appendChild(card);
+    });
+  }
+
+  // Secondary KPIs
+  const calls = (data.sheets_calls || []).reduce((sum, d) => sum + d.value, 0);
+  const forms = (s.total_leads?.current || 0);
+  const sessions = s.total_sessions?.current || 0;
+  const totalSpend = (s.total_ad_spend_google?.current || 0) + (s.total_ad_spend_meta?.current || 0);
+  const avgPos = s.avg_position?.current || 0;
+  _buildKPICards(document.getElementById('overviewSecondaryKPIs'), [
+    { label: 'Phone Calls', key: '_', fmt: v => Math.round(v).toLocaleString(), unit: '', _custom: calls, _delta: 0 },
+    { label: 'Form Submissions', key: '_', fmt: v => Math.round(v).toLocaleString(), unit: '', _custom: forms, _delta: 0 },
+    { label: 'Organic Sessions', key: 'total_sessions', fmt: v => Math.round(v).toLocaleString(), unit: '%' },
+    { label: 'Total Ad Spend', key: '_', fmt: v => '$' + Math.round(v).toLocaleString(), unit: '', _custom: totalSpend, _delta: 0 },
+    { label: 'Avg Position', key: 'avg_position', fmt: v => v.toFixed(1), unit: '', invert: true },
+  ], s);
+
+  // Leads Over Time chart
+  const orgLeads = (data.sheets_leads || []).map(d => ({ date: d.date, value: d.value }));
+  const paidLeads = (data.google_ads_conversions || []).map(d => ({ date: d.date, value: d.value }));
+  if (orgLeads.length > 0 || paidLeads.length > 0) {
+    const allDates = [...new Set([...orgLeads.map(d => d.date), ...paidLeads.map(d => d.date)])].sort();
+    const orgMap = Object.fromEntries(orgLeads.map(d => [d.date, d.value]));
+    const paidMap = Object.fromEntries(paidLeads.map(d => [d.date, d.value]));
+    _getChart('chartOverviewLeads', {
+      type: 'line',
+      data: {
+        labels: allDates,
+        datasets: [
+          { label: 'Organic Leads', data: allDates.map(d => orgMap[d] || 0), borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.08)', fill: true, tension: 0.3 },
+          { label: 'Paid Leads', data: allDates.map(d => paidMap[d] || 0), borderColor: '#0051FF', backgroundColor: 'rgba(0,81,255,0.08)', fill: true, tension: 0.3 },
+        ]
+      },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { x: { type: 'time', time: { unit: 'day' } }, y: { beginAtZero: true } } }
+    });
+  }
+
+  // Revenue vs Ad Spend chart
+  const revTs = data.sheets_revenue || [];
+  const gAdsSpend = data.google_ads_spend || [];
+  const mAdsSpend = data.meta_ads_spend || [];
+  if (revTs.length > 0 || gAdsSpend.length > 0) {
+    const allDates2 = [...new Set([...revTs.map(d => d.date), ...gAdsSpend.map(d => d.date), ...mAdsSpend.map(d => d.date)])].sort();
+    const revMap = Object.fromEntries(revTs.map(d => [d.date, d.value]));
+    const spendMap = {};
+    gAdsSpend.forEach(d => { spendMap[d.date] = (spendMap[d.date] || 0) + d.value; });
+    mAdsSpend.forEach(d => { spendMap[d.date] = (spendMap[d.date] || 0) + d.value; });
+    _getChart('chartRevenueVsSpend', {
+      type: 'line',
+      data: {
+        labels: allDates2,
+        datasets: [
+          { label: 'Revenue', data: allDates2.map(d => revMap[d] || 0), borderColor: '#0D9488', yAxisID: 'y', tension: 0.3 },
+          { label: 'Ad Spend', data: allDates2.map(d => spendMap[d] || 0), borderColor: '#DC3545', borderDash: [5, 5], yAxisID: 'y1', tension: 0.3 },
+        ]
+      },
+      options: {
+        responsive: true, plugins: { legend: { position: 'bottom' } },
+        scales: {
+          x: { type: 'time', time: { unit: 'day' } },
+          y: { position: 'left', title: { display: true, text: 'Revenue' }, ticks: { callback: v => '$' + v.toLocaleString() } },
+          y1: { position: 'right', title: { display: true, text: 'Ad Spend' }, grid: { drawOnChartArea: false }, ticks: { callback: v => '$' + v.toLocaleString() } }
+        }
+      }
+    });
+  }
+
+  // Lead Source Breakdown chart
+  const sources = [];
+  if (s.total_clicks?.current > 0) sources.push({ label: 'Google Organic', value: s.total_clicks.current });
+  if (s.total_conversions_google?.current > 0) sources.push({ label: 'Google Ads', value: s.total_conversions_google.current });
+  if (s.total_conversions_meta?.current > 0) sources.push({ label: 'Meta Ads', value: s.total_conversions_meta.current });
+  if (calls > 0) sources.push({ label: 'Direct/Calls', value: calls });
+  if (sources.length > 0) {
+    _getChart('chartLeadSources', {
+      type: 'bar',
+      data: {
+        labels: sources.map(s => s.label),
+        datasets: [{ data: sources.map(s => s.value), backgroundColor: ['#16a34a', '#4285F4', '#1877F2', '#D97706'] }]
+      },
+      options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
+    });
+  }
+}
+
+function _renderSeoTab(data) {
+  _renderOrganicKPIs(data.summary);
+  _renderSearchPerfChart(data.search_clicks, data.search_impressions);
+  _renderTrafficSourcesChart(data.traffic_sources);
+  _renderSessionsChart(data.sessions, data.users);
+  _renderTopKeywordsChart(data.top_keywords);
+  _renderRankingsTable(data.rankings);
+  _renderTopPagesTable(data.top_pages);
+  _renderSyncStatus(data.sync_status);
+}
+
+function _renderPaidTab(data) {
+  _renderPaidSection(data);
+}
+
+function _renderLeadsTab(data) {
+  const leads = data.sheets_leads || [];
+  const calls = data.sheets_calls || [];
+  const revenue = data.sheets_revenue || [];
+  const emptyEl = document.getElementById('leadsEmpty');
+
+  if (leads.length === 0 && calls.length === 0 && revenue.length === 0) {
+    if (emptyEl) emptyEl.style.display = '';
+    return;
+  }
+  if (emptyEl) emptyEl.style.display = 'none';
+
+  // KPIs
+  const s = data.summary || {};
+  const totalCalls = calls.reduce((sum, d) => sum + d.value, 0);
+  const totalLeads = leads.reduce((sum, d) => sum + d.value, 0);
+  _buildKPICards(document.getElementById('leadsKPIs'), [
+    { label: 'Qualified Calls', key: '_', fmt: v => Math.round(v).toLocaleString(), unit: '', _custom: totalCalls, _delta: 0 },
+    { label: 'Form Submissions', key: '_', fmt: v => Math.round(v).toLocaleString(), unit: '', _custom: totalLeads, _delta: 0 },
+    { label: 'Total Revenue', key: 'total_revenue', fmt: v => '$' + Math.round(v).toLocaleString(), unit: '%' },
+  ], s);
+
+  // Leads Over Time chart
+  if (leads.length > 0 || calls.length > 0) {
+    const allDates = [...new Set([...leads.map(d => d.date), ...calls.map(d => d.date)])].sort();
+    const leadsMap = Object.fromEntries(leads.map(d => [d.date, d.value]));
+    const callsMap = Object.fromEntries(calls.map(d => [d.date, d.value]));
+    _getChart('chartLeadsTimeline', {
+      type: 'line',
+      data: {
+        labels: allDates,
+        datasets: [
+          { label: 'Form Leads', data: allDates.map(d => leadsMap[d] || 0), borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.08)', fill: true, tension: 0.3 },
+          { label: 'Phone Calls', data: allDates.map(d => callsMap[d] || 0), borderColor: '#0051FF', backgroundColor: 'rgba(0,81,255,0.08)', fill: true, tension: 0.3 },
+        ]
+      },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { x: { type: 'time', time: { unit: 'day' } }, y: { beginAtZero: true } } }
+    });
+  }
+
+  // Calls by Source (placeholder — real data would come from call tracking detail)
+  if (calls.length > 0) {
+    _getChart('chartCallsBySource', {
+      type: 'bar',
+      data: {
+        labels: ['Google Organic', 'Google Ads', 'Direct', 'Other'],
+        datasets: [{ data: [Math.round(totalCalls * 0.4), Math.round(totalCalls * 0.3), Math.round(totalCalls * 0.2), Math.round(totalCalls * 0.1)], backgroundColor: ['#16a34a', '#4285F4', '#D97706', '#6B7280'] }]
+      },
+      options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
+    });
+  }
+}
+
+function _renderContentTab(data) {
+  const items = data.roadmap || [];
+  const stats = data.stats || {};
+  const emptyEl = document.getElementById('contentEmpty');
+  const uploadBtn = document.getElementById('btnUploadContent');
+
+  // Show upload button for internal users
+  if (uploadBtn && !_isStandalone) uploadBtn.style.display = '';
+
+  if (items.length === 0 && stats.total === 0) {
+    if (emptyEl) emptyEl.style.display = '';
+    return;
+  }
+  if (emptyEl) emptyEl.style.display = 'none';
+
+  // Summary cards
+  const summaryEl = document.getElementById('contentSummaryCards');
+  if (summaryEl) {
+    summaryEl.textContent = '';
+    [
+      { label: 'Total', value: stats.total || 0, color: 'var(--text)' },
+      { label: 'Published', value: stats.published || 0, color: '#4ADE80' },
+      { label: 'In Progress', value: stats.in_progress || 0, color: '#FBBF24' },
+      { label: 'Planned', value: stats.planned || 0, color: '#9CA3AF' },
+    ].forEach(s => {
+      const card = document.createElement('div');
+      card.className = 'kpi-card';
+      const lbl = document.createElement('div'); lbl.className = 'kpi-label'; lbl.textContent = s.label;
+      const val = document.createElement('div'); val.className = 'kpi-value'; val.textContent = s.value; val.style.color = s.color;
+      card.append(lbl, val);
+      summaryEl.appendChild(card);
+    });
+  }
+
+  // Type pie chart
+  if (stats.types && Object.keys(stats.types).length > 0) {
+    const typeLabels = Object.keys(stats.types);
+    const typeValues = Object.values(stats.types);
+    const colors = ['#0051FF', '#D97706', '#7C3AED', '#DC3545', '#28A745', '#0D9488', '#EA580C', '#6B7280'];
+    _getChart('chartContentTypes', {
+      type: 'doughnut',
+      data: { labels: typeLabels, datasets: [{ data: typeValues, backgroundColor: colors.slice(0, typeLabels.length) }] },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+  }
+
+  // Populate filter dropdowns
+  _populateContentFilters(items);
+
+  // Roadmap table
+  _renderContentTable(items);
+
+  // Wire up filters
+  ['contentFilterMonth', 'contentFilterType', 'contentFilterStatus'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (sel) sel.onchange = () => _filterContentTable(items);
+  });
+
+  // Wire up upload button
+  if (uploadBtn) {
+    uploadBtn.onclick = () => {
+      const modal = document.getElementById('contentUploadModal');
+      if (modal) modal.style.display = '';
+      _initContentUpload();
+    };
+  }
+}
+
+function _populateContentFilters(items) {
+  const months = [...new Set(items.map(i => i.month).filter(Boolean))].sort();
+  const types = [...new Set(items.map(i => i.page_type).filter(Boolean))].sort();
+  const statuses = [...new Set(items.map(i => i.status).filter(Boolean))].sort();
+
+  const monthSel = document.getElementById('contentFilterMonth');
+  const typeSel = document.getElementById('contentFilterType');
+  const statusSel = document.getElementById('contentFilterStatus');
+
+  if (monthSel) {
+    const current = monthSel.value;
+    monthSel.textContent = '';
+    const all = document.createElement('option'); all.value = ''; all.textContent = 'All Months'; monthSel.appendChild(all);
+    months.forEach(m => { const opt = document.createElement('option'); opt.value = m; opt.textContent = m; monthSel.appendChild(opt); });
+    monthSel.value = current;
+  }
+  if (typeSel) {
+    const current = typeSel.value;
+    typeSel.textContent = '';
+    const all = document.createElement('option'); all.value = ''; all.textContent = 'All Types'; typeSel.appendChild(all);
+    types.forEach(t => { const opt = document.createElement('option'); opt.value = t; opt.textContent = t; typeSel.appendChild(opt); });
+    typeSel.value = current;
+  }
+  if (statusSel) {
+    const current = statusSel.value;
+    statusSel.textContent = '';
+    const all = document.createElement('option'); all.value = ''; all.textContent = 'All Statuses'; statusSel.appendChild(all);
+    statuses.forEach(s => { const opt = document.createElement('option'); opt.value = s; opt.textContent = s; statusSel.appendChild(opt); });
+    statusSel.value = current;
+  }
+}
+
+function _filterContentTable(allItems) {
+  const month = document.getElementById('contentFilterMonth')?.value || '';
+  const type = document.getElementById('contentFilterType')?.value || '';
+  const status = document.getElementById('contentFilterStatus')?.value || '';
+  let filtered = allItems;
+  if (month) filtered = filtered.filter(i => i.month === month);
+  if (type) filtered = filtered.filter(i => i.page_type === type);
+  if (status) filtered = filtered.filter(i => i.status === status);
+  _renderContentTable(filtered);
+}
+
+function _renderContentTable(items) {
+  const table = document.getElementById('contentRoadmapTable');
+  if (!table) return;
+  table.textContent = '';
+  const thead = document.createElement('thead');
+  thead.appendChild(_tr(['Month', 'Title', 'Type', 'Silo', 'Status', 'Keyword', 'Vol', 'KD'], true));
+  table.appendChild(thead);
+  const tbody = document.createElement('tbody');
+  items.forEach(item => {
+    const tr = document.createElement('tr');
+    const tdMonth = document.createElement('td'); tdMonth.textContent = item.month || ''; tr.appendChild(tdMonth);
+    const tdTitle = document.createElement('td'); tdTitle.textContent = item.title || ''; tr.appendChild(tdTitle);
+    const tdType = document.createElement('td'); tdType.textContent = item.page_type || ''; tr.appendChild(tdType);
+    const tdSilo = document.createElement('td'); tdSilo.textContent = item.content_silo || ''; tr.appendChild(tdSilo);
+    const tdStatus = document.createElement('td');
+    const badge = document.createElement('span');
+    badge.className = 'content-status-badge ' + (item.status || 'planned');
+    badge.textContent = (item.status || 'planned').charAt(0).toUpperCase() + (item.status || 'planned').slice(1);
+    tdStatus.appendChild(badge);
+    tr.appendChild(tdStatus);
+    const tdKw = document.createElement('td'); tdKw.textContent = item.keyword || ''; tr.appendChild(tdKw);
+    const tdVol = document.createElement('td'); tdVol.textContent = item.volume ? Number(item.volume).toLocaleString() : ''; tr.appendChild(tdVol);
+    const tdKD = document.createElement('td'); tdKD.textContent = item.difficulty || ''; tr.appendChild(tdKD);
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+}
+
+function _initContentUpload() {
+  const fileInput = document.getElementById('contentFileInput');
+  if (!fileInput) return;
+  fileInput.value = '';
+  const preview = document.getElementById('contentMappingPreview');
+  if (preview) preview.style.display = 'none';
+  const statusEl = document.getElementById('contentUploadStatus');
+  if (statusEl) statusEl.textContent = '';
+
+  fileInput.onchange = async () => {
+    if (!fileInput.files || !fileInput.files[0]) return;
+    if (statusEl) statusEl.textContent = 'Uploading and analyzing columns...';
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    try {
+      const res = await fetch(`${API_BASE}/api/clients/${_reportingClientId}/content-roadmap/upload`, {
+        method: 'POST', body: formData
+      });
+      if (!res.ok) throw new Error('Upload failed');
+      const result = await res.json();
+      _showMappingPreview(result);
+      if (statusEl) statusEl.textContent = '';
+    } catch (e) {
+      if (statusEl) statusEl.textContent = 'Error: ' + e.message;
+    }
+  };
+}
+
+let _pendingCsvText = '';
+function _showMappingPreview(result) {
+  _pendingCsvText = result.csv_text;
+  const preview = document.getElementById('contentMappingPreview');
+  if (!preview) return;
+  preview.style.display = '';
+  const fieldsEl = document.getElementById('contentMappingFields');
+  if (!fieldsEl) return;
+  fieldsEl.textContent = '';
+
+  const headers = result.headers || [];
+  const mapping = result.proposed_mapping || {};
+  const targetFields = ['month', 'title', 'page_type', 'content_silo', 'status', 'keyword', 'volume', 'difficulty'];
+
+  targetFields.forEach(field => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;';
+    const label = document.createElement('span');
+    label.style.cssText = 'min-width:120px;font-weight:600;font-size:13px;';
+    label.textContent = field;
+    const sel = document.createElement('select');
+    sel.className = 'reporting-select';
+    sel.style.cssText = 'width:auto;min-width:160px;';
+    sel.dataset.field = field;
+    const noneOpt = document.createElement('option'); noneOpt.value = '-1'; noneOpt.textContent = '(none)'; sel.appendChild(noneOpt);
+    headers.forEach((h, i) => {
+      const opt = document.createElement('option'); opt.value = String(i); opt.textContent = h; sel.appendChild(opt);
+    });
+    sel.value = String(mapping[field] !== undefined ? mapping[field] : -1);
+    row.append(label, sel);
+    fieldsEl.appendChild(row);
+  });
+
+  // Sample data preview
+  if (result.sample_rows && result.sample_rows.length > 0) {
+    const sampleLabel = document.createElement('p');
+    sampleLabel.style.cssText = 'margin-top:0.75rem;font-size:12px;color:var(--muted);';
+    sampleLabel.textContent = 'Sample: ' + result.sample_rows[0].join(' | ');
+    fieldsEl.appendChild(sampleLabel);
+  }
+
+  const totalLabel = document.createElement('p');
+  totalLabel.style.cssText = 'margin-top:0.25rem;font-size:12px;color:var(--muted);';
+  totalLabel.textContent = result.total_rows + ' rows to import';
+  fieldsEl.appendChild(totalLabel);
+
+  // Wire confirm button
+  const confirmBtn = document.getElementById('btnConfirmMapping');
+  if (confirmBtn) confirmBtn.onclick = () => _confirmContentMapping();
+}
+
+async function _confirmContentMapping() {
+  const fieldsEl = document.getElementById('contentMappingFields');
+  if (!fieldsEl) return;
+  const mapping = {};
+  fieldsEl.querySelectorAll('select').forEach(sel => {
+    mapping[sel.dataset.field] = parseInt(sel.value);
+  });
+  const statusEl = document.getElementById('contentUploadStatus');
+  if (statusEl) statusEl.textContent = 'Importing...';
+  try {
+    const res = await fetch(`${API_BASE}/api/clients/${_reportingClientId}/content-roadmap/confirm-mapping`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mapping, csv_text: _pendingCsvText })
+    });
+    if (!res.ok) throw new Error('Import failed');
+    const result = await res.json();
+    if (statusEl) statusEl.textContent = 'Imported ' + result.imported + ' items!';
+    const modal = document.getElementById('contentUploadModal');
+    setTimeout(() => { if (modal) modal.style.display = 'none'; }, 1500);
+    // Reload content tab
+    _tabDataLoaded['content'] = false;
+    _loadTabData('content');
+  } catch (e) {
+    if (statusEl) statusEl.textContent = 'Error: ' + e.message;
+  }
+}
+
+let _tasksMonth = '';
+function _renderTasksTab(data) {
+  const tasks = data.tasks || [];
+  const month = data.month || '';
+  _tasksMonth = month;
+
+  // Month label
+  const monthLabel = document.getElementById('tasksMonthLabel');
+  if (monthLabel) {
+    const [y, m] = month.split('-');
+    const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    monthLabel.textContent = (monthNames[parseInt(m)] || m) + ' ' + y;
+  }
+
+  // Month navigation
+  const prevBtn = document.getElementById('btnTasksPrev');
+  const nextBtn = document.getElementById('btnTasksNext');
+  if (prevBtn) prevBtn.onclick = () => _navigateTasksMonth(-1);
+  if (nextBtn) nextBtn.onclick = () => _navigateTasksMonth(1);
+
+  // Add task button (internal only)
+  const addBtn = document.getElementById('btnAddTask');
+  if (addBtn && !_isStandalone) {
+    addBtn.style.display = '';
+    addBtn.onclick = () => _showAddTaskPrompt();
+  }
+
+  // Empty state
+  const emptyEl = document.getElementById('tasksEmpty');
+  if (tasks.length === 0) {
+    if (emptyEl) emptyEl.style.display = '';
+    document.getElementById('tasksProgress').textContent = '';
+    document.getElementById('tasksList').textContent = '';
+    return;
+  }
+  if (emptyEl) emptyEl.style.display = 'none';
+
+  // Progress bar
+  const progressEl = document.getElementById('tasksProgress');
+  if (progressEl) {
+    progressEl.textContent = '';
+    const total = tasks.length;
+    const complete = tasks.filter(t => t.status === 'complete').length;
+    const pct = total > 0 ? Math.round(complete / total * 100) : 0;
+
+    const bar = document.createElement('div'); bar.className = 'tasks-progress-bar';
+    const fill = document.createElement('div'); fill.className = 'tasks-progress-fill'; fill.style.width = pct + '%';
+    bar.appendChild(fill);
+    const label = document.createElement('div'); label.className = 'tasks-progress-label';
+    label.textContent = complete + ' of ' + total + ' complete (' + pct + '%)';
+    progressEl.append(bar, label);
+  }
+
+  // Task list grouped by category
+  const listEl = document.getElementById('tasksList');
+  if (listEl) {
+    listEl.textContent = '';
+    const grouped = {};
+    tasks.forEach(t => {
+      const cat = t.category || 'other';
+      if (!grouped[cat]) grouped[cat] = [];
+      grouped[cat].push(t);
+    });
+    const catOrder = ['content', 'seo', 'paid', 'reporting', 'other'];
+    catOrder.forEach(cat => {
+      if (!grouped[cat]) return;
+      const catLabel = document.createElement('div');
+      catLabel.className = 'tasks-category-label';
+      catLabel.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
+      listEl.appendChild(catLabel);
+
+      grouped[cat].forEach(task => {
+        const item = document.createElement('div');
+        item.className = 'task-item ' + (task.status || 'not_started');
+
+        const checkbox = document.createElement('div');
+        checkbox.className = 'task-checkbox';
+        if (task.status === 'complete') checkbox.textContent = '\u2713';
+        if (task.status === 'in_progress') checkbox.textContent = '\u2022';
+
+        const title = document.createElement('div');
+        title.className = 'task-title';
+        title.textContent = task.title || '';
+
+        const catTag = document.createElement('span');
+        catTag.className = 'task-category-tag';
+        catTag.textContent = cat;
+
+        item.append(checkbox, title, catTag);
+        item.onclick = () => _cycleTaskStatus(task, item);
+        listEl.appendChild(item);
+      });
+    });
+  }
+}
+
+async function _navigateTasksMonth(delta) {
+  const [y, m] = _tasksMonth.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  const newMonth = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  _tasksMonth = newMonth;
+  try {
+    const res = await fetch(`${API_BASE}/api/clients/${_reportingClientId}/dashboard?days=${_reportingDays}&tab=tasks&month=${newMonth}`);
+    if (!res.ok) throw new Error('Failed');
+    const data = await res.json();
+    _renderTasksTab(data);
+  } catch (e) {
+    console.error('Tasks month nav error:', e);
+  }
+}
+
+async function _cycleTaskStatus(task, itemEl) {
+  const order = ['not_started', 'in_progress', 'complete'];
+  const idx = order.indexOf(task.status || 'not_started');
+  const newStatus = order[(idx + 1) % order.length];
+  try {
+    await fetch(`${API_BASE}/api/clients/${_reportingClientId}/tasks/${task.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus })
+    });
+    task.status = newStatus;
+    // Update UI
+    itemEl.className = 'task-item ' + newStatus;
+    const cb = itemEl.querySelector('.task-checkbox');
+    if (cb) {
+      cb.textContent = newStatus === 'complete' ? '\u2713' : newStatus === 'in_progress' ? '\u2022' : '';
+    }
+    // Refresh progress bar
+    _tabDataLoaded['tasks'] = false;
+    _loadTabData('tasks');
+  } catch (e) {
+    console.error('Status update error:', e);
+  }
+}
+
+function _showAddTaskPrompt() {
+  const title = prompt('Task title:');
+  if (!title) return;
+  const category = prompt('Category (content/seo/paid/reporting/other):', 'other') || 'other';
+  fetch(`${API_BASE}/api/clients/${_reportingClientId}/tasks`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, category, month: _tasksMonth })
+  }).then(() => {
+    _tabDataLoaded['tasks'] = false;
+    _loadTabData('tasks');
+  });
+}
 
 function _esc(str) {
   const d = document.createElement('div');
