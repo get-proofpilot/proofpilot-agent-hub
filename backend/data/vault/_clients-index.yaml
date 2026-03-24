@@ -1,0 +1,202 @@
+# ProofPilot Client Index
+# Source of truth for all active clients. Read by /weekly-plan to generate priorities.
+# Stripe MRR verified 2026-03-20. White-label billing confirmed by Matthew.
+#
+# Service Lines: SEO, Google Ads, Meta Ads, AMPED, Website, Content, AI Tools, GBP, Social
+# Billing types: direct (Stripe subscription), white-label (billed through partner)
+
+clients:
+  - client: Saiyan Electric
+    folder: saiyan-electric
+    industry: Electrical
+    location: Downey / LA, CA
+    website: saiyanelectric.com
+    tier: 1
+    cadence: biweekly
+    mrr: 4000
+    stripe_mrr: 4000  # Verified 2026-03-20
+    service_lines:
+      seo: 2000  # Includes Google Ads management bundled in
+      ads: 1000  # Meta Ads management
+      amped: 1000
+    services: [SEO, Google Ads, Meta Ads, AMPED]
+    billing: direct
+    manager: Matthew
+    contact: Michael
+    status: active
+
+  - client: All Thingz Electric
+    folder: all-thingz-electric
+    industry: Electrical
+    location: South Orange County, CA
+    website: allthingzelectric.com
+    tier: 1
+    cadence: monthly
+    mrr: 3200
+    stripe_mrr: 3200  # Verified 2026-03-20
+    service_lines:
+      seo: 2200  # $200 base + $2,000 SEO/web. Includes Google Ads management bundled in.
+      ads: 1000  # Meta Ads management
+    services: [SEO, Google Ads, Meta Ads, AMPED]
+    billing: direct
+    manager: Matthew
+    contact: Anthony Feeney
+    status: active
+
+  - client: Integrative Sports and Spine
+    folder: integrative-sports-spine
+    industry: Healthcare / Pain Management
+    location: Long Beach, CA
+    website: integrativesportsandspine.com
+    tier: 1  # Upgraded from Tier 2. $5K gross = 3rd highest client by revenue.
+    cadence: monthly
+    mrr: 5000  # Gross client value. Was $1,500 in original index.
+    service_lines:
+      seo: 5000
+    services: [SEO]
+    billing: white-label
+    billing_entity: StrikePoint Media  # Part of $7,200/mo net retainer (20% fee on $9K gross)
+    manager: Jo Paula
+    contact: Dr. Kevin
+    status: active
+
+  - client: Cedar Gold Group
+    folder: cedar-gold-group
+    industry: Gold IRA / Finance
+    location: Remote
+    website: cedargoldgroup.com
+    tier: 1
+    cadence: weekly
+    mrr: 4000  # Full rate after 2-month intro
+    stripe_mrr: 2000  # Intro rate (first 2 months), then $4,000/mo
+    service_lines:
+      content_seo: 4000  # Content SOW signed Mar 1, 2026. Months 1-2: $2K (5-10 articles/mo). Month 3+ (May): $4K (10-20 articles/mo, press releases, full distribution).
+    content_sow:
+      doc_id: 1UMoBp5VVy2MpICVtXQhSVp_hfGVaeJJ2fSaALZ-Fs8Y
+      effective: 2026-03-01
+      min_commitment: 3 months
+      phase1: "Months 1-2 ($2K/mo): 5-10 SEO articles, 4 news pieces, limited distribution (Reddit/Medium), AI search optimization, social direction"
+      phase2: "Month 3+ ($4K/mo): 10-20 SEO articles, 8 news pieces, 1-2 press releases (Benzinga/Bloomberg), full distribution, full social direction"
+      performance_guarantee: "180 days - continue at no cost if no measurable improvement"
+    projects:
+      website_redesign:
+        value: 18000  # Domination Package: $20K minus $2K discount. SOW signed 2026-01-22.
+        payments: [6000, 6000, 6000]  # Kick-off, midpoint (week 5-6), launch (week 10-12)
+        timeline: 10-12 weeks  # Effective 2026-01-21. Target completion ~April 2026.
+        status: in-progress  # Hammad building in Elementor from Figma designs
+        scope: homepage redesign, 3 resource hubs, 8 product category pages, IRA page suite, quiz funnel, mega menu, templates, 6-month content roadmap, 30 days post-launch support
+        sow_location: "Google Drive/My Drive/Cedar Gold Group | SOW Contract 01 21 2026"
+    services: [Content, SEO, AI Tools, Website]
+    billing: direct
+    manager: Matthew
+    contact: Charlie Winterhalter
+    status: active
+
+  - client: Trading Academy
+    folder: trading-academy
+    industry: Education / Finance
+    location: Remote
+    website: tradingacademy.com
+    tier: 1
+    cadence: monthly
+    mrr: 4000
+    service_lines:
+      seo: 4000
+    services: [SEO]
+    billing: white-label
+    billing_entity: StrikePoint Media  # Part of $7,200/mo net retainer (20% fee on $9K gross)
+    manager: Jo Paula
+    contact: StrikePoint (white-label)
+    status: active
+
+  - client: Pelican Coast Electric
+    folder: pelican-coast-electric
+    industry: Electrical
+    location: Newport Beach, CA
+    website: pelicancoastelectric.com
+    tier: 1
+    cadence: biweekly
+    mrr: 2000
+    stripe_mrr: 2000  # Verified 2026-03-20
+    service_lines:
+      seo: 2000  # Google Ads management bundled in
+    services: [SEO, Google Ads]
+    billing: direct
+    manager: Marcos
+    contact: Austin Torres
+    status: active
+
+  - client: Dolce Electric
+    folder: dolce-electric
+    industry: Electrical
+    location: Mesa, AZ
+    website: electriciansmesaaz.com
+    tier: 2
+    cadence: monthly
+    mrr: 2000
+    stripe_mrr: 2000  # Verified 2026-03-20
+    service_lines:
+      seo: 2000
+    services: [SEO]
+    billing: direct
+    manager: Jo Paula
+    contact: Tony
+    status: active
+
+  - client: Alpha Property Management
+    folder: alpha-property-management
+    industry: Property Management
+    location: Sacramento, CA
+    website: alphapropmanagement.com
+    tier: 2
+    cadence: monthly
+    mrr: 1800  # Net to ProofPilot after 10% Hero PM fee on $2,000 gross
+    service_lines:
+      seo: 1800
+    services: [SEO]
+    billing: white-label
+    billing_entity: Hero PM  # Gross $2,000, 10% fee to Hero PM
+    manager: Marcos
+    contact: Sally La Bate
+    status: active
+
+  - client: Adam Levinstein Photography
+    folder: adam-levinstein-photography
+    industry: Photography
+    location: Orange County / San Diego, CA
+    website: adamlevinstein.com
+    tier: 3
+    cadence: monthly
+    mrr: 1000
+    stripe_mrr: 1000  # Verified 2026-03-20
+    service_lines:
+      seo: 1000  # GBP and Social bundled in
+    services: [SEO, GBP, Social]
+    billing: direct
+    manager: Marcos
+    contact: Adam Levinstein
+    status: active
+
+# --- Revenue Summary (2026-03-20, verified by Matthew) ---
+#
+# RECURRING (MRR):
+# Tier 1: ISS $5K, Saiyan $4K, Cedar Gold $4K (intro $2K), Trading Academy $4K, ATE $3.2K, Pelican Coast $2K = $22.2K
+# Tier 2: Dolce $2K, Alpha PM $1.8K = $3.8K
+# Tier 3: Adam L $1K = $1K
+# Gross MRR: $27K
+# White-label fees: StrikePoint 20% on $9K = -$1.8K, Hero PM 10% on $2K = -$0.2K
+# Net MRR to ProofPilot: $25K (once Cedar Gold hits full rate)
+# Current net (Cedar Gold intro): $23K
+#
+# PROJECTS (one-time):
+# Cedar Gold website redesign: $18K (3x $6K payments). SOW signed 2026-01-22. In progress.
+# Anchor Point SOW: $1K/mo Stripe sub (cus_TwxhMlPXhGqdDG). Not a retainer client.
+#
+# By service line (gross MRR):
+#   SEO (all clients):  $23K -- nearly all revenue. Ads/GBP/Social bundled into SEO retainers.
+#   Content/SEO (Cedar Gold): $4K -- content retainer with SEO, AI tools built in.
+#
+# Billing channels:
+#   Direct Stripe: $15.2K/mo (7 subs: Saiyan, ATE, Cedar Gold, Pelican, Dolce, Adam L, Anchor Point)
+#   StrikePoint white-label: $7.2K/mo net (ISS + Trading Academy, 20% fee)
+#   Hero PM white-label: $1.8K/mo net (Alpha PM, 10% fee)

@@ -1,0 +1,658 @@
+# Integrative Sports and Spine — SEO Roadmap
+# Source: Client context + tracker.yaml gap analysis + ISS roadmap template
+# This is the strategic pipeline. /monthly-plan and /weekly-plan read this to know WHAT to build next.
+# Statuses: needed | in-progress | live | skipped
+
+# ──────────────────────────────────────
+# 2026 TARGETS
+# ──────────────────────────────────────
+targets:
+  baseline_mar_2026:
+    pages: 79
+    keywords_ranking: 45
+    keywords_top_3: 15
+    leads_per_month: 85
+    qual_rate: 0.12
+    phone_calls_per_month: 140
+  eoy_2026:
+    pages: 135
+    keywords_ranking: 200
+    keywords_top_10: 60
+    leads_per_month: 160
+    qual_rate: 0.20
+    phone_calls_per_month: 280
+  strategic_goal: "Double organic phone calls by EOY 2026. Expand geographic footprint from 4 cities to 12+. Fill treatment and condition page gaps to own Long Beach pain management SERP. Long Beach location page (30% of traffic) is the anchor — build outward from there."
+
+# ──────────────────────────────────────
+# PAGE PIPELINE (sorted by priority)
+# ──────────────────────────────────────
+# Pages that need to be built. Identified from tracker.yaml gap analysis.
+# /monthly-plan reads this to suggest next pages to create.
+# Existing pages (79) are excluded from this pipeline.
+
+pages_pipeline:
+
+  # ═══════════════════════════════════
+  # MISSING TREATMENT / SERVICE PAGES
+  # ═══════════════════════════════════
+  # Has: epidural steroid, facet joint, hip joint, hyaluronic acid, joint injections,
+  #      knee joint, nerve blocks, personal injury, PRP therapy, post-accident,
+  #      radiofrequency ablation, SI joint, shoulder joint, slip and fall,
+  #      spinal cord stimulation, sport injury, stem cell therapy,
+  #      tendon/ligament, trigger point, whiplash
+  # Missing: physical therapy hub, EMG, regenerative medicine hub, cortisone,
+  #          Botox for migraines, kyphoplasty, lumbar decompression, TENS therapy
+
+  - page: Physical Therapy Long Beach
+    url: /physical-therapy-long-beach/
+    keyword: physical therapy long beach
+    volume: 1300
+    kd: 45
+    words: 1800
+    priority: HIGH
+    type: service
+    parent: null
+    status: needed
+    notes: "Core service with no dedicated page. Huge volume. Must build as pillar page."
+
+  - page: EMG Nerve Conduction Study
+    url: /emg-nerve-conduction-study/
+    keyword: emg nerve conduction study long beach
+    volume: 170
+    kd: 20
+    words: 1400
+    priority: HIGH
+    type: service
+    parent: null
+    status: needed
+    notes: "Offered in-house. Diagnostic service that feeds into treatment pipeline. High commercial intent."
+
+  - page: Regenerative Medicine Long Beach
+    url: /regenerative-medicine-long-beach/
+    keyword: regenerative medicine long beach
+    volume: 260
+    kd: 30
+    words: 1800
+    priority: HIGH
+    type: service
+    parent: null
+    status: needed
+    notes: "Hub page linking to PRP, stem cell, hyaluronic acid. Pillar for topic cluster."
+
+  - page: Cortisone Injections
+    url: /cortisone-injections/
+    keyword: cortisone injection long beach
+    volume: 210
+    kd: 18
+    words: 1200
+    priority: HIGH
+    type: treatment
+    parent: /joint-injections/
+    status: needed
+    notes: "One of the most common pain management procedures. High search volume, low competition."
+
+  - page: Botox for Migraines
+    url: /botox-for-migraines/
+    keyword: botox for migraines long beach
+    volume: 140
+    kd: 22
+    words: 1400
+    priority: HIGH
+    type: treatment
+    parent: null
+    status: needed
+    notes: "Confirm with Dr. Kevin that ISS offers this. Strong MOF/BOF intent."
+
+  - page: Kyphoplasty
+    url: /kyphoplasty/
+    keyword: kyphoplasty long beach
+    volume: 70
+    kd: 12
+    words: 1200
+    priority: MED
+    type: treatment
+    parent: /spine-care/
+    status: needed
+    notes: "Vertebral compression fracture treatment. Low competition, high-value patient."
+
+  - page: Lumbar Decompression
+    url: /lumbar-decompression/
+    keyword: lumbar decompression long beach
+    volume: 90
+    kd: 15
+    words: 1400
+    priority: MED
+    type: treatment
+    parent: /spine-care/
+    status: needed
+
+  - page: TENS Therapy
+    url: /tens-therapy/
+    keyword: tens therapy long beach
+    volume: 50
+    kd: 8
+    words: 1000
+    priority: LOW
+    type: treatment
+    parent: /physical-therapy-long-beach/
+    status: needed
+
+  - page: Workers Comp Pain Management
+    url: /workers-comp-pain-management/
+    keyword: workers comp pain management long beach
+    volume: 110
+    kd: 15
+    words: 1400
+    priority: HIGH
+    type: service
+    parent: null
+    status: needed
+    notes: "ISS accepts Workers' Comp. Dedicated page captures high-intent injured workers."
+
+  # ═══════════════════════════════════
+  # MISSING CONDITION PAGES
+  # ═══════════════════════════════════
+  # Has: arthritis, auto accident injury, back pain, chronic pain, hip pain,
+  #      joint pain, knee pain, lower back pain, migraine, neck pain,
+  #      sciatica, shoulder pain
+  # Missing: herniated disc, spinal stenosis, fibromyalgia, neuropathy,
+  #          tendinitis, bursitis, carpal tunnel, plantar fasciitis,
+  #          rotator cuff, degenerative disc disease
+
+  - page: Herniated Disc Treatment
+    url: /herniated-disc-treatment/
+    keyword: herniated disc treatment long beach
+    volume: 170
+    kd: 20
+    words: 1400
+    priority: HIGH
+    type: condition
+    parent: /back-pain/
+    status: needed
+    notes: "High-value condition. Links to epidural, spinal cord stim, and PT pages."
+
+  - page: Spinal Stenosis Treatment
+    url: /spinal-stenosis-treatment/
+    keyword: spinal stenosis treatment long beach
+    volume: 140
+    kd: 18
+    words: 1400
+    priority: HIGH
+    type: condition
+    parent: /spine-care/
+    status: needed
+
+  - page: Neuropathy Treatment
+    url: /neuropathy-treatment/
+    keyword: neuropathy treatment long beach
+    volume: 210
+    kd: 25
+    words: 1400
+    priority: HIGH
+    type: condition
+    parent: null
+    status: needed
+    notes: "Medicare-eligible patients frequently search this. Strong insurance conversion path."
+
+  - page: Degenerative Disc Disease Treatment
+    url: /degenerative-disc-disease/
+    keyword: degenerative disc disease treatment long beach
+    volume: 90
+    kd: 15
+    words: 1400
+    priority: MED
+    type: condition
+    parent: /back-pain/
+    status: needed
+
+  - page: Rotator Cuff Injury Treatment
+    url: /rotator-cuff-treatment/
+    keyword: rotator cuff treatment long beach
+    volume: 110
+    kd: 18
+    words: 1200
+    priority: MED
+    type: condition
+    parent: /shoulder-pain/
+    status: needed
+
+  - page: Fibromyalgia Treatment
+    url: /fibromyalgia-treatment/
+    keyword: fibromyalgia treatment long beach
+    volume: 90
+    kd: 15
+    words: 1400
+    priority: MED
+    type: condition
+    parent: /chronic-pain/
+    status: needed
+
+  - page: Tendinitis Treatment
+    url: /tendinitis-treatment/
+    keyword: tendinitis treatment long beach
+    volume: 70
+    kd: 12
+    words: 1200
+    priority: MED
+    type: condition
+    parent: /joint-pain/
+    status: needed
+
+  - page: Bursitis Treatment
+    url: /bursitis-treatment/
+    keyword: bursitis treatment long beach
+    volume: 70
+    kd: 10
+    words: 1200
+    priority: LOW
+    type: condition
+    parent: /joint-pain/
+    status: needed
+
+  # ═══════════════════════════════════
+  # LOCATION EXPANSION PAGES
+  # ═══════════════════════════════════
+  # Has: Long Beach, Alhambra, City of Industry, Riverside
+  # Missing: Key cities in the Long Beach / South Bay / Gateway Cities corridor
+
+  - page: Lakewood CA
+    url: /pain-management-lakewood-ca/
+    keyword: pain management lakewood ca
+    volume: 70
+    kd: 10
+    words: 1200
+    priority: HIGH
+    type: location
+    parent: null
+    status: needed
+    notes: "Directly adjacent to Long Beach. Quick geographic win."
+
+  - page: Signal Hill CA
+    url: /pain-management-signal-hill-ca/
+    keyword: pain management signal hill ca
+    volume: 30
+    kd: 5
+    words: 1200
+    priority: HIGH
+    type: location
+    parent: null
+    status: needed
+    notes: "Surrounded by Long Beach. Essentially same service area. Easy win."
+
+  - page: Bellflower CA
+    url: /pain-management-bellflower-ca/
+    keyword: pain management bellflower ca
+    volume: 50
+    kd: 8
+    words: 1200
+    priority: HIGH
+    type: location
+    parent: null
+    status: needed
+
+  - page: Downey CA
+    url: /pain-management-downey-ca/
+    keyword: pain management downey ca
+    volume: 90
+    kd: 12
+    words: 1200
+    priority: HIGH
+    type: location
+    parent: null
+    status: needed
+
+  - page: Cerritos CA
+    url: /pain-management-cerritos-ca/
+    keyword: pain management cerritos ca
+    volume: 70
+    kd: 10
+    words: 1200
+    priority: MED
+    type: location
+    parent: null
+    status: needed
+
+  - page: Carson CA
+    url: /pain-management-carson-ca/
+    keyword: pain management carson ca
+    volume: 70
+    kd: 10
+    words: 1200
+    priority: MED
+    type: location
+    parent: null
+    status: needed
+
+  - page: Torrance CA
+    url: /pain-management-torrance-ca/
+    keyword: pain management torrance ca
+    volume: 110
+    kd: 18
+    words: 1200
+    priority: MED
+    type: location
+    parent: null
+    status: needed
+    notes: "Larger city with higher volume. More competitive but strong ROI."
+
+  - page: Compton CA
+    url: /pain-management-compton-ca/
+    keyword: pain management compton ca
+    volume: 50
+    kd: 8
+    words: 1200
+    priority: MED
+    type: location
+    parent: null
+    status: needed
+
+  - page: Norwalk CA
+    url: /pain-management-norwalk-ca/
+    keyword: pain management norwalk ca
+    volume: 70
+    kd: 10
+    words: 1200
+    priority: MED
+    type: location
+    parent: null
+    status: needed
+
+  # ═══════════════════════════════════
+  # INSURANCE / COST PAGES
+  # ═══════════════════════════════════
+  # Has: None. Major gap for BOF conversion content.
+
+  - page: Does Insurance Cover PRP Therapy
+    url: /does-insurance-cover-prp-therapy/
+    keyword: does insurance cover prp therapy
+    volume: 720
+    kd: 15
+    words: 1400
+    priority: HIGH
+    type: insurance
+    parent: /prp-therapy/
+    status: needed
+    notes: "Massive volume for an insurance intent query. Directly answers #1 patient objection."
+
+  - page: Pain Management Cost Without Insurance
+    url: /pain-management-cost-without-insurance/
+    keyword: pain management cost without insurance
+    volume: 320
+    kd: 12
+    words: 1400
+    priority: HIGH
+    type: insurance
+    parent: null
+    status: needed
+    notes: "Cash-pay patients are a target segment. Transparent pricing builds trust."
+
+# ──────────────────────────────────────
+# BLOG PIPELINE (sorted by pillar, then priority)
+# ──────────────────────────────────────
+# Blog posts that need to be written.
+# Existing blogs (6) are excluded from this pipeline.
+# Cadence: 1-2 per month. Pipeline gives 12-18 months of content.
+
+blogs_pipeline:
+
+  # --- PILLAR: PAIN MANAGEMENT (BOF — cost, insurance, near-me) ---
+
+  - title: "How Much Does Pain Management Cost Without Insurance in Long Beach?"
+    keyword: pain management cost without insurance
+    volume: 320
+    kd: 12
+    funnel: BOF
+    links_to: /pain-management-cost-without-insurance/
+    priority: HIGH
+    words: 1800
+    status: needed
+    notes: "Top BOF priority. Cash-pay patients search this before booking."
+
+  - title: "Does Medicare Cover Pain Management? What Seniors Need to Know (2026)"
+    keyword: does medicare cover pain management
+    volume: 480
+    kd: 18
+    funnel: BOF
+    links_to: /
+    priority: HIGH
+    words: 1600
+    status: needed
+    notes: "ISS accepts Medicare. Huge senior demographic in Long Beach."
+
+  - title: "Workers' Comp Pain Management: Your Rights and Treatment Options"
+    keyword: workers comp pain management
+    volume: 210
+    kd: 15
+    funnel: BOF
+    links_to: /workers-comp-pain-management/
+    priority: HIGH
+    words: 1800
+    status: needed
+
+  - title: "How to Find the Best Pain Management Doctor in Long Beach, CA"
+    keyword: pain management doctor long beach
+    volume: 260
+    kd: 25
+    funnel: BOF
+    links_to: /
+    priority: HIGH
+    words: 1400
+    status: needed
+    notes: "Near-me intent conversion page. Position Dr. Kevin and team as the answer."
+
+  # --- PILLAR: PRP & REGENERATIVE MEDICINE (BOF/MOF) ---
+
+  - title: "PRP Therapy Cost: What to Expect and Does Insurance Cover It?"
+    keyword: prp therapy cost
+    volume: 880
+    kd: 20
+    funnel: BOF
+    links_to: /does-insurance-cover-prp-therapy/
+    priority: HIGH
+    words: 2000
+    status: needed
+    notes: "Highest-volume BOF keyword in the regenerative medicine cluster."
+
+  - title: "PRP vs Cortisone Injections: Which Is Better for Joint Pain?"
+    keyword: prp vs cortisone injection
+    volume: 720
+    kd: 25
+    funnel: MOF
+    links_to: /prp-therapy/
+    priority: HIGH
+    words: 1800
+    status: needed
+    notes: "Head-to-head comparison. Positions PRP as the superior long-term solution."
+
+  - title: "Stem Cell Therapy vs PRP: Understanding Your Regenerative Options"
+    keyword: stem cell therapy vs prp
+    volume: 480
+    kd: 22
+    funnel: MOF
+    links_to: /regenerative-medicine-long-beach/
+    priority: HIGH
+    words: 1800
+    status: needed
+
+  - title: "How Long Does PRP Therapy Take to Work? Recovery Timeline"
+    keyword: how long does prp take to work
+    volume: 390
+    kd: 15
+    funnel: MOF
+    links_to: /prp-therapy/
+    priority: MED
+    words: 1400
+    status: needed
+
+  # --- PILLAR: SPINE & BACK PAIN (MOF — condition explainers) ---
+
+  - title: "Herniated Disc vs Bulging Disc: Differences, Symptoms, and Treatment"
+    keyword: herniated disc vs bulging disc
+    volume: 1600
+    kd: 35
+    funnel: MOF
+    links_to: /herniated-disc-treatment/
+    priority: HIGH
+    words: 2000
+    status: needed
+    notes: "Massive volume. Educational content that funnels to treatment pages."
+
+  - title: "Spinal Stenosis: Symptoms, Causes, and Non-Surgical Treatment Options"
+    keyword: spinal stenosis treatment without surgery
+    volume: 720
+    kd: 30
+    funnel: MOF
+    links_to: /spinal-stenosis-treatment/
+    priority: HIGH
+    words: 1800
+    status: needed
+
+  - title: "Epidural Steroid Injection: What to Expect Before, During, and After"
+    keyword: what to expect epidural steroid injection
+    volume: 320
+    kd: 18
+    funnel: MOF
+    links_to: /epidural-steroid-injections/
+    priority: MED
+    words: 1600
+    status: needed
+
+  - title: "Degenerative Disc Disease: Is It Really a Disease? Understanding Your Diagnosis"
+    keyword: degenerative disc disease explained
+    volume: 260
+    kd: 20
+    funnel: MOF
+    links_to: /degenerative-disc-disease/
+    priority: MED
+    words: 1600
+    status: needed
+
+  # --- PILLAR: SPORTS MEDICINE & PHYSICAL THERAPY (MOF/TOF) ---
+
+  - title: "Rotator Cuff Tear: When Do You Need Surgery vs Physical Therapy?"
+    keyword: rotator cuff tear surgery vs physical therapy
+    volume: 390
+    kd: 25
+    funnel: MOF
+    links_to: /rotator-cuff-treatment/
+    priority: HIGH
+    words: 1800
+    status: needed
+
+  - title: "ACL Injury Recovery: How Physical Therapy Gets Athletes Back on the Field"
+    keyword: acl injury physical therapy recovery
+    volume: 260
+    kd: 22
+    funnel: MOF
+    links_to: /physical-therapy-long-beach/
+    priority: MED
+    words: 1600
+    status: needed
+
+  - title: "5 Common Sports Injuries and How to Treat Them Without Surgery"
+    keyword: common sports injuries treatment
+    volume: 480
+    kd: 30
+    funnel: TOF
+    links_to: /sport-injury-pain-management/
+    priority: MED
+    words: 1800
+    status: needed
+
+  - title: "Post-Surgical Rehab: What to Expect in Your First 6 Weeks"
+    keyword: post surgical rehab what to expect
+    volume: 170
+    kd: 12
+    funnel: MOF
+    links_to: /post-surgical-rehab/
+    priority: MED
+    words: 1400
+    status: needed
+
+  # --- PILLAR: NERVE & NEUROPATHY (MOF) ---
+
+  - title: "Neuropathy in Feet and Hands: Causes, Symptoms, and Treatment Options"
+    keyword: neuropathy treatment options
+    volume: 590
+    kd: 28
+    funnel: MOF
+    links_to: /neuropathy-treatment/
+    priority: HIGH
+    words: 1800
+    status: needed
+
+  - title: "What Is an EMG Test? How Nerve Conduction Studies Diagnose Your Pain"
+    keyword: what is an emg test
+    volume: 720
+    kd: 20
+    funnel: MOF
+    links_to: /emg-nerve-conduction-study/
+    priority: HIGH
+    words: 1400
+    status: needed
+    notes: "Educational awareness for a diagnostic service ISS performs in-house."
+
+  # --- PILLAR: WELLNESS & PREVENTION (TOF — broad awareness) ---
+
+  - title: "10 Daily Habits That Reduce Chronic Back Pain (Backed by Research)"
+    keyword: daily habits to reduce back pain
+    volume: 260
+    kd: 18
+    funnel: TOF
+    links_to: /back-pain/
+    priority: MED
+    words: 1600
+    status: needed
+
+  - title: "Sitting All Day? How Desk Workers Can Prevent Neck and Back Pain"
+    keyword: desk worker back pain prevention
+    volume: 170
+    kd: 12
+    funnel: TOF
+    links_to: /neck-pain/
+    priority: LOW
+    words: 1400
+    status: needed
+
+  - title: "The Complete Guide to Understanding Your Pain: Acute vs Chronic"
+    keyword: acute vs chronic pain difference
+    volume: 320
+    kd: 15
+    funnel: TOF
+    links_to: /chronic-pain/
+    priority: LOW
+    words: 1600
+    status: needed
+
+  # --- PILLAR: AUTO ACCIDENT / PERSONAL INJURY (BOF) ---
+
+  - title: "Car Accident Pain Management in Long Beach: When to See a Specialist"
+    keyword: car accident pain management long beach
+    volume: 90
+    kd: 10
+    funnel: BOF
+    links_to: /auto-accident-injury/
+    priority: HIGH
+    words: 1600
+    status: needed
+    notes: "PI/auto accident is a profitable segment. Pairs with attorney referral network."
+
+  - title: "Whiplash After a Car Accident: Symptoms, Timeline, and Treatment"
+    keyword: whiplash symptoms after car accident
+    volume: 480
+    kd: 22
+    funnel: MOF
+    links_to: /whiplash/
+    priority: MED
+    words: 1600
+    status: needed
+
+  - title: "Slip and Fall Injuries: What a Pain Specialist Can Do for Your Recovery"
+    keyword: slip and fall injury treatment
+    volume: 140
+    kd: 12
+    funnel: MOF
+    links_to: /slip-and-fall/
+    priority: LOW
+    words: 1400
+    status: needed

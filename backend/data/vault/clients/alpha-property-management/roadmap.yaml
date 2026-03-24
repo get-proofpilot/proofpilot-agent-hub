@@ -1,0 +1,665 @@
+# Alpha Property Management — SEO Roadmap
+# Source: Client context + tracker gap analysis + ProofPilot roadmap template
+# This is the strategic pipeline. /monthly-plan reads this to know WHAT to build next.
+# Statuses: needed | in-progress | live | skipped
+# CRITICAL: 100% owner-facing keywords. Tenant traffic does NOT equal PM contracts.
+
+# ──────────────────────────────────────
+# 2026 TARGETS
+# ──────────────────────────────────────
+targets:
+  baseline_mar_2026:
+    pages: 57
+    owner_visitors_per_month: 65
+    contracts_per_month: 0.5
+    primary_keyword: "property management sacramento"
+    primary_position: 28
+    primary_volume: 2400
+    mrr_per_contract: 125
+  eoy_2026:
+    pages: 110
+    owner_visitors_per_month: 880
+    contracts_per_month: 5
+    keywords_top_10: 25
+    keywords_top_3: 8
+    total_contracts_year_1: 45
+    mrr_at_month_12: 5625
+  strategic_goal: "Build service page and location page foundation from zero. Move 'property management sacramento' from #28 to top 5. Generate 5 owner contracts/month by EOY through owner-intent organic traffic. Break-even month 11, year 1 ROI +$9,270."
+
+# ──────────────────────────────────────
+# PAGE PIPELINE (sorted by priority)
+# ──────────────────────────────────────
+# Pages that need to be built. NO service or location pages exist today.
+# /monthly-plan reads this to suggest next pages to create.
+# Cadence: 2-3 pages/month
+
+pages_pipeline:
+
+  # --- SERVICE PAGES (CRITICAL — NONE EXIST) ---
+  # These are the highest-priority pages. A PM company with zero service pages
+  # cannot rank for any service-intent keywords.
+
+  - page: Property Management Services Sacramento
+    url: /property-management-services-sacramento/
+    keyword: property management services sacramento
+    volume: 590
+    kd: 28
+    words: 2500
+    priority: CRITICAL
+    type: service-pillar
+    parent: /
+    status: needed
+    notes: "Main pillar page. Links to ALL sub-service pages. Must cover full scope of services, pricing transparency, and owner benefits. This is the #1 page to build."
+
+  - page: Tenant Screening Services
+    url: /tenant-screening-sacramento/
+    keyword: tenant screening sacramento
+    volume: 170
+    kd: 15
+    words: 1400
+    priority: HIGH
+    type: service
+    parent: /property-management-services-sacramento/
+    status: needed
+    notes: "Owner-facing: explain screening process, credit/background/eviction checks, how it protects owners from bad tenants."
+
+  - page: Rent Collection Services
+    url: /rent-collection-services/
+    keyword: rent collection property management
+    volume: 210
+    kd: 12
+    words: 1200
+    priority: HIGH
+    type: service
+    parent: /property-management-services-sacramento/
+    status: needed
+    notes: "Owner pain point. Cover online payment portals, late fee enforcement, direct deposit to owner accounts."
+
+  - page: Property Maintenance Coordination
+    url: /property-maintenance-sacramento/
+    keyword: property maintenance sacramento
+    volume: 320
+    kd: 18
+    words: 1400
+    priority: HIGH
+    type: service
+    parent: /property-management-services-sacramento/
+    status: needed
+    notes: "Covers vendor coordination, 24/7 maintenance requests, preventive maintenance programs, cost controls."
+
+  - page: Financial Reporting for Owners
+    url: /owner-financial-reporting/
+    keyword: property management financial reporting
+    volume: 110
+    kd: 8
+    words: 1200
+    priority: MED
+    type: service
+    parent: /property-management-services-sacramento/
+    status: needed
+    notes: "Monthly statements, year-end tax docs, owner portal access. Differentiator for sophisticated investors."
+
+  - page: Lease Management Services
+    url: /lease-management-sacramento/
+    keyword: lease management property management
+    volume: 90
+    kd: 10
+    words: 1200
+    priority: MED
+    type: service
+    parent: /property-management-services-sacramento/
+    status: needed
+    notes: "Lease drafting, renewals, California-compliant terms, rent increase strategy."
+
+  - page: Eviction Management Services
+    url: /eviction-management-sacramento/
+    keyword: eviction services sacramento
+    volume: 140
+    kd: 15
+    words: 1400
+    priority: HIGH
+    type: service
+    parent: /property-management-services-sacramento/
+    status: needed
+    notes: "High-intent owner keyword. Cover CA eviction process, legal compliance, timeline, and how PM handles it end-to-end."
+
+  - page: Rental Property Marketing
+    url: /rental-property-marketing-sacramento/
+    keyword: rental property marketing sacramento
+    volume: 70
+    kd: 8
+    words: 1200
+    priority: MED
+    type: service
+    parent: /property-management-services-sacramento/
+    status: needed
+    notes: "Professional photos, MLS/Zillow syndication, virtual tours, vacancy reduction strategy."
+
+  - page: Move-In Move-Out Inspections
+    url: /move-in-move-out-inspections/
+    keyword: move in move out inspection property management
+    volume: 50
+    kd: 5
+    words: 1000
+    priority: MED
+    type: service
+    parent: /property-management-services-sacramento/
+    status: needed
+    notes: "Documented inspections, security deposit handling, CA deposit law compliance."
+
+  - page: HOA Management Services
+    url: /hoa-management-sacramento/
+    keyword: hoa management sacramento
+    volume: 140
+    kd: 20
+    words: 1400
+    priority: LOW
+    type: service
+    parent: /property-management-services-sacramento/
+    status: needed
+    notes: "Only build if Sally confirms HOA management is a service line. Lower priority until confirmed."
+
+  # --- LOCATION / CITY PAGES (NONE EXIST) ---
+  # Sacramento metro area cities. Each targets "property management [city]" keywords.
+  # Owner-intent: landlords searching for PM in their property's city.
+
+  - page: Sacramento Property Management
+    url: /sacramento-property-management/
+    keyword: sacramento property management
+    volume: 1000
+    kd: 32
+    words: 1800
+    priority: CRITICAL
+    type: location
+    parent: /
+    status: needed
+    notes: "Primary city page. Currently #34 for this keyword. Must be comprehensive: neighborhoods served, market stats, owner testimonials, service overview."
+
+  - page: Elk Grove Property Management
+    url: /elk-grove-property-management/
+    keyword: elk grove property management
+    volume: 390
+    kd: 22
+    words: 1400
+    priority: HIGH
+    type: location
+    parent: /
+    status: needed
+    notes: "Already ranking #39 organically. City page will accelerate into top 10. Fast win."
+
+  - page: Roseville Property Management
+    url: /roseville-property-management/
+    keyword: roseville property management
+    volume: 320
+    kd: 25
+    words: 1400
+    priority: HIGH
+    type: location
+    parent: /
+    status: needed
+    notes: "Growing suburb, high rental inventory. Strong investor demand."
+
+  - page: Folsom Property Management
+    url: /folsom-property-management/
+    keyword: folsom property management
+    volume: 210
+    kd: 20
+    words: 1400
+    priority: HIGH
+    type: location
+    parent: /
+    status: needed
+    notes: "Affluent area, higher-value rentals. Good avg contract value."
+
+  - page: Rancho Cordova Property Management
+    url: /rancho-cordova-property-management/
+    keyword: rancho cordova property management
+    volume: 170
+    kd: 18
+    words: 1200
+    priority: HIGH
+    type: location
+    parent: /
+    status: needed
+
+  - page: Citrus Heights Property Management
+    url: /citrus-heights-property-management/
+    keyword: citrus heights property management
+    volume: 140
+    kd: 15
+    words: 1200
+    priority: MED
+    type: location
+    parent: /
+    status: needed
+
+  - page: Natomas Property Management
+    url: /natomas-property-management/
+    keyword: natomas property management
+    volume: 110
+    kd: 12
+    words: 1200
+    priority: MED
+    type: location
+    parent: /
+    status: needed
+    notes: "North Natomas has heavy rental density. Good submarket."
+
+  - page: West Sacramento Property Management
+    url: /west-sacramento-property-management/
+    keyword: west sacramento property management
+    volume: 90
+    kd: 12
+    words: 1200
+    priority: MED
+    type: location
+    parent: /
+    status: needed
+
+  - page: Davis Property Management
+    url: /davis-property-management/
+    keyword: davis property management
+    volume: 260
+    kd: 22
+    words: 1400
+    priority: MED
+    type: location
+    parent: /
+    status: needed
+    notes: "UC Davis college town. High rental demand, investor-heavy market."
+
+  - page: Carmichael Property Management
+    url: /carmichael-property-management/
+    keyword: carmichael property management
+    volume: 70
+    kd: 10
+    words: 1200
+    priority: LOW
+    type: location
+    parent: /
+    status: needed
+
+  - page: Fair Oaks Property Management
+    url: /fair-oaks-property-management/
+    keyword: fair oaks property management
+    volume: 50
+    kd: 8
+    words: 1200
+    priority: LOW
+    type: location
+    parent: /
+    status: needed
+
+  - page: Orangevale Property Management
+    url: /orangevale-property-management/
+    keyword: orangevale property management
+    volume: 30
+    kd: 5
+    words: 1000
+    priority: LOW
+    type: location
+    parent: /
+    status: needed
+
+  - page: Lincoln Property Management
+    url: /lincoln-ca-property-management/
+    keyword: lincoln ca property management
+    volume: 70
+    kd: 10
+    words: 1200
+    priority: LOW
+    type: location
+    parent: /
+    status: needed
+    notes: "Sun City Lincoln Hills = retiree landlords. Good demographic."
+
+  - page: Rocklin Property Management
+    url: /rocklin-property-management/
+    keyword: rocklin property management
+    volume: 110
+    kd: 15
+    words: 1200
+    priority: MED
+    type: location
+    parent: /
+    status: needed
+
+  # --- SERVICE + CITY COMBOS (top 5 cities) ---
+  # These target the highest-intent long-tail: "[service] [city]"
+
+  - page: Tenant Screening Elk Grove
+    url: /tenant-screening-elk-grove/
+    keyword: tenant screening elk grove
+    volume: 30
+    kd: 5
+    words: 1000
+    priority: MED
+    type: service-location
+    parent: /tenant-screening-sacramento/
+    status: needed
+    notes: "Cross-links to Elk Grove city page and tenant screening service page."
+
+  - page: Property Management Roseville CA
+    url: /property-management-roseville-ca/
+    keyword: property management companies roseville ca
+    volume: 170
+    kd: 18
+    words: 1400
+    priority: HIGH
+    type: service-location
+    parent: /roseville-property-management/
+    status: needed
+    notes: "Alternate keyword angle for Roseville. Targets 'companies' variant."
+
+  - page: Property Management Folsom CA
+    url: /property-management-folsom-ca/
+    keyword: property management companies folsom ca
+    volume: 110
+    kd: 15
+    words: 1200
+    priority: MED
+    type: service-location
+    parent: /folsom-property-management/
+    status: needed
+
+  - page: Rental Property Management Sacramento
+    url: /rental-property-management-sacramento/
+    keyword: rental property management sacramento
+    volume: 480
+    kd: 25
+    words: 1600
+    priority: HIGH
+    type: service-location
+    parent: /property-management-services-sacramento/
+    status: needed
+    notes: "'Rental property management' variant captures different search behavior than 'property management'. Important keyword gap."
+
+  - page: Property Management Companies Sacramento CA
+    url: /property-management-companies-sacramento/
+    keyword: property management companies sacramento
+    volume: 720
+    kd: 30
+    words: 1600
+    priority: CRITICAL
+    type: service-location
+    parent: /
+    status: needed
+    notes: "Currently #33. High-intent comparison keyword. Owners actively shopping for PM companies. Include comparison framework, what to look for, why Alpha."
+
+# ──────────────────────────────────────
+# BLOG PIPELINE (sorted by funnel stage, then priority)
+# ──────────────────────────────────────
+# Blog posts that need to be written.
+# ALL 46 existing blogs are from 2020-2021 and heavily COVID-focused.
+# This pipeline replaces them with fresh 2026 owner-focused content.
+# Cadence: 1-2 blog posts/month
+
+blogs_pipeline:
+
+  # --- BOF: BOTTOM OF FUNNEL (owners ready to hire) ---
+
+  - title: "How Much Does Property Management Cost in Sacramento? (2026 Fee Guide)"
+    keyword: property management cost sacramento
+    volume: 260
+    kd: 15
+    funnel: BOF
+    links_to: /property-management-services-sacramento/
+    priority: CRITICAL
+    words: 2000
+    status: needed
+    notes: "Highest-converting keyword for PM companies. Cover % of rent, flat fee, leasing fee, maintenance markup. Be transparent. Position Alpha's pricing."
+
+  - title: "How to Hire a Property Manager in Sacramento: Owner's Checklist"
+    keyword: how to hire a property manager sacramento
+    volume: 170
+    kd: 12
+    funnel: BOF
+    links_to: /property-management-services-sacramento/
+    priority: HIGH
+    words: 1800
+    status: needed
+    notes: "Interview questions, red flags, what to expect in the first 90 days. CTA to Alpha's free consultation."
+
+  - title: "Property Management Fees Explained: What Sacramento Landlords Should Know"
+    keyword: property management fees
+    volume: 1300
+    kd: 35
+    funnel: BOF
+    links_to: /property-management-services-sacramento/
+    priority: HIGH
+    words: 1800
+    status: needed
+    notes: "National keyword with Sacramento angle. Break down every fee type: management %, leasing fee, maintenance markup, vacancy fee, eviction fee."
+
+  - title: "Best Property Management Companies in Sacramento (2026 Comparison)"
+    keyword: best property management companies sacramento
+    volume: 390
+    kd: 28
+    funnel: BOF
+    links_to: /property-management-companies-sacramento/
+    priority: HIGH
+    words: 2200
+    status: needed
+    notes: "Own the comparison SERP. List competitors objectively, highlight Alpha's differentiators. Captures owners actively shopping."
+
+  - title: "What Does a Property Manager Actually Do? (Full Breakdown for Owners)"
+    keyword: what does a property manager do
+    volume: 2400
+    kd: 30
+    funnel: BOF
+    links_to: /property-management-services-sacramento/
+    priority: HIGH
+    words: 1800
+    status: needed
+    notes: "High-volume educational keyword. Owners asking this are pre-purchase or early-stage. Internal link to every service page."
+
+  - title: "When Should You Hire a Property Manager? 7 Signs It's Time"
+    keyword: when to hire a property manager
+    volume: 320
+    kd: 18
+    funnel: BOF
+    links_to: /property-management-services-sacramento/
+    priority: HIGH
+    words: 1600
+    status: needed
+
+  # --- MOF: MIDDLE OF FUNNEL (owners researching, comparing options) ---
+
+  - title: "Self-Managing vs Hiring a Property Manager: Sacramento Landlord's Guide"
+    keyword: self manage vs property manager
+    volume: 390
+    kd: 20
+    funnel: MOF
+    links_to: /property-management-services-sacramento/
+    priority: HIGH
+    words: 2000
+    status: needed
+    notes: "Decision-stage content. Compare time, stress, legal risk, cost. Show math on when PM pays for itself."
+
+  - title: "Sacramento Rental Market Report 2026: What Owners Need to Know"
+    keyword: sacramento rental market 2026
+    volume: 210
+    kd: 10
+    funnel: MOF
+    links_to: /sacramento-property-management/
+    priority: HIGH
+    words: 1800
+    status: needed
+    notes: "Refresh annually. Cover median rents, vacancy rates, rent growth trends, best neighborhoods for investment. Positions Alpha as market expert."
+
+  - title: "Landlord Tax Deductions in California: Complete Guide for 2026"
+    keyword: landlord tax deductions california
+    volume: 480
+    kd: 22
+    funnel: MOF
+    links_to: /owner-financial-reporting/
+    priority: HIGH
+    words: 2000
+    status: needed
+    notes: "Evergreen with annual refresh. Mortgage interest, depreciation, repairs, PM fees as deduction. Links to financial reporting service page."
+
+  - title: "How to Reduce Tenant Turnover: A Sacramento Landlord's Guide"
+    keyword: how to reduce tenant turnover
+    volume: 260
+    kd: 15
+    funnel: MOF
+    links_to: /tenant-screening-sacramento/
+    priority: MED
+    words: 1600
+    status: needed
+    notes: "Turnover is the #1 owner expense. Show how professional screening and management reduce it."
+
+  - title: "California Landlord-Tenant Law Changes 2026: What Owners Must Know"
+    keyword: california landlord tenant law 2026
+    volume: 320
+    kd: 12
+    funnel: MOF
+    links_to: /eviction-management-sacramento/
+    priority: HIGH
+    words: 1800
+    status: needed
+    notes: "CA law changes constantly. AB 1482 rent caps, just cause eviction, security deposit changes. Positions Alpha as compliance expert."
+
+  - title: "How to Screen Tenants in Sacramento: A Landlord's Step-by-Step Guide"
+    keyword: how to screen tenants sacramento
+    volume: 110
+    kd: 10
+    funnel: MOF
+    links_to: /tenant-screening-sacramento/
+    priority: MED
+    words: 1600
+    status: needed
+    notes: "Educational content that shows the complexity, then positions professional screening as the solution."
+
+  - title: "Sacramento Eviction Process: Timeline, Costs, and How to Avoid It"
+    keyword: sacramento eviction process
+    volume: 210
+    kd: 15
+    funnel: MOF
+    links_to: /eviction-management-sacramento/
+    priority: MED
+    words: 1800
+    status: needed
+    notes: "High-stress owner topic. Cover 3-day notice, unlawful detainer, timeline, attorney costs. Show how PM handles it."
+
+  - title: "How to Set the Right Rent Price in Sacramento (2026 Data)"
+    keyword: how to set rent price sacramento
+    volume: 90
+    kd: 8
+    funnel: MOF
+    links_to: /sacramento-property-management/
+    priority: MED
+    words: 1400
+    status: needed
+    notes: "Comp analysis methodology, AB 1482 rent cap considerations, seasonal pricing strategy."
+
+  - title: "Single-Family vs Multifamily Property Management: Key Differences for Owners"
+    keyword: single family vs multifamily property management
+    volume: 110
+    kd: 10
+    funnel: MOF
+    links_to: /property-management-services-sacramento/
+    priority: MED
+    words: 1600
+    status: needed
+
+  - title: "Rental Property Maintenance: What Owners Are Legally Required to Provide in California"
+    keyword: rental property maintenance requirements california
+    volume: 170
+    kd: 12
+    funnel: MOF
+    links_to: /property-maintenance-sacramento/
+    priority: MED
+    words: 1400
+    status: needed
+    notes: "Habitability requirements, response timelines, CA Civil Code 1941. Shows legal risk of self-managing."
+
+  # --- TOF: TOP OF FUNNEL (investors, future owners, awareness) ---
+
+  - title: "Is Sacramento a Good Place to Invest in Rental Property? (2026 Analysis)"
+    keyword: sacramento real estate investing 2026
+    volume: 260
+    kd: 18
+    funnel: TOF
+    links_to: /sacramento-property-management/
+    priority: HIGH
+    words: 2000
+    status: needed
+    notes: "Captures out-of-state investors considering Sacramento. Population growth, job market, rent-to-price ratio, best neighborhoods."
+
+  - title: "Rental Property ROI: How to Calculate Returns on Sacramento Investment Properties"
+    keyword: rental property roi calculator
+    volume: 480
+    kd: 30
+    funnel: TOF
+    links_to: /property-management-services-sacramento/
+    priority: MED
+    words: 1800
+    status: needed
+    notes: "Cap rate, cash-on-cash return, NOI formulas with Sacramento-specific examples. Attract investor owners."
+
+  - title: "Best Sacramento Neighborhoods for Rental Property Investment (2026)"
+    keyword: best neighborhoods sacramento investment property
+    volume: 140
+    kd: 12
+    funnel: TOF
+    links_to: /sacramento-property-management/
+    priority: MED
+    words: 1800
+    status: needed
+    notes: "Neighborhood breakdown: Natomas, Elk Grove, Roseville, Midtown, Land Park. Rent data, appreciation, vacancy rates. Cross-links to city pages."
+
+  - title: "Elk Grove Rental Market: Why Investors Are Buying Here in 2026"
+    keyword: elk grove rental market
+    volume: 90
+    kd: 8
+    funnel: TOF
+    links_to: /elk-grove-property-management/
+    priority: MED
+    words: 1400
+    status: needed
+    notes: "Supports Elk Grove city page with topical authority. Median rents, school ratings, population growth."
+
+  - title: "How to Buy Your First Rental Property in Sacramento: Beginner's Guide"
+    keyword: buy rental property sacramento
+    volume: 170
+    kd: 15
+    funnel: TOF
+    links_to: /property-management-services-sacramento/
+    priority: LOW
+    words: 2000
+    status: needed
+    notes: "Long-tail awareness piece. Captures future owners who will need PM services. Financing, property selection, PM setup."
+
+  - title: "Sacramento ADU Rental Guide: How to Turn Your Backyard Into Income"
+    keyword: sacramento adu rental
+    volume: 110
+    kd: 10
+    funnel: TOF
+    links_to: /rental-property-management-sacramento/
+    priority: LOW
+    words: 1600
+    status: needed
+    notes: "ADU boom in Sacramento. New ADU owners often need PM for the first time. Good acquisition channel."
+
+  - title: "Long-Distance Landlord? How to Manage Sacramento Rentals From Out of State"
+    keyword: long distance landlord sacramento
+    volume: 50
+    kd: 5
+    funnel: TOF
+    links_to: /property-management-services-sacramento/
+    priority: MED
+    words: 1400
+    status: needed
+    notes: "Bay Area and out-of-state investors own Sacramento rentals. High PM conversion rate from this audience."
+
+  - title: "1031 Exchange Sacramento: How Property Management Fits Your Investment Strategy"
+    keyword: 1031 exchange sacramento
+    volume: 90
+    kd: 12
+    funnel: TOF
+    links_to: /property-management-services-sacramento/
+    priority: LOW
+    words: 1400
+    status: needed
+    notes: "Investors doing 1031 exchanges into Sacramento often need immediate PM. Niche but high-value."

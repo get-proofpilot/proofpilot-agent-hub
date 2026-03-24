@@ -1,0 +1,401 @@
+# Adam Levinstein Photography — SEO Roadmap
+# Source: Client context + tracker gap analysis + existing page inventory
+# This is the strategic pipeline. /monthly-plan reads this to know WHAT to build next.
+# Statuses: needed | in-progress | live | skipped
+# Tier 3 ($1K/month) — LEAN scope: 1 page + 1 blog per month
+
+# ──────────────────────────────────────
+# 2026 TARGETS
+# ──────────────────────────────────────
+targets:
+  baseline_mar_2026:
+    pages: 36
+    keywords_ranking: 18
+    keywords_top_10: 3
+    google_reviews: 30
+    leads_per_month: 8
+    avg_booking_value: 3500
+  eoy_2026:
+    pages: 54
+    keywords_ranking: 80
+    keywords_top_10: 15
+    google_reviews: 55
+    leads_per_month: 20
+    avg_booking_value: 3500
+  strategic_goal: "Own local wedding photographer searches across OC + SD. Capture venue-specific and city-specific long-tail queries where competition is thin. Build topical authority through consistent blog publishing."
+
+# ──────────────────────────────────────
+# PAGE PIPELINE (sorted by priority)
+# ──────────────────────────────────────
+# Pages that need to be built. Identified from tracker gap analysis.
+# /monthly-plan reads this to suggest next pages to create.
+# Existing pages (36): Homepage, Wedding Photography, Engagement Photography,
+#   Pricing, Contact, Blog, Prints, Videography, Photo Booth, Engagement Galleries,
+#   Wedding Photography Alt, 7 location pages, 9 gallery pages, 6 blog posts
+
+pages_pipeline:
+
+  # --- MISSING SERVICE PAGES ---
+  # Has: Wedding Photography, Engagement Photography, Videography, Photo Booth
+  # Missing: Corporate/Event, Portrait, Elopement, Destination Wedding
+
+  - page: Corporate & Event Photography
+    url: /corporate-event-photography/
+    keyword: corporate event photographer orange county
+    volume: 170
+    kd: 18
+    words: 1200
+    priority: HIGH
+    type: service
+    parent: /
+    status: needed
+    notes: "Separate from wedding. Targets corporate events, galas, fundraisers. Different buyer persona with repeat booking potential."
+
+  - page: Portrait Photography
+    url: /portrait-photography/
+    keyword: portrait photographer orange county
+    volume: 390
+    kd: 28
+    words: 1200
+    priority: HIGH
+    type: service
+    parent: /
+    status: needed
+    notes: "Headshots, family portraits, senior portraits. Year-round revenue outside wedding season."
+
+  - page: Elopement Photography
+    url: /elopement-photography/
+    keyword: elopement photographer orange county
+    volume: 260
+    kd: 22
+    words: 1200
+    priority: HIGH
+    type: service
+    parent: /
+    status: needed
+    notes: "Trending hard post-COVID. High-intent couples, lower production cost. Strong search demand."
+
+  - page: Destination Wedding Photography
+    url: /destination-wedding-photography/
+    keyword: destination wedding photographer california
+    volume: 210
+    kd: 30
+    words: 1200
+    priority: MED
+    type: service
+    parent: /wedding-photography/
+    status: needed
+    notes: "Positions Adam for higher-ticket bookings. Temecula, Palm Springs, Big Sur."
+
+  # --- VENUE PAGES ---
+  # None exist. High-intent queries: couples Google "[venue] photographer"
+  # These convert extremely well because the couple has already chosen the venue.
+
+  - page: Pelican Hill Wedding Photographer
+    url: /pelican-hill-wedding-photographer/
+    keyword: pelican hill wedding photographer
+    volume: 110
+    kd: 15
+    words: 1000
+    priority: HIGH
+    type: venue
+    parent: /wedding-photography/
+    status: needed
+    notes: "The Resort at Pelican Hill, Newport Beach. Ultra-premium venue. Top 3 OC wedding venue by search volume."
+
+  - page: Montage Laguna Beach Wedding Photographer
+    url: /montage-laguna-beach-wedding-photographer/
+    keyword: montage laguna beach wedding photographer
+    volume: 90
+    kd: 12
+    words: 1000
+    priority: HIGH
+    type: venue
+    parent: /wedding-photography/
+    status: needed
+    notes: "Luxury venue, high-ticket couples. Low KD, easy to rank."
+
+  - page: Hotel Del Coronado Wedding Photographer
+    url: /hotel-del-coronado-wedding-photographer/
+    keyword: hotel del coronado wedding photographer
+    volume: 70
+    kd: 10
+    words: 1000
+    priority: HIGH
+    type: venue
+    parent: /wedding-photography/
+    status: needed
+    notes: "Iconic San Diego venue. Captures SD market with venue-specific intent."
+
+  - page: Ritz-Carlton Laguna Niguel Wedding Photographer
+    url: /ritz-carlton-laguna-niguel-wedding-photographer/
+    keyword: ritz carlton laguna niguel wedding photographer
+    volume: 50
+    kd: 8
+    words: 1000
+    priority: MED
+    type: venue
+    parent: /wedding-photography/
+    status: needed
+
+  - page: Balboa Bay Resort Wedding Photographer
+    url: /balboa-bay-resort-wedding-photographer/
+    keyword: balboa bay resort wedding photographer
+    volume: 40
+    kd: 6
+    words: 1000
+    priority: MED
+    type: venue
+    parent: /wedding-photography/
+    status: needed
+
+  # --- LOCATION EXPANSION ---
+  # Has: Huntington Beach, Dana Point, Los Angeles, Newport Beach,
+  #      Orange County, San Diego, Laguna Beach
+  # Missing: Key OC/SD/inland cities with wedding demand
+
+  - page: Temecula Wedding Photographer
+    url: /temecula-wedding-photographer/
+    keyword: temecula wedding photographer
+    volume: 720
+    kd: 25
+    words: 1200
+    priority: HIGH
+    type: location
+    parent: /wedding-photography/
+    status: needed
+    notes: "Wine country weddings. Huge search volume. Must-have page."
+
+  - page: San Clemente Wedding Photographer
+    url: /san-clemente-wedding-photographer/
+    keyword: san clemente wedding photographer
+    volume: 170
+    kd: 15
+    words: 1200
+    priority: MED
+    type: location
+    parent: /wedding-photography/
+    status: needed
+
+  - page: Carlsbad Wedding Photographer
+    url: /carlsbad-wedding-photographer/
+    keyword: carlsbad wedding photographer
+    volume: 210
+    kd: 18
+    words: 1200
+    priority: MED
+    type: location
+    parent: /wedding-photography/
+    status: needed
+
+  - page: Coronado Wedding Photographer
+    url: /coronado-wedding-photographer/
+    keyword: coronado wedding photographer
+    volume: 140
+    kd: 12
+    words: 1200
+    priority: MED
+    type: location
+    parent: /wedding-photography/
+    status: needed
+
+  - page: Malibu Wedding Photographer
+    url: /malibu-wedding-photographer/
+    keyword: malibu wedding photographer
+    volume: 590
+    kd: 32
+    words: 1200
+    priority: MED
+    type: location
+    parent: /wedding-photography/
+    status: needed
+    notes: "Higher KD but massive volume. Aspirational market, positions as premium."
+
+  - page: Palm Springs Wedding Photographer
+    url: /palm-springs-wedding-photographer/
+    keyword: palm springs wedding photographer
+    volume: 480
+    kd: 28
+    words: 1200
+    priority: MED
+    type: location
+    parent: /wedding-photography/
+    status: needed
+    notes: "Destination wedding hotspot. Strong year-round demand."
+
+  - page: Encinitas Wedding Photographer
+    url: /encinitas-wedding-photographer/
+    keyword: encinitas wedding photographer
+    volume: 90
+    kd: 10
+    words: 1200
+    priority: LOW
+    type: location
+    parent: /wedding-photography/
+    status: needed
+
+  - page: Riverside Wedding Photographer
+    url: /riverside-wedding-photographer/
+    keyword: riverside wedding photographer
+    volume: 260
+    kd: 20
+    words: 1200
+    priority: LOW
+    type: location
+    parent: /wedding-photography/
+    status: needed
+    notes: "Inland market. Lower competition, budget-conscious couples."
+
+# ──────────────────────────────────────
+# BLOG PIPELINE (sorted by funnel stage, then priority)
+# ──────────────────────────────────────
+# Blog posts that need to be written.
+# Existing blogs in tracker are excluded from this pipeline.
+# Cadence: 1 blog per month (Tier 3 lean scope)
+
+blogs_pipeline:
+
+  # --- BOF: BOTTOM OF FUNNEL (cost, packages, hiring) ---
+
+  - title: "How Much Does a Wedding Photographer Cost in Orange County? (2026)"
+    keyword: wedding photographer cost orange county
+    volume: 210
+    kd: 15
+    funnel: BOF
+    links_to: /pricing/
+    priority: HIGH
+    words: 1800
+    status: needed
+    notes: "Highest-converting blog topic for photography. Cost guides capture couples ready to book."
+
+  - title: "Orange County Wedding Photographer Packages: What's Included and What to Expect"
+    keyword: wedding photography packages orange county
+    volume: 140
+    kd: 12
+    funnel: BOF
+    links_to: /pricing/
+    priority: HIGH
+    words: 1600
+    status: needed
+
+  - title: "San Diego Wedding Photographer Cost: Complete Pricing Guide (2026)"
+    keyword: san diego wedding photographer cost
+    volume: 170
+    kd: 15
+    funnel: BOF
+    links_to: /pricing/
+    priority: HIGH
+    words: 1800
+    status: needed
+    notes: "Captures SD market. Pairs with SD location page."
+
+  # --- MOF: MIDDLE OF FUNNEL (research, comparison, planning) ---
+
+  - title: "20 Questions to Ask Your Wedding Photographer Before Booking"
+    keyword: questions to ask wedding photographer
+    volume: 1300
+    kd: 25
+    funnel: MOF
+    links_to: /wedding-photography/
+    priority: HIGH
+    words: 2000
+    status: needed
+    notes: "High volume, strong featured snippet opportunity. Positions Adam as expert."
+
+  - title: "Wedding Photography Timeline: How to Plan the Perfect Shot List"
+    keyword: wedding photography timeline
+    volume: 480
+    kd: 20
+    funnel: MOF
+    links_to: /wedding-photography/
+    priority: HIGH
+    words: 1800
+    status: needed
+
+  - title: "Engagement Photos vs Wedding Photos: Do You Need Both?"
+    keyword: engagement photos vs wedding photos
+    volume: 260
+    kd: 12
+    funnel: MOF
+    links_to: /engagement-photography/
+    priority: MED
+    words: 1400
+    status: needed
+    notes: "Cross-links engagement and wedding service pages. Upsell opportunity."
+
+  - title: "How to Choose Between a Wedding Photographer and Videographer (Or Get Both)"
+    keyword: wedding photographer vs videographer
+    volume: 170
+    kd: 10
+    funnel: MOF
+    links_to: /videography/
+    priority: MED
+    words: 1400
+    status: needed
+
+  - title: "What to Wear for Engagement Photos: Style Guide for Couples"
+    keyword: what to wear for engagement photos
+    volume: 2400
+    kd: 35
+    funnel: MOF
+    links_to: /engagement-photography/
+    priority: MED
+    words: 1600
+    status: needed
+    notes: "Very high volume. Lifestyle content that builds topical authority."
+
+  # --- TOF: TOP OF FUNNEL (venue guides, planning, inspiration) ---
+
+  - title: "Best Wedding Venues in Temecula Wine Country (2026 Guide)"
+    keyword: best wedding venues temecula
+    volume: 1600
+    kd: 30
+    funnel: TOF
+    links_to: /temecula-wedding-photographer/
+    priority: HIGH
+    words: 2000
+    status: needed
+    notes: "Huge volume. Pairs with Temecula location page. Captures couples in venue-selection phase."
+
+  - title: "Best Outdoor Wedding Venues in San Diego: A Photographer's Picks"
+    keyword: outdoor wedding venues san diego
+    volume: 720
+    kd: 25
+    funnel: TOF
+    links_to: /san-diego-wedding-photographer/
+    priority: MED
+    words: 1800
+    status: needed
+
+  - title: "Wedding Planning Checklist for Orange County Couples (2026)"
+    keyword: wedding planning checklist orange county
+    volume: 110
+    kd: 8
+    funnel: TOF
+    links_to: /wedding-photography/
+    priority: MED
+    words: 2000
+    status: needed
+    notes: "Low KD, easy to rank. Broad entry point that captures early-stage couples."
+
+  - title: "Elopement vs Traditional Wedding: A Complete Comparison for California Couples"
+    keyword: elopement vs traditional wedding
+    volume: 390
+    kd: 18
+    funnel: TOF
+    links_to: /elopement-photography/
+    priority: MED
+    words: 1600
+    status: needed
+    notes: "Feeds the elopement service page. Captures trending intent."
+
+  - title: "Golden Hour Photography: Why Sunset Shoots Make the Best Wedding Photos"
+    keyword: golden hour wedding photography
+    volume: 320
+    kd: 15
+    funnel: TOF
+    links_to: /wedding-photography/
+    priority: LOW
+    words: 1200
+    status: needed
+    notes: "Visual content opportunity. Showcases Adam's portfolio with SEO value."

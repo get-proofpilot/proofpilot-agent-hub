@@ -1,0 +1,841 @@
+# Saiyan Electric — SEO Roadmap
+# Source: Client context + tracker.yaml gap analysis + ATE roadmap template
+# This is the strategic pipeline. /monthly-plan and /weekly-plan read this to know WHAT to build next.
+# Statuses: needed | in-progress | live | skipped
+
+# ──────────────────────────────────────
+# 2026 TARGETS
+# ──────────────────────────────────────
+targets:
+  baseline_mar_2026:
+    pages: 78
+    keywords_ranking: 62
+    keywords_top_1: 62
+    leads_per_month: 152
+    qual_rate: 0.08
+    cac: 16
+  eoy_2026:
+    pages: 130
+    keywords_ranking: 900
+    keywords_top_10: 80
+    leads_per_month: 200
+    qual_rate: 0.25
+    cac: 60
+  strategic_goal: "SEO delivers 40% of business revenue. Close rate from 8% to 25%+ through page authority and intent matching."
+
+# ──────────────────────────────────────
+# PAGE PIPELINE (sorted by priority)
+# ──────────────────────────────────────
+# Pages that need to be built. Identified from tracker.yaml gap analysis.
+# /monthly-plan reads this to suggest next pages to create.
+
+pages_pipeline:
+
+  # --- ELECTRICAL PANELS ---
+  # Has: /200-amp-panel-upgrade/, /sub-panel-installation/, /circuit-breaker-installation/,
+  #      /panel-upgrades-installation-downey-ca/, /panel-upgrades-los-angeles-ca/
+  # Missing: 100 amp, Federal Pacific, Zinsco, Challenger, Pushmatic
+
+  - page: 100 Amp Panel Upgrade
+    url: /100-amp-panel-upgrade/
+    keyword: 100 amp panel upgrade
+    volume: 10
+    kd: 4
+    words: 1200
+    priority: MED
+    type: sub-service
+    parent: /200-amp-panel-upgrade/
+    status: needed
+
+  - page: Federal Pacific Panel Replacement
+    url: /federal-pacific-panel-replacement/
+    keyword: federal pacific panel replacement
+    volume: 10
+    kd: 5
+    words: 1400
+    priority: HIGH
+    type: sub-service
+    parent: /200-amp-panel-upgrade/
+    status: needed
+    notes: "Safety/urgency page. FPE panels are fire hazards. High conversion intent."
+
+  - page: Zinsco Panel Replacement
+    url: /zinsco-panel-replacement/
+    keyword: zinsco panel replacement
+    volume: 110
+    kd: 5
+    words: 1400
+    priority: HIGH
+    type: sub-service
+    parent: /200-amp-panel-upgrade/
+    status: needed
+    notes: "Common in LA-area older homes. Strong insurance-driven demand."
+
+  - page: Challenger Panel Replacement
+    url: /challenger-panel-replacement/
+    keyword: challenger panel replacement
+    volume: 10
+    kd: 5
+    words: 1200
+    priority: MED
+    type: sub-service
+    parent: /200-amp-panel-upgrade/
+    status: needed
+
+  - page: Pushmatic Panel Replacement
+    url: /pushmatic-panel-replacement/
+    keyword: pushmatic panel replacement
+    volume: 10
+    kd: 2
+    words: 1200
+    priority: MED
+    type: sub-service
+    parent: /200-amp-panel-upgrade/
+    status: needed
+
+  - page: Electrical Panel Upgrade Cost Downey
+    url: /electrical-panel-upgrade-cost-downey/
+    keyword: electrical panel upgrade cost downey
+    volume: 10
+    kd: 3
+    words: 1400
+    priority: HIGH
+    type: sub-service
+    parent: /200-amp-panel-upgrade/
+    status: needed
+    notes: "BOF cost page. Highest conversion intent for panels."
+
+  # --- EV CHARGERS ---
+  # Has: /ev-charger-installation-downey-ca/, /tesla-wall-charger-installation/,
+  #      /los-angeles-ca/ev-charger-installation/
+  # Missing: Level 2, ChargePoint, NEMA 14-50, EV charger repair
+
+  - page: Level 2 EV Charger Installation
+    url: /level-2-ev-charger-installation/
+    keyword: level 2 ev charger installation
+    volume: 880
+    kd: 67
+    words: 1400
+    priority: HIGH
+    type: sub-service
+    parent: /ev-charger-installation-downey-ca/
+    status: needed
+    notes: "Highest volume EV keyword. Critical page."
+
+  - page: ChargePoint Home Installation
+    url: /chargepoint-installation/
+    keyword: chargepoint home installation
+    volume: 210
+    kd: 35
+    words: 1200
+    priority: MED
+    type: sub-service
+    parent: /ev-charger-installation-downey-ca/
+    status: needed
+
+  - page: NEMA 14-50 Outlet Installation
+    url: /nema-14-50-outlet-installation/
+    keyword: nema 14-50 outlet installation
+    volume: 480
+    kd: 30
+    words: 1000
+    priority: HIGH
+    type: sub-service
+    parent: /ev-charger-installation-downey-ca/
+    status: needed
+    notes: "Many EV owners search this as entry point before full charger install."
+
+  - page: EV Charger Repair
+    url: /ev-charger-repair/
+    keyword: ev charger repair
+    volume: 170
+    kd: 35
+    words: 1000
+    priority: LOW
+    type: sub-service
+    parent: /ev-charger-installation-downey-ca/
+    status: needed
+
+  - page: Edison Charge Ready Rebate
+    url: /edison-charge-ready-rebate/
+    keyword: edison charge ready rebate
+    volume: 90
+    kd: 10
+    words: 1400
+    priority: HIGH
+    type: sub-service
+    parent: /ev-charger-installation-downey-ca/
+    status: needed
+    notes: "Ties directly to Saiyan's highest-performing ad campaign. $4,200 rebate funnel."
+
+  # --- GENERATORS ---
+  # Has: /generator-installation/, /standby-generator-installation/
+  # Missing: whole house, transfer switch, portable hookup, repair
+
+  - page: Whole House Generator Installation
+    url: /whole-house-generator-installation/
+    keyword: whole house generator installation
+    volume: 320
+    kd: 31
+    words: 1400
+    priority: HIGH
+    type: sub-service
+    parent: /generator-installation/
+    status: needed
+
+  - page: Transfer Switch Installation
+    url: /transfer-switch-installation/
+    keyword: transfer switch installation
+    volume: 110
+    kd: 50
+    words: 1200
+    priority: MED
+    type: sub-service
+    parent: /generator-installation/
+    status: needed
+
+  - page: Generator Repair and Maintenance
+    url: /generator-repair-maintenance/
+    keyword: generator repair los angeles
+    volume: 130
+    kd: 30
+    words: 1200
+    priority: MED
+    type: sub-service
+    parent: /generator-installation/
+    status: needed
+
+  - page: Portable Generator Hookup Installation
+    url: /portable-generator-hookup/
+    keyword: portable generator hookup installation
+    volume: 40
+    kd: 10
+    words: 1000
+    priority: LOW
+    type: sub-service
+    parent: /generator-installation/
+    status: needed
+
+  # --- LIGHTING ---
+  # Has: /recessed-lighting-installation/, /ceiling-fan-installation/,
+  #      /landscape-outdoor-lighting-installation/, /lighting-installation-downey-ca/,
+  #      /los-angeles-ca/recessed-lighting-installation/
+  # Missing: chandelier, security lighting, LED retrofit, under cabinet
+
+  - page: Chandelier Installation
+    url: /chandelier-installation/
+    keyword: chandelier installation
+    volume: 170
+    kd: 22
+    words: 1000
+    priority: LOW
+    type: sub-service
+    parent: /lighting-installation-downey-ca/
+    status: needed
+
+  - page: Security Lighting Installation
+    url: /security-lighting-installation/
+    keyword: security lighting installation
+    volume: 110
+    kd: 20
+    words: 1000
+    priority: MED
+    type: sub-service
+    parent: /lighting-installation-downey-ca/
+    status: needed
+
+  - page: LED Lighting Retrofit
+    url: /led-lighting-retrofit/
+    keyword: led lighting retrofit
+    volume: 210
+    kd: 25
+    words: 1200
+    priority: MED
+    type: sub-service
+    parent: /lighting-installation-downey-ca/
+    status: needed
+
+  - page: Under Cabinet Lighting Installation
+    url: /under-cabinet-lighting-installation/
+    keyword: under cabinet lighting installation
+    volume: 140
+    kd: 18
+    words: 1000
+    priority: LOW
+    type: sub-service
+    parent: /lighting-installation-downey-ca/
+    status: needed
+
+  # --- REWIRING ---
+  # Has: /electrical-rewiring/, /whole-home-rewiring/,
+  #      /electrical-rewiring/los-angeles-ca/
+  # Missing: knob-and-tube, aluminum wiring
+
+  - page: Knob and Tube Wiring Replacement
+    url: /knob-and-tube-replacement/
+    keyword: knob and tube wiring replacement
+    volume: 480
+    kd: 35
+    words: 1400
+    priority: HIGH
+    type: sub-service
+    parent: /electrical-rewiring/
+    status: needed
+    notes: "Common in older LA homes pre-1950. High urgency, insurance-driven."
+
+  - page: Aluminum Wiring Replacement
+    url: /aluminum-wiring-replacement/
+    keyword: aluminum wiring replacement
+    volume: 10
+    kd: 15
+    words: 1400
+    priority: MED
+    type: sub-service
+    parent: /electrical-rewiring/
+    status: needed
+    notes: "1960s-70s homes. Fire risk + insurance requirements drive conversions."
+
+  # --- SMART HOME / SPECIALTY ---
+  # Has: /smart-home-electrical-installation-automation/, /whole-house-surge-protection/,
+  #      /whole-house-surge-protection-installation/, /hot-tub-spa-wiring/,
+  #      /outlets-switches/, /gfci-outlet-installation/, /electrical-troubleshooting/,
+  #      /electrical-safety-inspection/
+  # Missing: smoke detector, dedicated circuits, electric car garage wiring
+
+  - page: Smoke Detector Installation
+    url: /smoke-detector-installation/
+    keyword: smoke detector installation electrician
+    volume: 170
+    kd: 20
+    words: 1000
+    priority: MED
+    type: sub-service
+    parent: /specialized-electrical-solutions/
+    status: needed
+
+  - page: Dedicated Circuit Installation
+    url: /dedicated-circuit-installation/
+    keyword: dedicated circuit installation
+    volume: 260
+    kd: 25
+    words: 1200
+    priority: MED
+    type: sub-service
+    parent: /specialized-electrical-solutions/
+    status: needed
+
+  - page: Electrical Code Compliance Upgrades
+    url: /electrical-code-compliance/
+    keyword: electrical code compliance california
+    volume: 90
+    kd: 15
+    words: 1200
+    priority: MED
+    type: sub-service
+    parent: /electrical-safety-inspection/
+    status: needed
+
+  # --- LOCATION PAGES ---
+  # Has: Downey, Los Angeles, Long Beach, Anaheim, Fullerton, Garden Grove,
+  #      Torrance, Newport Beach, Tustin, Vernon, South Gate, Artesia, Alhambra,
+  #      El Monte, Hawaiian Gardens, Cypress, Santa Fe Springs, Paramount,
+  #      Lynwood, Maywood, Bell Gardens, Cudahy, Bell, Palos Verdes, Rolling Hills,
+  #      The Island/Appleby/Gallatin (Downey neighborhoods)
+  # Missing: Key LA-area cities near Downey service area
+
+  - page: Whittier CA
+    url: /whittier-ca/
+    keyword: electrician whittier ca
+    volume: 210
+    kd: 20
+    words: 1200
+    priority: HIGH
+    type: location
+    parent: /service-areas-downey-ca/
+    status: needed
+    notes: "Adjacent to Downey. High-income area."
+
+  - page: Norwalk CA
+    url: /norwalk-ca/
+    keyword: electrician norwalk ca
+    volume: 170
+    kd: 18
+    words: 1200
+    priority: HIGH
+    type: location
+    parent: /service-areas-downey-ca/
+    status: needed
+    notes: "Adjacent to Downey. Already have blog targeting Norwalk."
+
+  - page: Cerritos CA
+    url: /cerritos-ca/
+    keyword: electrician cerritos ca
+    volume: 170
+    kd: 18
+    words: 1200
+    priority: HIGH
+    type: location
+    parent: /service-areas-downey-ca/
+    status: needed
+    notes: "Affluent area, high avg ticket."
+
+  - page: Lakewood CA
+    url: /lakewood-ca/
+    keyword: electrician lakewood ca
+    volume: 140
+    kd: 15
+    words: 1200
+    priority: HIGH
+    type: location
+    parent: /service-areas-downey-ca/
+    status: needed
+
+  - page: Bellflower CA
+    url: /bellflower-ca/
+    keyword: electrician bellflower ca
+    volume: 140
+    kd: 15
+    words: 1200
+    priority: HIGH
+    type: location
+    parent: /service-areas-downey-ca/
+    status: needed
+    notes: "Already have blog post targeting Bellflower panel upgrades."
+
+  - page: Pico Rivera CA
+    url: /pico-rivera-ca/
+    keyword: electrician pico rivera ca
+    volume: 90
+    kd: 12
+    words: 1200
+    priority: MED
+    type: location
+    parent: /service-areas-downey-ca/
+    status: needed
+
+  - page: Montebello CA
+    url: /montebello-ca/
+    keyword: electrician montebello ca
+    volume: 90
+    kd: 12
+    words: 1200
+    priority: MED
+    type: location
+    parent: /service-areas-downey-ca/
+    status: needed
+
+  - page: Commerce CA
+    url: /commerce-ca/
+    keyword: electrician commerce ca
+    volume: 50
+    kd: 10
+    words: 1200
+    priority: MED
+    type: location
+    parent: /service-areas-downey-ca/
+    status: needed
+
+  - page: La Mirada CA
+    url: /la-mirada-ca/
+    keyword: electrician la mirada ca
+    volume: 110
+    kd: 15
+    words: 1200
+    priority: MED
+    type: location
+    parent: /service-areas-downey-ca/
+    status: needed
+
+  - page: Huntington Park CA
+    url: /huntington-park-ca/
+    keyword: electrician huntington park ca
+    volume: 70
+    kd: 10
+    words: 1200
+    priority: MED
+    type: location
+    parent: /service-areas-downey-ca/
+    status: needed
+
+  - page: Compton CA
+    url: /compton-ca/
+    keyword: electrician compton ca
+    volume: 110
+    kd: 12
+    words: 1200
+    priority: MED
+    type: location
+    parent: /service-areas-downey-ca/
+    status: needed
+
+  - page: Carson CA
+    url: /carson-ca/
+    keyword: electrician carson ca
+    volume: 140
+    kd: 15
+    words: 1200
+    priority: MED
+    type: location
+    parent: /service-areas-downey-ca/
+    status: needed
+
+  - page: Buena Park CA
+    url: /buena-park-ca/
+    keyword: electrician buena park ca
+    volume: 90
+    kd: 12
+    words: 1200
+    priority: LOW
+    type: location
+    parent: /service-areas-downey-ca/
+    status: needed
+
+  - page: La Habra CA
+    url: /la-habra-ca/
+    keyword: electrician la habra ca
+    volume: 70
+    kd: 10
+    words: 1200
+    priority: LOW
+    type: location
+    parent: /service-areas-downey-ca/
+    status: needed
+
+  - page: Inglewood CA
+    url: /inglewood-ca/
+    keyword: electrician inglewood ca
+    volume: 170
+    kd: 18
+    words: 1200
+    priority: MED
+    type: location
+    parent: /service-areas-downey-ca/
+    status: needed
+
+# ──────────────────────────────────────
+# BLOG PIPELINE (sorted by pillar, then priority)
+# ──────────────────────────────────────
+# Blog posts that need to be written.
+# Existing blogs in tracker.yaml are excluded from this pipeline.
+
+blogs_pipeline:
+
+  # --- PILLAR: ELECTRICAL PANELS ---
+  - title: "How Much Does a 200 Amp Panel Upgrade Cost in Downey, CA? (2026)"
+    keyword: 200 amp panel upgrade cost downey
+    volume: 10
+    kd: 3
+    funnel: BOF
+    links_to: /200-amp-panel-upgrade/
+    priority: HIGH
+    words: 1800
+    status: needed
+    notes: "Top priority. Cost guides convert highest."
+
+  - title: "Federal Pacific Panel Replacement: Why Your Insurance May Require It"
+    keyword: federal pacific panel replacement
+    volume: 10
+    kd: 5
+    funnel: BOF
+    links_to: /federal-pacific-panel-replacement/
+    priority: HIGH
+    words: 1800
+    status: needed
+
+  - title: "Zinsco Panel: The Hidden Fire Hazard in LA-Area Homes"
+    keyword: zinsco panel dangerous
+    volume: 260
+    kd: 8
+    funnel: BOF
+    links_to: /zinsco-panel-replacement/
+    priority: HIGH
+    words: 1600
+    status: needed
+
+  - title: "100 Amp vs 200 Amp Panel: Which Do You Actually Need?"
+    keyword: 100 vs 200 amp panel
+    volume: 480
+    kd: 35
+    funnel: MOF
+    links_to: /200-amp-panel-upgrade/
+    priority: HIGH
+    words: 2000
+    status: needed
+
+  - title: "Do You Need a Permit for a Panel Upgrade in California?"
+    keyword: electrical panel permit california
+    volume: 170
+    kd: 15
+    funnel: MOF
+    links_to: /200-amp-panel-upgrade/
+    priority: HIGH
+    words: 1400
+    status: needed
+
+  - title: "Should You Replace Your Panel or Just the Breakers?"
+    keyword: replace panel or breakers
+    volume: 260
+    kd: 20
+    funnel: MOF
+    links_to: /200-amp-panel-upgrade/
+    priority: MED
+    words: 1600
+    status: needed
+
+  - title: "Challenger Panel Recall: Is Your Downey Home at Risk? (2026)"
+    keyword: challenger electrical panels recall
+    volume: 1000
+    kd: 25
+    funnel: BOF
+    links_to: /200-amp-panel-upgrade/
+    priority: MED
+    words: 1600
+    status: needed
+
+  - title: "How Long Does a Panel Upgrade Take? Timeline and What to Expect"
+    keyword: how long does panel upgrade take
+    volume: 90
+    kd: 8
+    funnel: MOF
+    links_to: /200-amp-panel-upgrade/
+    priority: MED
+    words: 1400
+    status: needed
+
+  # --- PILLAR: EV CHARGERS ---
+  - title: "EV Charger Installation Cost in California: Full Breakdown (2026)"
+    keyword: ev charger installation cost california
+    volume: 480
+    kd: 45
+    funnel: BOF
+    links_to: /ev-charger-installation-downey-ca/
+    priority: HIGH
+    words: 2000
+    status: needed
+
+  - title: "Tesla Wall Connector Installation: Cost, Requirements, and Timeline"
+    keyword: tesla wall connector installation cost
+    volume: 1300
+    kd: 15
+    funnel: BOF
+    links_to: /tesla-wall-charger-installation/
+    priority: HIGH
+    words: 1800
+    status: needed
+
+  - title: "SCE Charge Ready Rebate: How LA Homeowners Save $4,200 on EV Chargers"
+    keyword: sce charge ready rebate
+    volume: 480
+    kd: 9
+    funnel: BOF
+    links_to: /edison-charge-ready-rebate/
+    priority: HIGH
+    words: 1400
+    status: needed
+    notes: "Directly supports Saiyan's top campaign. Edison rebate = signature win."
+
+  - title: "ChargePoint vs Tesla vs Emporia: Which Home EV Charger Is Best?"
+    keyword: chargepoint vs tesla ev charger
+    volume: 6600
+    kd: 40
+    funnel: MOF
+    links_to: /ev-charger-installation-downey-ca/
+    priority: HIGH
+    words: 2000
+    status: needed
+
+  - title: "Why You Should Not Install Your Own EV Charger (And What to Do Instead)"
+    keyword: how to install ev charger at home
+    volume: 320
+    kd: 30
+    funnel: MOF
+    links_to: /ev-charger-installation-downey-ca/
+    priority: MED
+    words: 1600
+    status: needed
+
+  - title: "California EV Charger Rebates and Incentives: Complete 2026 Guide"
+    keyword: california ev charger rebate 2026
+    volume: 1300
+    kd: 25
+    funnel: BOF
+    links_to: /ev-charger-installation-downey-ca/
+    priority: HIGH
+    words: 1800
+    status: needed
+
+  - title: "Do You Need a Panel Upgrade for an EV Charger?"
+    keyword: panel upgrade for ev charger
+    volume: 170
+    kd: 10
+    funnel: MOF
+    links_to: /200-amp-panel-upgrade/
+    priority: MED
+    words: 1400
+    status: needed
+    notes: "Cross-links panels and EV chargers. Two services in one blog."
+
+  # --- PILLAR: GENERATORS ---
+  - title: "Whole House Generator Cost in Los Angeles: What to Budget (2026)"
+    keyword: whole house generator cost los angeles
+    volume: 90
+    kd: 15
+    funnel: BOF
+    links_to: /whole-house-generator-installation/
+    priority: HIGH
+    words: 1800
+    status: needed
+
+  - title: "Standby vs Portable Generator: Which Is Right for Your LA Home?"
+    keyword: standby vs portable generator
+    volume: 320
+    kd: 25
+    funnel: MOF
+    links_to: /generator-installation/
+    priority: MED
+    words: 1600
+    status: needed
+
+  - title: "Do You Need a Transfer Switch for a Generator? (California Requirements)"
+    keyword: transfer switch for generator
+    volume: 110
+    kd: 18
+    funnel: MOF
+    links_to: /transfer-switch-installation/
+    priority: MED
+    words: 1200
+    status: needed
+
+  - title: "How to Prepare Your Home for Power Outages in LA"
+    keyword: power outage preparation los angeles
+    volume: 50
+    kd: 5
+    funnel: TOF
+    links_to: /generator-installation/
+    priority: LOW
+    words: 1400
+    status: needed
+
+  # --- PILLAR: LIGHTING ---
+  - title: "Recessed Lighting Installation Cost: LA Area Pricing Guide (2026)"
+    keyword: recessed lighting installation cost
+    volume: 390
+    kd: 30
+    funnel: BOF
+    links_to: /recessed-lighting-installation/
+    priority: HIGH
+    words: 1800
+    status: needed
+
+  - title: "How Many Recessed Lights Do I Need? Room-by-Room Guide"
+    keyword: how many recessed lights
+    volume: 1300
+    kd: 35
+    funnel: MOF
+    links_to: /recessed-lighting-installation/
+    priority: MED
+    words: 1600
+    status: needed
+
+  - title: "Landscape Lighting Ideas That Increase Home Value"
+    keyword: landscape lighting ideas
+    volume: 2400
+    kd: 60
+    funnel: TOF
+    links_to: /landscape-outdoor-lighting-installation/
+    priority: MED
+    words: 1600
+    status: needed
+
+  - title: "Security Lighting: Best Placement for Home Safety"
+    keyword: security lighting placement
+    volume: 70
+    kd: 10
+    funnel: MOF
+    links_to: /security-lighting-installation/
+    priority: LOW
+    words: 1200
+    status: needed
+
+  # --- PILLAR: REWIRING ---
+  - title: "Whole House Rewiring Cost in Los Angeles (2026 Guide)"
+    keyword: whole house rewiring cost los angeles
+    volume: 50
+    kd: 10
+    funnel: BOF
+    links_to: /whole-home-rewiring/
+    priority: HIGH
+    words: 1800
+    status: needed
+
+  - title: "Knob and Tube Wiring: Why It Must Be Replaced (CA Insurance Rules)"
+    keyword: knob and tube wiring dangerous
+    volume: 260
+    kd: 15
+    funnel: BOF
+    links_to: /knob-and-tube-replacement/
+    priority: HIGH
+    words: 1600
+    status: needed
+
+  - title: "Aluminum Wiring in Your Home: Risks, Insurance, and Replacement Options"
+    keyword: aluminum wiring replacement cost
+    volume: 90
+    kd: 12
+    funnel: BOF
+    links_to: /aluminum-wiring-replacement/
+    priority: MED
+    words: 1600
+    status: needed
+
+  - title: "How Long Does It Take to Rewire a House?"
+    keyword: how long to rewire a house
+    volume: 170
+    kd: 15
+    funnel: MOF
+    links_to: /whole-home-rewiring/
+    priority: MED
+    words: 1400
+    status: needed
+
+  # --- PILLAR: LOCAL / GENERAL ---
+  - title: "How to Choose an Electrician in Downey, CA (Checklist)"
+    keyword: electrician downey ca
+    volume: 390
+    kd: 20
+    funnel: BOF
+    links_to: /
+    priority: MED
+    words: 1400
+    status: needed
+
+  - title: "California Electrical Code Changes Homeowners Need to Know (2026)"
+    keyword: california electrical code 2026
+    volume: 110
+    kd: 10
+    funnel: TOF
+    links_to: /electrical-code-compliance/
+    priority: MED
+    words: 1400
+    status: needed
+
+  - title: "SCE Rate Increases: How to Lower Your Electric Bill with Smart Upgrades"
+    keyword: sce rate increase 2026
+    volume: 170
+    kd: 8
+    funnel: TOF
+    links_to: /
+    priority: LOW
+    words: 1400
+    status: needed
+
+  - title: "Is Your Home Electrical System Ready for an ADU? (California Guide)"
+    keyword: adu electrical requirements california
+    volume: 90
+    kd: 10
+    funnel: MOF
+    links_to: /200-amp-panel-upgrade/
+    priority: MED
+    words: 1400
+    status: needed
+    notes: "ADU boom in LA. Panel upgrade + rewiring cross-sell opportunity."

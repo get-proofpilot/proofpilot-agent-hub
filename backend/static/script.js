@@ -207,7 +207,7 @@ function showView(viewId) {
     dashboard: 'Dashboard', workflows: 'Run Workflows', clients: 'Clients',
     jobs: 'Agent Tasks', reporting: 'Reporting', reports: 'Reports', content: 'Content',
     logs: 'Activity Log', ads: 'Ad Studio', campaigns: 'Campaigns',
-    training: 'Training', 'client-hub': 'Client Hub'
+    training: 'Training', 'client-hub': 'Client Hub', 'seo-playbook': 'SEO Playbook'
   };
   if (title) title.textContent = titles[viewId] || viewId;
 

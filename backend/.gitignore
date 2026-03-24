@@ -2,6 +2,7 @@
 *.db
 *.sqlite3
 data/
+!data/vault/
 
 # Generated documents
 temp_docs/

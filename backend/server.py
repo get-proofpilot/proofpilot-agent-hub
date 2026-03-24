@@ -10,8 +10,9 @@ import uuid
 import asyncio
 from pathlib import Path
 
+import yaml
 import anthropic
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import FastAPI, HTTPException, UploadFile, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse, HTMLResponse
 from pydantic import BaseModel
@@ -1068,10 +1069,88 @@ async def serve_script():
 async def serve_style():
     return FileResponse(static_dir / "style.css", media_type="text/css")
 
+# ── SEO Playbook API ──────────────────────────────────────────────────────────
+
+VAULT_DATA_DIR = Path(__file__).parent / 'data' / 'vault'
+from datetime import datetime as _dt
+
+
+def _parse_yaml(filepath: Path):
+    if not filepath.exists():
+        return None
+    try:
+        return yaml.safe_load(filepath.read_text())
+    except Exception:
+        return None
+
+
+def _build_playbook_data():
+    index_data = _parse_yaml(VAULT_DATA_DIR / '_clients-index.yaml')
+    if not index_data or 'clients' not in index_data:
+        return {'generated': _dt.utcnow().strftime('%Y-%m-%d'), 'month': '', 'clients': []}
+    now = _dt.utcnow()
+    mn = ['January','February','March','April','May','June',
+          'July','August','September','October','November','December']
+    tm = now.month + 1 if now.day > 15 else now.month
+    ty = now.year + 1 if tm > 12 else now.year
+    if tm > 12:
+        tm = 1
+    month_label = f"{mn[tm - 1]} {ty}"
+    clients = []
+    for c in index_data['clients']:
+        if c.get('status') != 'active':
+            continue
+        folder = c.get('folder', '')
+        recurring = _parse_yaml(VAULT_DATA_DIR / 'clients' / folder / 'recurring.yaml')
+        roadmap = _parse_yaml(VAULT_DATA_DIR / 'clients' / folder / 'roadmap.yaml')
+        tasks = {'content': [], 'gbp': [], 'offpage': [], 'technical': [], 'reporting': []}
+        if recurring:
+            for item in recurring.get('content', []):
+                tasks['content'].append({'task': item.get('task', ''), 'time': str(item.get('time', 'varies'))})
+            for item in recurring.get('gbp', []):
+                tasks['gbp'].append({'task': item.get('task', ''), 'time': str(item.get('time', 'varies'))})
+            for item in recurring.get('off_page', []):
+                tv = 'outsource' if item.get('owner') == 'outsource' else str(item.get('time', 'varies'))
+                tasks['offpage'].append({'task': item.get('task', ''), 'time': tv})
+            for item in recurring.get('technical', []):
+                tasks['technical'].append({'task': item.get('task', ''), 'time': str(item.get('time', 'varies'))})
+            for item in recurring.get('reporting', []):
+                tasks['reporting'].append({'task': item.get('task', ''), 'time': str(item.get('time', 'varies'))})
+        next_pages = []
+        if roadmap and isinstance(roadmap, dict) and 'pages_pipeline' in roadmap:
+            high = [p for p in roadmap['pages_pipeline']
+                    if isinstance(p, dict) and p.get('priority') == 'HIGH' and p.get('status') != 'done']
+            for p in high[:3]:
+                next_pages.append({'url': p.get('url', ''), 'keyword': p.get('keyword', '')})
+        services = c.get('services', [])
+        if isinstance(services, str):
+            services = [s.strip() for s in services.split(',')]
+        clients.append({
+            'name': c.get('client', ''), 'folder': folder, 'tier': c.get('tier', 3),
+            'mrr': c.get('mrr', 0), 'manager': c.get('manager', ''),
+            'cadence': c.get('cadence', 'monthly'), 'contact': c.get('contact', ''),
+            'location': c.get('location', ''), 'services': services,
+            'tasks': tasks, 'nextPages': next_pages
+        })
+    return {'generated': _dt.utcnow().strftime('%Y-%m-%d'), 'month': month_label, 'clients': clients}
+
+
+@app.get("/api/seo/playbook-data")
+async def seo_playbook_data():
+    return _build_playbook_data()
+
+
+@app.get("/api/seo/clients")
+async def seo_clients():
+    data = _parse_yaml(VAULT_DATA_DIR / '_clients-index.yaml')
+    return data if data else {'clients': []}
+
+
+# ── SPA fallback (must be last) ──────────────────────────────────────────────
+
 @app.get("/{spa_path:path}")
 async def serve_spa(spa_path: str):
     """Serve standalone agent pages if they exist, otherwise fall back to SPA."""
-    # Check for standalone agent pages (e.g. /page-design → page-design.html)
     if spa_path and not spa_path.startswith("api/"):
         candidate = static_dir / f"{spa_path}.html"
         if candidate.exists():

@@ -11,6 +11,7 @@
     href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800&family=Martian+Mono:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
     rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="seo-playbook.css" />
   <!-- Markdown rendering + sanitization for document viewer -->
   <script src="https://cdn.jsdelivr.net/npm/marked@15.0.6/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
@@ -75,6 +76,18 @@
           </svg>
           Agent Tasks
           <span class="nav-badge" id="navBadgeJobs">2</span>
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <span class="nav-group-label">SEO Operations</span>
+        <a href="#" class="nav-item" data-view="seo-playbook" id="nav-seo-playbook">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+            <path d="M8 7h8M8 11h6"/>
+          </svg>
+          SEO Playbook
         </a>
       </div>
 
@@ -834,6 +847,13 @@
         </div>
         <div class="ads-grid" id="adsGrid"><!-- injected by JS --></div>
       </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         VIEW: SEO PLAYBOOK
+    ═══════════════════════════════ -->
+    <div class="view" id="view-seo-playbook">
+      <div id="seo-playbook-root"></div>
     </div>
 
     <!-- ═══════════════════════════════
@@ -2214,6 +2234,7 @@
   </div>
 
   <script src="script.js"></script>
+  <script src="seo-playbook.js"></script>
 </body>
 
 </html>

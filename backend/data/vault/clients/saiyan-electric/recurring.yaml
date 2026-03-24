@@ -1,0 +1,90 @@
+# Saiyan Electric — Monthly Recurring Tasks
+# Source: ATE SEO Deliverables template adapted for Saiyan Electric
+# This template repeats every month. /monthly-plan reads this to generate the task list.
+# Each task has an owner (internal = Jo/Marcos, outsource = contractor)
+
+client: Saiyan Electric
+cadence: monthly
+
+content:
+  - task: Write and publish 2 blog posts
+    owner: internal
+    time: 2 hours
+    source: "Pull next 2 HIGH priority from blogs_pipeline in roadmap.yaml"
+    notes: Use Zimmwriter or Claude Code /home-service-seo-content skill
+
+  - task: Create location pages and optimize (3-5 cities)
+    owner: internal
+    time: 3 hours
+    source: "Pull next cities from pages_pipeline in roadmap.yaml"
+
+  - task: Create neighborhood pages (3)
+    owner: internal
+    time: 2 hours
+    source: "Pull next neighborhoods from pages_pipeline in roadmap.yaml"
+
+  - task: Create and optimize service sub-pages (2-3)
+    owner: internal
+    time: 3 hours
+    source: "Pull next HIGH priority sub-service pages from roadmap.yaml"
+
+gbp:
+  - task: Post and schedule 8 Google Business Posts
+    owner: internal
+    time: 1 hour
+    notes: 2 posts per week
+
+  - task: GBP review responses (up to 10)
+    owner: internal
+    time: 30 min
+    notes: Use ChatGPT for drafting
+
+off_page:
+  - task: Continue citation buildout (60 citations)
+    owner: outsource
+    notes: Fiverr or in-house link builder
+
+  - task: Image sharing and geo-tagging (60 images)
+    owner: outsource
+
+  - task: 5 niche blog comment backlinks
+    owner: outsource
+
+  - task: 100-500 map embed distribution
+    owner: outsource
+    notes: Legiit - SerpHaus
+
+  - task: 4 Pinterest pins
+    owner: internal
+    time: 30 min
+
+  - task: 2 optimized Patch posts
+    owner: internal
+    time: 30 min
+
+  - task: 1 YouTube video (slideshow or website walkthrough)
+    owner: internal
+    time: 30 min
+
+  - task: 1 press release writing and distribution
+    owner: internal
+    notes: Signal Genysis or White Label SEO Firm
+
+  - task: Niche and local signals (60 min)
+    owner: outsource
+
+technical:
+  - task: Submit all links to indexing tool
+    owner: internal
+    time: 15 min
+
+  - task: Pull heat maps bi-weekly for tracking and reporting
+    owner: internal
+    time: 30 min
+    notes: Local Dominator geo grids
+
+reporting:
+  - task: Create and deliver monthly report
+    owner: internal
+    time: 1 hour
+    notes: Starting month 5+

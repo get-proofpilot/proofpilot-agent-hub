@@ -1,0 +1,70 @@
+# Alpha Property Management — Monthly Recurring Tasks
+# Source: context.md + tier/cadence specs
+# This template repeats every month. /monthly-plan reads this to generate the task list.
+# Each task has an owner (internal = Jo/Marcos, outsource = contractor)
+
+client: Alpha Property Management
+cadence: monthly
+
+content:
+  - task: Write and publish 1-2 blog posts
+    owner: internal
+    time: 1.5 hours
+    source: "Pull next HIGH priority from blogs_pipeline in roadmap.yaml"
+    notes: Focus on property management topics (NOT tenant-facing). Use Zimmwriter or Claude Code.
+
+  - task: Create and optimize location/service pages (2-3)
+    owner: internal
+    time: 2 hours
+    source: "Pull next pages from pages_pipeline in roadmap.yaml"
+    notes: Target 'property management' and 'property manager' keywords for Sacramento area cities (Elk Grove, Roseville, etc.)
+
+gbp:
+  - task: Post and schedule 4-6 Google Business Posts
+    owner: internal
+    time: 45 min
+    notes: 1-2 posts per week. Focus on property management services, NOT tenant resources.
+
+  - task: GBP review responses (up to 5)
+    owner: internal
+    time: 15 min
+    notes: Use ChatGPT for drafting
+
+off_page:
+  - task: Continue citation buildout (30-40 citations)
+    owner: outsource
+    notes: Fiverr or in-house link builder
+
+  - task: Image sharing and geo-tagging (30 images)
+    owner: outsource
+
+  - task: 3 niche blog comment backlinks
+    owner: outsource
+
+  - task: 100-300 map embed distribution
+    owner: outsource
+    notes: Legiit - SerpHaus
+
+  - task: 2 Pinterest pins
+    owner: internal
+    time: 15 min
+
+  - task: 1 optimized Patch post
+    owner: internal
+    time: 15 min
+
+technical:
+  - task: Submit all links to indexing tool
+    owner: internal
+    time: 15 min
+
+  - task: Pull heat maps bi-weekly for tracking and reporting
+    owner: internal
+    time: 30 min
+    notes: Local Dominator geo grids
+
+reporting:
+  - task: Create and deliver monthly report
+    owner: internal
+    time: 1 hour
+    notes: Starting month 5+

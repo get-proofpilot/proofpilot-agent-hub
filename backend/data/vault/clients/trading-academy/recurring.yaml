@@ -1,0 +1,70 @@
+# Trading Academy — Monthly Recurring Tasks
+# Source: context.md + tier/cadence specs
+# This template repeats every month. /monthly-plan reads this to generate the task list.
+# Each task has an owner (internal = Jo/Marcos, outsource = contractor)
+# Note: White-label via StrikePoint. Not a local business — no local SEO/citations.
+
+client: Trading Academy
+cadence: monthly
+
+content:
+  - task: Write and publish 3-4 education center content pieces
+    owner: internal
+    time: 6 hours
+    source: "Pull next HIGH priority from blogs_pipeline in roadmap.yaml"
+    notes: >
+      Highest retainer ($4K). Content pillars: Financial Literacy, Understanding Markets,
+      Risk Management, Stock/Options/Futures/Forex/Crypto Education, Wealth Management.
+      Target the 5 customer profiles. Incorporate first-party TA data (85K students, 25 years).
+
+  - task: Optimize and update course landing pages (1-2)
+    owner: internal
+    time: 2 hours
+    source: "Pull next pages from pages_pipeline in roadmap.yaml"
+    notes: Course funnel pages — Free Class, 3-Day Orientation, Core Strategy, asset-specific courses.
+
+  - task: Create/optimize location pages (1-2)
+    owner: internal
+    time: 1.5 hours
+    notes: Dependent on Eddie/IT approval queue. Push for approvals monthly.
+
+on_page:
+  - task: On-page optimization pass on existing high-value pages
+    owner: internal
+    time: 1 hour
+    notes: Title tags, meta descriptions, internal linking, schema markup. Focus on pages with organic traffic potential.
+
+  - task: Internal linking audit and updates
+    owner: internal
+    time: 30 min
+    notes: Cross-link content pieces to course pages and education center hub.
+
+off_page:
+  - task: 5 niche blog comment backlinks
+    owner: outsource
+    notes: Target finance, education, and trading communities.
+
+  - task: 1 press release or guest post
+    owner: internal
+    notes: Signal Genysis or White Label SEO Firm. Finance/education angle.
+
+  - task: 1 YouTube video (slideshow or walkthrough)
+    owner: internal
+    time: 30 min
+    notes: Market education topic, link back to education center.
+
+technical:
+  - task: Submit all links to indexing tool
+    owner: internal
+    time: 15 min
+
+  - task: Monitor organic traffic and cost-per-buyer metrics
+    owner: internal
+    time: 30 min
+    notes: Current benchmark — 10-11K monthly organic visitors, $76-100 cost per buyer (goal <$200).
+
+reporting:
+  - task: Create and deliver monthly report
+    owner: internal
+    time: 1 hour
+    notes: Deliver to StrikePoint. Include organic traffic, keyword rankings, content published, cost-per-buyer.

@@ -1,0 +1,68 @@
+# Cedar Gold Group — Weekly Recurring Tasks
+# Source: context.md + tier/cadence specs
+# This template repeats every week. /weekly-plan reads this to generate the task list.
+# Each task has an owner (internal = Jo/Matthew, outsource = contractor)
+# Note: Not a local business — no local SEO/citations. Heavy on content.
+
+client: Cedar Gold Group
+cadence: weekly
+
+content:
+  - task: Publish 5 long-form articles via Cedar AI Platform
+    owner: internal
+    time: 3 hours
+    notes: >
+      Weekly article pipeline. Use Cedar AI Platform (not Manus).
+      Target gold IRA, 401k rollover, precious metals investing keywords.
+      Primary target: "How to move 401k to gold" ($16 CPC, low competition).
+
+  - task: On-page optimization for newly published articles
+    owner: internal
+    time: 1 hour
+    notes: Rank Math Pro setup. Title tags, meta descriptions, schema, internal linking.
+
+on_page:
+  - task: Internal linking pass on new and existing content
+    owner: internal
+    time: 30 min
+    notes: Link new articles to pillar pages and conversion pages (Gold Quiz, contact).
+
+  - task: Optimize 1-2 existing high-potential pages
+    owner: internal
+    time: 30 min
+    notes: Refresh content, update stats, improve keyword targeting on pages with ranking momentum.
+
+off_page:
+  - task: 3-5 niche blog comment backlinks
+    owner: outsource
+    notes: Target finance, investing, retirement planning communities.
+
+  - task: 1 press release or guest post (bi-weekly)
+    owner: internal
+    notes: Signal Genysis or White Label SEO Firm. Gold IRA / retirement angle. Every other week.
+
+  - task: 1 YouTube video (bi-weekly)
+    owner: internal
+    time: 30 min
+    notes: Gold market updates, IRA education. Every other week.
+
+technical:
+  - task: Submit all new links to indexing tool
+    owner: internal
+    time: 10 min
+
+  - task: Monitor Yoast to Rank Math Pro migration status
+    owner: internal
+    time: 15 min
+    notes: Ongoing tech migration. Verify no SEO regressions.
+
+  - task: Review Trustpilot and Google review status
+    owner: internal
+    time: 10 min
+    notes: Flag fake reviews. Monitor review acquisition.
+
+reporting:
+  - task: Weekly sync prep with Charlie
+    owner: internal
+    time: 30 min
+    notes: Prepare talking points — articles published, rankings movement, traffic trends, content pipeline status.

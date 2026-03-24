@@ -1,0 +1,1346 @@
+# Pelican Coast Electric — SEO Roadmap
+# Source: Client context + tracker.yaml gap analysis + SEO audit (March 2026)
+# This is the strategic pipeline. /monthly-plan and /weekly-plan read this to know WHAT to build next.
+# Statuses: needed | in-progress | live | skipped
+# Owner: Austin Torres | Manager: Marcos
+# Retainer: $2,200/mo | Tier 1 | Biweekly cadence
+# Proposed DBA: Pelican Generator Installs
+# Competitor benchmark: Express Electrical (21,225 organic, 254 blog posts)
+
+# ──────────────────────────────────────
+# 2026 TARGETS
+# ──────────────────────────────────────
+targets:
+  baseline_mar_2026:
+    pages: 113
+    keywords_ranking: 49
+    keywords_top_10: 1
+    monthly_organic_traffic: 33
+    traffic_value: 524
+    leads_per_month: 2
+    blog_posts: 24
+    location_pages: 19
+    service_pages: 27
+    project_pages: 14
+    core_pages: 10
+  eoy_2026:
+    pages: 200
+    keywords_ranking: 500
+    keywords_top_10: 50
+    monthly_organic_traffic: 2000
+    traffic_value: 8000
+    leads_per_month: 25
+    blog_posts: 60
+    location_pages: 50
+    service_pages: 45
+    project_pages: 20
+  strategic_goal: "Close the 21K traffic gap with Express Electrical. Build generator authority as the #1 OC generator installer. Fill 31 missing city location pages. Establish topical depth across generators, panels, and EV chargers."
+  benchmark_competitor:
+    name: Express Electrical
+    organic_traffic: 21225
+    keywords: 13181
+    blog_posts: 254
+
+# ──────────────────────────────────────
+# RECURRING CADENCE
+# ──────────────────────────────────────
+recurring_cadence:
+  blogs_per_month: 4
+  location_pages_per_month: 6
+  service_subpages_per_month: 3
+  gbp_posts_per_week: 3
+  gbp_generator_ratio: "40%+ of GBP posts should be generator-focused"
+  location_gap_close_target: "31 cities in 5 months (6-7 per month)"
+
+# ──────────────────────────────────────
+# EXISTING LIVE PAGES (for reference)
+# ──────────────────────────────────────
+# Location pages live (19): Anaheim, Costa Mesa, Newport Coast, Newport Beach,
+#   Laguna Beach, Santa Ana, San Juan Capistrano, Ladera Ranch, San Joaquin Hills,
+#   Laguna Niguel, Pelican Hill, Mission Viejo, Irvine, Corona del Mar,
+#   Balboa Peninsula, San Clemente, Dana Point, Huntington Beach, Tustin,
+#   Orange County hub
+# Service pages live (27): Emergency electrician, hot tub, ceiling fan, panel upgrades,
+#   EV charger, transfer switch, backup generator, generator repair, electrical inspection,
+#   surge protector, troubleshooting, smoke detector, 24-hour electrician, transformer repair,
+#   switchgear, commercial lighting, tenant improvement, commercial panel upgrades,
+#   solar panel, electrical repair, generator installation, underground conduit,
+#   Lutron Athena, home sound system, electricity meter upgrade, commercial wiring,
+#   commercial generators, electrical circuit, cold plunge
+# Blog posts live: 24 (panels, generators, EV, hot tub, surge protection topics)
+
+# ──────────────────────────────────────
+# PAGE PIPELINE (sorted by priority within each group)
+# ──────────────────────────────────────
+
+pages_pipeline:
+
+  # --- GENERATORS (PCE specialty and differentiator — build first) ---
+  - page: Whole House Generator Installation
+    url: /services/whole-house-generator-installation/
+    keyword: whole house generator installation orange county
+    volume: 320
+    kd: 31
+    words: 1600
+    priority: HIGH
+    type: sub-service
+    parent: /services/generator-installation/
+    status: needed
+    notes: "High-intent transactional keyword. Include sizing guide, cost ranges, permit info. Link to generator sizing blog post."
+
+  - page: Standby Generator Installation
+    url: /services/standby-generator-installation/
+    keyword: standby generator installation orange county
+    volume: 720
+    kd: 43
+    words: 1600
+    priority: HIGH
+    type: sub-service
+    parent: /services/generator-installation/
+    status: needed
+    notes: "Cover automatic vs manual transfer switch. Generac Guardian vs Protector lines."
+
+  - page: Generac Generator Installation
+    url: /services/generac-generator-installation/
+    keyword: generac generator installation
+    volume: 880
+    kd: 25
+    words: 1600
+    priority: HIGH
+    type: sub-service
+    parent: /services/generator-installation/
+    status: needed
+    notes: "Generac is #1 brand. PCE is authorized Generac dealer. Model comparisons: Guardian, Protector, PWRcell."
+
+  - page: Kohler Generator Installation
+    url: /services/kohler-generator-installation/
+    keyword: kohler generator installation orange county
+    volume: 110
+    kd: 15
+    words: 1400
+    priority: HIGH
+    type: sub-service
+    parent: /services/generator-installation/
+    status: needed
+    notes: "PCE has Kohler partnership. Position as premium alternative to Generac."
+
+  - page: Portable Generator Hookup
+    url: /services/portable-generator-hookup/
+    keyword: portable generator hookup electrician
+    volume: 170
+    kd: 15
+    words: 1200
+    priority: HIGH
+    type: sub-service
+    parent: /services/generator-installation/
+    status: needed
+    notes: "Transfer switch + interlock kit for portable generators. Entry-level generator service."
+
+  - page: Generator Maintenance
+    url: /services/generator-maintenance/
+    keyword: generator maintenance orange county
+    volume: 110
+    kd: 20
+    words: 1200
+    priority: HIGH
+    type: sub-service
+    parent: /services/generator-installation/
+    status: needed
+    notes: "Recurring revenue driver. Annual maintenance plans, load bank testing, oil changes."
+
+  - page: Generator Sizing Guide
+    url: /services/generator-sizing/
+    keyword: what size generator do i need for my house
+    volume: 6600
+    kd: 45
+    words: 1800
+    priority: HIGH
+    type: sub-service
+    parent: /services/generator-installation/
+    status: needed
+    notes: "Massive volume. Include interactive sizing chart, wattage table, load calculation walkthrough."
+
+  - page: Commercial Generator Installation
+    url: /services/commercial-generator-installation/
+    keyword: commercial generator installation
+    volume: 210
+    kd: 30
+    words: 1400
+    priority: MED
+    type: sub-service
+    parent: /services/commercial-generators/
+    status: needed
+    notes: "Target restaurants, medical offices, retail. Complement existing commercial generators page."
+
+  # --- ELECTRICAL PANELS ---
+  - page: Federal Pacific Panel Replacement
+    url: /services/federal-pacific-panel-replacement/
+    keyword: federal pacific panel replacement
+    volume: 10
+    kd: 5
+    words: 1400
+    priority: HIGH
+    type: sub-service
+    parent: /services/electrical-panel-upgrades-and-replacement/
+    status: needed
+    notes: "FPE Stab-Lok panels are fire hazards. Common in 1960s-1980s OC homes. Safety/urgency angle. Insurance implications."
+
+  - page: Zinsco Panel Replacement
+    url: /services/zinsco-panel-replacement/
+    keyword: zinsco panel replacement
+    volume: 110
+    kd: 5
+    words: 1400
+    priority: HIGH
+    type: sub-service
+    parent: /services/electrical-panel-upgrades-and-replacement/
+    status: needed
+    notes: "Another recalled panel brand common in older OC homes. Melting bus bar issue."
+
+  - page: 200 Amp Panel Upgrade
+    url: /services/200-amp-panel-upgrade/
+    keyword: 200 amp panel upgrade cost
+    volume: 1300
+    kd: 30
+    words: 1400
+    priority: HIGH
+    type: sub-service
+    parent: /services/electrical-panel-upgrades-and-replacement/
+    status: needed
+    notes: "Most common upgrade for OC homes adding EV chargers or generators. Include cost breakdown by city."
+
+  - page: 100 Amp to 200 Amp Upgrade
+    url: /services/100-to-200-amp-upgrade/
+    keyword: 100 to 200 amp upgrade
+    volume: 480
+    kd: 25
+    words: 1400
+    priority: MED
+    type: sub-service
+    parent: /services/electrical-panel-upgrades-and-replacement/
+    status: needed
+    notes: "Specific upgrade path. Cover when required (EV + generator + HVAC loads)."
+
+  - page: Challenger Panel Replacement
+    url: /services/challenger-panel-replacement/
+    keyword: challenger panel replacement
+    volume: 10
+    kd: 5
+    words: 1200
+    priority: MED
+    type: sub-service
+    parent: /services/electrical-panel-upgrades-and-replacement/
+    status: needed
+    notes: "Recalled Challenger panels common in 1980s-1990s OC homes."
+
+  - page: Sub Panel Installation
+    url: /services/sub-panel-installation/
+    keyword: sub panel installation
+    volume: 390
+    kd: 28
+    words: 1200
+    priority: MED
+    type: sub-service
+    parent: /services/electrical-panel-upgrades-and-replacement/
+    status: needed
+    notes: "Needed for garage conversions, ADUs, detached workshops, pool equipment."
+
+  # --- EV CHARGERS ---
+  - page: Level 2 EV Charger Installation
+    url: /services/level-2-ev-charger-installation/
+    keyword: level 2 ev charger installation
+    volume: 880
+    kd: 67
+    words: 1400
+    priority: HIGH
+    type: sub-service
+    parent: /services/ev-charger-installation/
+    status: needed
+    notes: "High volume. Cover ChargePoint, JuiceBox, Grizzl-E, Wallbox brands. EVITP certified angle."
+
+  - page: Tesla Wall Connector Installation
+    url: /services/tesla-wall-connector-installation/
+    keyword: tesla wall connector installation
+    volume: 1600
+    kd: 11
+    words: 1400
+    priority: HIGH
+    type: sub-service
+    parent: /services/ev-charger-installation/
+    status: needed
+    notes: "Tesla dominates OC EV market. Cover Gen 3 vs Gen 4, NEMA 14-50 vs hardwired, J1772 universal adapter."
+
+  - page: ChargePoint Home Installation
+    url: /services/chargepoint-installation/
+    keyword: chargepoint home installation
+    volume: 210
+    kd: 35
+    words: 1200
+    priority: MED
+    type: sub-service
+    parent: /services/ev-charger-installation/
+    status: needed
+    notes: "ChargePoint Home Flex is popular non-Tesla option. WiFi-enabled, NEMA 14-50 or hardwired."
+
+  - page: NEMA 14-50 Outlet Installation
+    url: /services/nema-14-50-outlet-installation/
+    keyword: nema 14-50 outlet installation
+    volume: 480
+    kd: 30
+    words: 1000
+    priority: MED
+    type: sub-service
+    parent: /services/ev-charger-installation/
+    status: needed
+    notes: "Budget EV charging option. Also used for RVs, welders. Quick install."
+
+  - page: Commercial EV Charger Installation
+    url: /services/commercial-ev-charger-installation/
+    keyword: commercial ev charger installation orange county
+    volume: 40
+    kd: 16
+    words: 1400
+    priority: MED
+    type: sub-service
+    parent: /services/ev-charger-installation/
+    status: needed
+    notes: "HOAs, apartment complexes, office buildings. CA SB 880 compliance. Multi-unit setups."
+
+  # --- LIGHTING ---
+  - page: Recessed Lighting Installation
+    url: /services/recessed-lighting-installation/
+    keyword: recessed lighting installation
+    volume: 1300
+    kd: 40
+    words: 1400
+    priority: MED
+    type: sub-service
+    parent: /services/commercial-lighting/
+    status: needed
+    notes: "High demand for kitchen/bathroom remodels. LED can light conversions."
+
+  - page: Landscape Lighting Installation
+    url: /services/landscape-lighting-installation/
+    keyword: landscape lighting installation orange county
+    volume: 320
+    kd: 50
+    words: 1400
+    priority: MED
+    type: sub-service
+    parent: /services/commercial-lighting/
+    status: needed
+    notes: "Luxury homes in Newport, Pelican Hill, CDM. Outdoor living + curb appeal."
+
+  - page: Outdoor Lighting Installation
+    url: /services/outdoor-lighting-installation/
+    keyword: outdoor lighting installation
+    volume: 390
+    kd: 55
+    words: 1400
+    priority: MED
+    type: sub-service
+    parent: /services/commercial-lighting/
+    status: needed
+    notes: "Security lighting, patio/deck, pool area. Overlaps landscape but broader."
+
+  # --- REWIRING / REPAIR / SPECIALTY ---
+  - page: Whole House Rewire
+    url: /services/whole-house-rewire/
+    keyword: whole house rewire cost
+    volume: 1600
+    kd: 35
+    words: 1600
+    priority: MED
+    type: sub-service
+    parent: /services/electrical-repair/
+    status: needed
+    notes: "Older Newport/CDM/Laguna homes with aluminum or knob-and-tube wiring."
+
+  - page: Dedicated Circuit Installation
+    url: /services/dedicated-circuit-installation/
+    keyword: dedicated circuit installation
+    volume: 260
+    kd: 25
+    words: 1200
+    priority: MED
+    type: sub-service
+    parent: /services/electrical-circuit-installation/
+    status: needed
+    notes: "Required for EV chargers, hot tubs, cold plunges, home offices. Upsell from other services."
+
+  - page: Whole House Surge Protection
+    url: /services/whole-house-surge-protection/
+    keyword: whole house surge protector installation
+    volume: 880
+    kd: 30
+    words: 1300
+    priority: MED
+    type: sub-service
+    parent: /services/surge-protector-installation/
+    status: needed
+    notes: "Pairs with generator installs. Protect electronics from power surges and lightning."
+
+  - page: ADU Electrical Wiring
+    url: /services/adu-electrical-wiring/
+    keyword: adu electrical wiring orange county
+    volume: 40
+    kd: 12
+    words: 1400
+    priority: MED
+    type: sub-service
+    parent: /services/electrical-repair/
+    status: needed
+    notes: "CA ADU boom. Sub-panel sizing, separate meter, permit process, code compliance."
+
+  - page: Commercial Electrical Services (Pillar)
+    url: /services/commercial-electrical-services/
+    keyword: commercial electrician orange county
+    volume: 390
+    kd: 35
+    words: 1600
+    priority: HIGH
+    type: main-service
+    parent: /our-services/
+    status: needed
+    notes: "Pillar page to tie together existing commercial sub-pages (lighting, panel, wiring, tenant improvement)."
+
+  # --- MISSING LOCATION PAGES (31-city gap) ---
+  # Priority: affluent south OC + coastal cities first, then fill north/central OC
+  - page: Electrician in Aliso Viejo
+    url: /service-areas/electrician-in-aliso-viejo-ca/
+    keyword: electrician aliso viejo ca
+    volume: 170
+    kd: 10
+    words: 1200
+    priority: HIGH
+    type: location
+    parent: /service-areas/
+    status: needed
+    notes: "South OC, affluent planned community. 50K pop. Adjacent to Laguna Niguel."
+
+  - page: Electrician in Laguna Hills
+    url: /service-areas/electrician-in-laguna-hills-ca/
+    keyword: electrician laguna hills ca
+    volume: 170
+    kd: 10
+    words: 1200
+    priority: HIGH
+    type: location
+    parent: /service-areas/
+    status: needed
+    notes: "Adjacent to Laguna Beach/Niguel. 31K pop. Older homes needing panel work."
+
+  - page: Electrician in Lake Forest
+    url: /service-areas/electrician-in-lake-forest-ca/
+    keyword: electrician lake forest ca
+    volume: 210
+    kd: 15
+    words: 1200
+    priority: HIGH
+    type: location
+    parent: /service-areas/
+    status: needed
+    notes: "South OC, 85K pop. Growing residential area, new construction."
+
+  - page: Electrician in Orange
+    url: /service-areas/electrician-in-orange-ca/
+    keyword: electrician orange ca
+    volume: 480
+    kd: 22
+    words: 1200
+    priority: HIGH
+    type: location
+    parent: /service-areas/
+    status: needed
+    notes: "City of Orange, 140K pop. High volume keyword. Old Town has historic homes needing rewiring."
+
+  - page: Electrician in Fullerton
+    url: /service-areas/electrician-in-fullerton-ca/
+    keyword: electrician fullerton ca
+    volume: 390
+    kd: 20
+    words: 1200
+    priority: HIGH
+    type: location
+    parent: /service-areas/
+    status: needed
+    notes: "North OC, 140K pop. Mix of old and new homes. High search volume."
+
+  - page: Electrician in Fountain Valley
+    url: /service-areas/electrician-in-fountain-valley-ca/
+    keyword: electrician fountain valley ca
+    volume: 210
+    kd: 12
+    words: 1200
+    priority: HIGH
+    type: location
+    parent: /service-areas/
+    status: needed
+    notes: "Central OC, 56K pop. Established residential neighborhoods."
+
+  - page: Electrician in Yorba Linda
+    url: /service-areas/electrician-in-yorba-linda-ca/
+    keyword: electrician yorba linda ca
+    volume: 210
+    kd: 12
+    words: 1200
+    priority: HIGH
+    type: location
+    parent: /service-areas/
+    status: needed
+    notes: "Highest median income in OC ($130K). Affluent homeowners. 68K pop. Generator demand."
+
+  - page: Electrician in Buena Park
+    url: /service-areas/electrician-in-buena-park-ca/
+    keyword: electrician buena park ca
+    volume: 210
+    kd: 12
+    words: 1200
+    priority: HIGH
+    type: location
+    parent: /service-areas/
+    status: needed
+    notes: "North OC, 82K pop. Solid volume keyword."
+
+  - page: Electrician in Garden Grove
+    url: /service-areas/electrician-in-garden-grove-ca/
+    keyword: electrician garden grove ca
+    volume: 320
+    kd: 18
+    words: 1200
+    priority: HIGH
+    type: location
+    parent: /service-areas/
+    status: needed
+    notes: "Central OC, 172K pop. High volume. Many older homes with panel upgrade needs."
+
+  - page: Electrician in Westminster
+    url: /service-areas/electrician-in-westminster-ca/
+    keyword: electrician westminster ca
+    volume: 210
+    kd: 15
+    words: 1200
+    priority: HIGH
+    type: location
+    parent: /service-areas/
+    status: needed
+    notes: "Central OC, 91K pop. Adjacent to Fountain Valley and Garden Grove."
+
+  - page: Electrician in Cypress
+    url: /service-areas/electrician-in-cypress-ca/
+    keyword: electrician cypress ca
+    volume: 170
+    kd: 10
+    words: 1200
+    priority: MED
+    type: location
+    parent: /service-areas/
+    status: needed
+    notes: "West OC, 49K pop. Near Los Alamitos and Seal Beach."
+
+  - page: Electrician in Seal Beach
+    url: /service-areas/electrician-in-seal-beach-ca/
+    keyword: electrician seal beach ca
+    volume: 170
+    kd: 10
+    words: 1200
+    priority: MED
+    type: location
+    parent: /service-areas/
+    status: needed
+    notes: "Coastal city. Same salt-air challenges as Newport Beach. 24K pop."
+
+  - page: Electrician in Placentia
+    url: /service-areas/electrician-in-placentia-ca/
+    keyword: electrician placentia ca
+    volume: 170
+    kd: 10
+    words: 1200
+    priority: MED
+    type: location
+    parent: /service-areas/
+    status: needed
+    notes: "North OC, 52K pop. Adjacent to Fullerton and Yorba Linda."
+
+  - page: Electrician in Brea
+    url: /service-areas/electrician-in-brea-ca/
+    keyword: electrician brea ca
+    volume: 170
+    kd: 10
+    words: 1200
+    priority: MED
+    type: location
+    parent: /service-areas/
+    status: needed
+    notes: "North OC, 45K pop. Edge of service area."
+
+  - page: Electrician in Rancho Santa Margarita
+    url: /service-areas/electrician-in-rancho-santa-margarita-ca/
+    keyword: electrician rancho santa margarita ca
+    volume: 110
+    kd: 8
+    words: 1200
+    priority: MED
+    type: location
+    parent: /service-areas/
+    status: needed
+    notes: "South OC planned community. 48K pop. Newer homes."
+
+  - page: Electrician in La Habra
+    url: /service-areas/electrician-in-la-habra-ca/
+    keyword: electrician la habra ca
+    volume: 170
+    kd: 10
+    words: 1200
+    priority: MED
+    type: location
+    parent: /service-areas/
+    status: needed
+    notes: "North OC border city, 62K pop."
+
+  - page: Electrician in Los Alamitos
+    url: /service-areas/electrician-in-los-alamitos-ca/
+    keyword: electrician los alamitos ca
+    volume: 110
+    kd: 8
+    words: 1200
+    priority: MED
+    type: location
+    parent: /service-areas/
+    status: needed
+    notes: "Small affluent city, 12K pop. Near Seal Beach."
+
+  - page: Electrician in Laguna Woods
+    url: /service-areas/electrician-in-laguna-woods-ca/
+    keyword: electrician laguna woods ca
+    volume: 90
+    kd: 5
+    words: 1200
+    priority: MED
+    type: location
+    parent: /service-areas/
+    status: needed
+    notes: "Retirement community. Panel upgrades, generator installs for elderly homeowners."
+
+  - page: Electrician in Stanton
+    url: /service-areas/electrician-in-stanton-ca/
+    keyword: electrician stanton ca
+    volume: 110
+    kd: 8
+    words: 1200
+    priority: LOW
+    type: location
+    parent: /service-areas/
+    status: needed
+    notes: "Small city, 39K pop. Lower priority."
+
+  - page: Electrician in Villa Park
+    url: /service-areas/electrician-in-villa-park-ca/
+    keyword: electrician villa park ca
+    volume: 90
+    kd: 5
+    words: 1200
+    priority: LOW
+    type: location
+    parent: /service-areas/
+    status: needed
+    notes: "Small affluent city near Orange. 6K pop but wealthy."
+
+  - page: Electrician in Coto de Caza
+    url: /service-areas/electrician-in-coto-de-caza-ca/
+    keyword: electrician coto de caza ca
+    volume: 50
+    kd: 3
+    words: 1200
+    priority: LOW
+    type: location
+    parent: /service-areas/
+    status: needed
+    notes: "Gated community, very affluent. Low volume but high-value leads."
+
+  - page: Electrician in Foothill Ranch
+    url: /service-areas/electrician-in-foothill-ranch-ca/
+    keyword: electrician foothill ranch ca
+    volume: 90
+    kd: 5
+    words: 1200
+    priority: LOW
+    type: location
+    parent: /service-areas/
+    status: needed
+    notes: "CDP in Lake Forest area. 10K pop."
+
+  - page: Electrician in Trabuco Canyon
+    url: /service-areas/electrician-in-trabuco-canyon-ca/
+    keyword: electrician trabuco canyon ca
+    volume: 90
+    kd: 5
+    words: 1200
+    priority: LOW
+    type: location
+    parent: /service-areas/
+    status: needed
+    notes: "Unincorporated South OC. Rural/estate properties."
+
+  - page: Electrician in Midway City
+    url: /service-areas/electrician-in-midway-city-ca/
+    keyword: electrician midway city ca
+    volume: 50
+    kd: 5
+    words: 1200
+    priority: LOW
+    type: location
+    parent: /service-areas/
+    status: needed
+    notes: "Small unincorporated community. Low priority filler."
+
+  # --- SERVICE + CITY COMBO PAGES ---
+  - page: Generator Installation Newport Beach
+    url: /services/generator-installation-newport-beach/
+    keyword: generator installation newport beach
+    volume: 20
+    kd: 6
+    words: 1200
+    priority: HIGH
+    type: service-city
+    parent: /services/generator-installation/
+    status: needed
+    notes: "Home turf. Must own this keyword. Coastal storm/outage angle."
+
+  - page: Generator Installation Irvine
+    url: /services/generator-installation-irvine/
+    keyword: generator installation irvine ca
+    volume: 20
+    kd: 8
+    words: 1200
+    priority: HIGH
+    type: service-city
+    parent: /services/generator-installation/
+    status: needed
+    notes: "Largest OC city. High household income. Power outage concerns."
+
+  - page: Generator Installation Huntington Beach
+    url: /services/generator-installation-huntington-beach/
+    keyword: generator installation huntington beach
+    volume: 20
+    kd: 8
+    words: 1200
+    priority: HIGH
+    type: service-city
+    parent: /services/generator-installation/
+    status: needed
+    notes: "200K pop coastal city. Same storm/outage concerns as Newport."
+
+  - page: Panel Upgrade Costa Mesa
+    url: /services/panel-upgrade-costa-mesa/
+    keyword: panel upgrade costa mesa ca
+    volume: 20
+    kd: 8
+    words: 1200
+    priority: MED
+    type: service-city
+    parent: /services/electrical-panel-upgrades-and-replacement/
+    status: needed
+    notes: "Adjacent city, many older homes needing panel work."
+
+  - page: EV Charger Installation Irvine
+    url: /services/ev-charger-installation-irvine/
+    keyword: ev charger installation irvine
+    volume: 30
+    kd: 10
+    words: 1200
+    priority: MED
+    type: service-city
+    parent: /services/ev-charger-installation/
+    status: needed
+    notes: "Irvine has highest EV adoption rate in OC. Tesla-heavy market."
+
+# ──────────────────────────────────────
+# BLOG PIPELINE (sorted by pillar, then priority)
+# ──────────────────────────────────────
+# Express Electrical has 254 blog posts vs PCE's 24.
+# Aggressive content velocity required. 4/month minimum.
+# Generator content should be 40%+ of new posts.
+
+blogs_pipeline:
+
+  # --- PILLAR: GENERATORS (PCE differentiator — publish first) ---
+  - title: "How Much Does a Whole House Generator Cost in Orange County? (2026)"
+    keyword: whole house generator cost orange county
+    volume: 320
+    kd: 30
+    funnel: BOF
+    links_to: /services/whole-house-generator-installation/
+    priority: HIGH
+    words: 2000
+    status: needed
+    notes: "Primary cost guide. Include Generac/Kohler pricing tiers, permit costs, installation labor. $10K-$20K range for OC."
+
+  - title: "Generac vs Kohler vs Briggs: Best Home Generators for OC Homeowners"
+    keyword: generac vs kohler generator
+    volume: 2400
+    kd: 35
+    funnel: MOF
+    links_to: /services/generator-installation/
+    priority: HIGH
+    words: 2200
+    status: needed
+    notes: "High volume comparison. PCE sells both Generac and Kohler — unique authority. Include warranty, noise, fuel efficiency."
+
+  - title: "What Size Generator Do I Need for My House? Complete Sizing Guide"
+    keyword: what size generator do i need for my house
+    volume: 6600
+    kd: 45
+    funnel: MOF
+    links_to: /services/generator-sizing/
+    priority: HIGH
+    words: 2000
+    status: needed
+    notes: "Massive volume. Wattage table, load calculation walkthrough, sizing chart by home sq ft. Featured snippet target."
+
+  - title: "Standby vs Portable Generator: Which Is Right for Your Home?"
+    keyword: standby vs portable generator
+    volume: 1300
+    kd: 30
+    funnel: MOF
+    links_to: /services/standby-generator-installation/
+    priority: HIGH
+    words: 1800
+    status: needed
+    notes: "Comparison post. Standby = more expensive but automatic. Portable = cheaper but manual. Cover both PCE services."
+
+  - title: "How Long Do Generac Generators Last? Lifespan and Maintenance Guide"
+    keyword: how long do generac generators last
+    volume: 880
+    kd: 20
+    funnel: MOF
+    links_to: /services/generator-maintenance/
+    priority: HIGH
+    words: 1600
+    status: needed
+    notes: "Lifespan: 20-40 years with maintenance. Drives maintenance plan upsell."
+
+  - title: "Generator Installation Timeline: What to Expect from Start to Finish"
+    keyword: generator installation process
+    volume: 260
+    kd: 15
+    funnel: BOF
+    links_to: /services/generator-installation/
+    priority: HIGH
+    words: 1600
+    status: needed
+    notes: "Process transparency builds trust. Permits, gas line, concrete pad, electrical hookup. 2-4 week typical timeline."
+
+  - title: "Do You Need a Permit for a Generator in Orange County?"
+    keyword: generator permit orange county
+    volume: 170
+    kd: 10
+    funnel: BOF
+    links_to: /services/generator-installation/
+    priority: HIGH
+    words: 1400
+    status: needed
+    notes: "Low competition, high conversion intent. City-by-city permit process. PCE handles all permitting."
+
+  - title: "Generator Maintenance Checklist: Annual Service Guide for Homeowners"
+    keyword: generator maintenance checklist
+    volume: 480
+    kd: 20
+    funnel: MOF
+    links_to: /services/generator-maintenance/
+    priority: MED
+    words: 1600
+    status: needed
+    notes: "Oil changes, load testing, battery checks. Drives maintenance plan upsell."
+
+  - title: "PSPS Power Shutoffs in California: Why OC Homeowners Need a Generator"
+    keyword: psps power shutoff california
+    volume: 720
+    kd: 25
+    funnel: TOF
+    links_to: /services/generator-installation/
+    priority: MED
+    words: 1600
+    status: needed
+    notes: "SCE PSPS events during Santa Ana winds. Fire risk. Generator as insurance policy."
+
+  - title: "Transfer Switch Explained: What It Is and Why Your Generator Needs One"
+    keyword: transfer switch for generator
+    volume: 1300
+    kd: 35
+    funnel: MOF
+    links_to: /services/transfer-switch-installation/
+    priority: MED
+    words: 1400
+    status: needed
+    notes: "Automatic vs manual transfer switch. NEC code requirements. PCE already has transfer switch service page."
+
+  - title: "Solar Battery vs Generator: Which Backup Power for Orange County?"
+    keyword: solar battery vs generator
+    volume: 880
+    kd: 30
+    funnel: MOF
+    links_to: /services/generator-installation/
+    priority: MED
+    words: 1800
+    status: needed
+    notes: "Tesla Powerwall vs Generac standby. Cost comparison, runtime, reliability. Generator wins for whole-house backup."
+
+  - title: "Natural Gas vs Propane Generator: Pros, Cons, and Costs"
+    keyword: natural gas vs propane generator
+    volume: 170
+    kd: 18
+    funnel: MOF
+    links_to: /services/generator-installation/
+    priority: MED
+    words: 1600
+    status: needed
+    notes: "Most OC homes have natural gas. Explain fuel source differences, cost per hour, availability during outages."
+
+  - title: "Best Generators for Coastal Homes: Salt Air and Corrosion Protection"
+    keyword: best generator for coastal home
+    volume: 30
+    kd: 8
+    funnel: MOF
+    links_to: /services/generator-installation/
+    priority: MED
+    words: 1400
+    status: needed
+    notes: "PCE differentiator. Marine-rated enclosures, aluminum vs steel, coastal-specific maintenance."
+
+  - title: "Commercial Generator Installation: What Business Owners Need to Know"
+    keyword: commercial generator installation cost
+    volume: 170
+    kd: 20
+    funnel: BOF
+    links_to: /services/commercial-generators/
+    priority: MED
+    words: 1600
+    status: needed
+    notes: "Target restaurants, medical offices, retail. Cover ATS, load requirements, code compliance."
+
+  # --- PILLAR: ELECTRICAL PANELS ---
+  - title: "How Much Does an Electrical Panel Upgrade Cost in Orange County? (2026)"
+    keyword: electrical panel upgrade cost orange county
+    volume: 480
+    kd: 25
+    funnel: BOF
+    links_to: /services/electrical-panel-upgrades-and-replacement/
+    priority: HIGH
+    words: 2000
+    status: needed
+    notes: "Cost guide with 100/150/200/400 amp tiers. Include permit fees, SCE inspection timeline."
+
+  - title: "Federal Pacific Panel Replacement: Why Your Insurance May Require It"
+    keyword: federal pacific panel replacement
+    volume: 10
+    kd: 5
+    funnel: BOF
+    links_to: /services/federal-pacific-panel-replacement/
+    priority: HIGH
+    words: 1800
+    status: needed
+    notes: "Safety-driven content. Fire hazard angle. FPE Stab-Lok breakers recall history. Insurance denial stories."
+
+  - title: "Zinsco Panel: The Hidden Fire Hazard in Your Home"
+    keyword: zinsco panel dangerous
+    volume: 260
+    kd: 10
+    funnel: BOF
+    links_to: /services/zinsco-panel-replacement/
+    priority: HIGH
+    words: 1600
+    status: needed
+    notes: "Melting bus bar issue, insurance implications. Common in 1970s-1980s OC homes."
+
+  - title: "100 Amp vs 200 Amp Panel: Which Do You Actually Need?"
+    keyword: 100 vs 200 amp panel
+    volume: 480
+    kd: 25
+    funnel: MOF
+    links_to: /services/200-amp-panel-upgrade/
+    priority: HIGH
+    words: 2000
+    status: needed
+    notes: "Most OC homes upgrading from 100A to 200A for EV + generator. Load calculation examples."
+
+  - title: "Do You Need a Permit for an Electrical Panel Upgrade in California?"
+    keyword: electrical panel permit california
+    volume: 170
+    kd: 15
+    funnel: BOF
+    links_to: /services/electrical-panel-upgrades-and-replacement/
+    priority: HIGH
+    words: 1400
+    status: needed
+    notes: "Yes, always. Cover city-by-city process, SCE meter pull coordination."
+
+  - title: "Challenger Panel Recall: Is Your Home at Risk? (2026 Update)"
+    keyword: challenger electrical panels recall
+    volume: 1000
+    kd: 15
+    funnel: BOF
+    links_to: /services/challenger-panel-replacement/
+    priority: MED
+    words: 1600
+    status: needed
+    notes: "Third recalled panel brand alongside FPE and Zinsco. Common in late 1980s-1990s homes."
+
+  - title: "Sub Panel Installation: When You Need One and What It Costs"
+    keyword: sub panel installation cost
+    volume: 390
+    kd: 22
+    funnel: BOF
+    links_to: /services/sub-panel-installation/
+    priority: MED
+    words: 1400
+    status: needed
+    notes: "ADU, garage conversion, pool equipment, workshop. $1,200-$3,000 range."
+
+  # --- PILLAR: EV CHARGERS ---
+  - title: "Home EV Charger Installation in Orange County: Cost, Timeline, Process"
+    keyword: home ev charger installation orange county
+    volume: 480
+    kd: 50
+    funnel: BOF
+    links_to: /services/ev-charger-installation/
+    priority: HIGH
+    words: 2000
+    status: needed
+    notes: "Primary EV cost guide. $500-$2,500 installation range depending on panel situation."
+
+  - title: "Tesla Wall Connector Installation: What to Expect and What It Costs"
+    keyword: tesla wall connector installation cost
+    volume: 1300
+    kd: 15
+    funnel: BOF
+    links_to: /services/tesla-wall-connector-installation/
+    priority: HIGH
+    words: 1800
+    status: needed
+    notes: "Gen 4 Wall Connector, 48A, WiFi-enabled. $400 unit + $500-$1,500 install."
+
+  - title: "California EV Charger Rebates and Incentives (2026 Guide)"
+    keyword: california ev charger rebate 2026
+    volume: 1300
+    kd: 20
+    funnel: BOF
+    links_to: /services/ev-charger-installation/
+    priority: HIGH
+    words: 1800
+    status: needed
+    notes: "Update annually. Federal tax credit, SCE rebates, Clean Fuel Reward, local utility programs."
+
+  - title: "SCE EV Charger Rebate: How Orange County Homeowners Can Save"
+    keyword: sce ev charger rebate
+    volume: 480
+    kd: 9
+    funnel: BOF
+    links_to: /services/ev-charger-installation/
+    priority: HIGH
+    words: 1400
+    status: needed
+    notes: "SCE Charge Ready program specifics. Low KD, high conversion intent."
+
+  - title: "Level 1 vs Level 2 EV Charger: Which Do You Need at Home?"
+    keyword: level 1 vs level 2 ev charger
+    volume: 2400
+    kd: 40
+    funnel: MOF
+    links_to: /services/level-2-ev-charger-installation/
+    priority: HIGH
+    words: 1800
+    status: needed
+    notes: "Level 1 = 3-5 miles/hr. Level 2 = 25-30 miles/hr. Most homeowners need Level 2."
+
+  - title: "Do I Need a Panel Upgrade for an EV Charger? Electrician's Guide"
+    keyword: panel upgrade for ev charger
+    volume: 390
+    kd: 20
+    funnel: MOF
+    links_to: /services/electrical-panel-upgrades-and-replacement/
+    priority: MED
+    words: 1400
+    status: needed
+    notes: "Cross-links panel and EV services. Load calculations, when 200A is required."
+
+  # --- PILLAR: EMERGENCY / SAFETY ---
+  - title: "Emergency Electrician in Orange County: When to Call and What It Costs"
+    keyword: emergency electrician orange county
+    volume: 320
+    kd: 25
+    funnel: BOF
+    links_to: /services/emergency-electrician/
+    priority: HIGH
+    words: 1600
+    status: needed
+    notes: "Sparking outlet, power loss, burning smell = call now. PCE offers 24/7 service."
+
+  - title: "Signs of Electrical Problems in Your Home (Don't Ignore These)"
+    keyword: signs of electrical problems in house
+    volume: 480
+    kd: 20
+    funnel: TOF
+    links_to: /services/electrical-repair/
+    priority: MED
+    words: 1600
+    status: needed
+    notes: "Flickering lights, burning smell, warm outlets, tripping breakers. Awareness content with CTA."
+
+  - title: "Whole House Surge Protector: Do You Need One in Orange County?"
+    keyword: whole house surge protector worth it
+    volume: 880
+    kd: 30
+    funnel: MOF
+    links_to: /services/surge-protector-installation/
+    priority: MED
+    words: 1600
+    status: needed
+    notes: "Pairs with generator installs. Lightning, power grid fluctuations, appliance protection."
+
+  - title: "Power Outage Checklist: What to Do When the Lights Go Out"
+    keyword: power outage checklist
+    volume: 720
+    kd: 15
+    funnel: TOF
+    links_to: /services/generator-installation/
+    priority: MED
+    words: 1400
+    status: needed
+    notes: "Seasonal relevance during Santa Ana winds. Soft CTA to generator installation."
+
+  # --- PILLAR: SPECIALTY / LOCAL ---
+  - title: "Cold Plunge Electrical Setup: What Your Electrician Needs to Install"
+    keyword: cold plunge electrical requirements
+    volume: 320
+    kd: 10
+    funnel: BOF
+    links_to: /services/cold-plunge-electrical-setup/
+    priority: MED
+    words: 1400
+    status: needed
+    notes: "Trending wellness service. Dedicated 20A circuit, GFCI, outdoor-rated outlet."
+
+  - title: "Hot Tub Electrical Requirements: Wiring, Amps, and Installation Cost"
+    keyword: hot tub electrical requirements
+    volume: 1600
+    kd: 30
+    funnel: BOF
+    links_to: /services/hot-tub-installation/
+    priority: MED
+    words: 1600
+    status: needed
+    notes: "50A/60A circuit, GFCI disconnect, permit needed. $800-$2,500 install."
+
+  - title: "ADU Electrical Requirements in California (2026 Updated)"
+    keyword: adu electrical requirements california
+    volume: 60
+    kd: 12
+    funnel: MOF
+    links_to: /services/adu-electrical-wiring/
+    priority: MED
+    words: 1500
+    status: needed
+    notes: "CA ADU boom. Sub-panel sizing, separate meter, permit process."
+
+  - title: "Lutron Lighting System Installation: Smart Home Upgrade Guide"
+    keyword: lutron lighting system cost
+    volume: 480
+    kd: 20
+    funnel: BOF
+    links_to: /services/lutron-athena/
+    priority: MED
+    words: 1600
+    status: needed
+    notes: "PCE installs Lutron Athena. Cover Caseta, RadioRA 3, HomeWorks QSX tiers."
+
+  - title: "Orange County Electrical Permit Guide: What Homeowners Need to Know"
+    keyword: orange county electrical permit
+    volume: 210
+    kd: 10
+    funnel: BOF
+    links_to: /service-areas/orange-county/
+    priority: MED
+    words: 1600
+    status: needed
+    notes: "City-by-city permit process. PCE handles all permitting. Trust builder."
+
+  - title: "How to Choose an Electrician in Orange County (Hiring Checklist)"
+    keyword: how to choose an electrician
+    volume: 110
+    kd: 15
+    funnel: BOF
+    links_to: /about/
+    priority: LOW
+    words: 1500
+    status: needed
+    notes: "CSLB license check, insurance, reviews, estimates. Positions PCE as trustworthy."
+
+  - title: "California Electrical Code Updates for 2026: What Changed"
+    keyword: california electrical code 2026
+    volume: 390
+    kd: 15
+    funnel: TOF
+    links_to: /services/electrical-inspection/
+    priority: LOW
+    words: 1600
+    status: needed
+    notes: "NEC adoption in CA. AFCI, GFCI, tamper-resistant outlet requirements."
+
+# ──────────────────────────────────────
+# QUARTERLY MILESTONES
+# ──────────────────────────────────────
+
+milestones:
+  q2_2026:
+    label: "Q2 2026 — Generator Authority Sprint + Location Gap Close"
+    dates: "April - June 2026"
+    targets:
+      new_service_pages: 12
+      new_location_pages: 18
+      new_blogs: 12
+      keywords_ranking: 150
+      organic_traffic: 150
+    priorities:
+      - "Publish all 8 generator sub-service pages (whole house, standby, Generac, Kohler, portable, maintenance, sizing, commercial)"
+      - "Publish 3 generator service+city combo pages (Newport Beach, Irvine, Huntington Beach)"
+      - "Publish 18 location pages (all HIGH + MED priority cities)"
+      - "Publish 12 blog posts: 5 generator, 3 panel, 2 EV, 2 emergency/safety"
+      - "Fix all 5 Critical technical issues from audit (typo, duplicate page, www redirect, staging pages, Laguna Beach dupe)"
+      - "Implement FAQPage schema on top 10 service pages"
+      - "Standardize phone number across all pages and schema"
+      - "Add BlogPosting schema to all blog posts"
+
+  q3_2026:
+    label: "Q3 2026 — Panel + EV Expansion + Content Depth"
+    dates: "July - September 2026"
+    targets:
+      new_service_pages: 12
+      new_location_pages: 8
+      new_blogs: 12
+      total_pages: 175
+      keywords_ranking: 300
+      organic_traffic: 750
+    priorities:
+      - "Publish all panel sub-service pages (FPE, Zinsco, 200A, 100-to-200A, Challenger, sub-panel)"
+      - "Publish all EV charger sub-service pages (Level 2, Tesla, ChargePoint, NEMA, commercial)"
+      - "Publish remaining location pages (LOW priority cities)"
+      - "Publish 2 service+city combo pages (Costa Mesa panel, Irvine EV)"
+      - "Publish 12 blog posts: 4 panel, 4 EV, 2 generator, 2 specialty"
+      - "Internal linking audit — connect blog posts to service pages bidirectionally"
+      - "Add alt text to all images site-wide"
+      - "Consolidate dual GTM containers"
+
+  q4_2026:
+    label: "Q4 2026 — Content Scale + Authority Building"
+    dates: "October - December 2026"
+    targets:
+      new_service_pages: 8
+      new_blogs: 12
+      total_pages: 200
+      keywords_ranking: 500
+      keywords_top_10: 50
+      organic_traffic: 2000
+    priorities:
+      - "Publish lighting, rewiring, and specialty service sub-pages"
+      - "Publish commercial electrical pillar page + supporting content"
+      - "Publish 12 blog posts: seasonal content (Santa Ana winds), commercial, specialty"
+      - "Launch DBA 'Pelican Generator Installs' landing page and supporting content"
+      - "Digital PR: submit generator case studies to OC Register, Patch, local media"
+      - "Pursue backlinks from Generac/Kohler dealer directories, CSLB, BBB"
+      - "Refresh all Q2 blog posts with updated data and internal links"
+      - "Target featured snippets for top 20 informational keywords"
+      - "Scale service+city combos to top 5 cities x top 3 services"
+
+# ──────────────────────────────────────
+# TECHNICAL SEO PRIORITIES (from audit)
+# ──────────────────────────────────────
+
+technical_priorities:
+  critical:
+    - task: "Fix brand name typo in panel upgrade title tag (Pelican Cost -> Coast)"
+      page: /services/electrical-panel-upgrades-and-replacement/
+      status: needed
+      impact: "Brand trust, CTR"
+    - task: "Remove duplicate panel upgrade page and 301 to primary"
+      page: /services/electrical-panel-upgrades-and-replacement-2-2/
+      status: needed
+      impact: "Duplicate content, crawl waste"
+    - task: "Fix www -> non-www redirect"
+      page: site-wide
+      status: needed
+      impact: "Split link equity, duplicate indexing"
+    - task: "Remove/noindex staging pages"
+      pages: "/home-2/, /about-us-2/, /newport-beach-pier/, /corona-del-mar-state-beach/, /balboa-pier/, /thank-you/"
+      status: needed
+      impact: "Thin content in index, crawl budget"
+    - task: "Fix duplicate Laguna Beach service area page"
+      page: /service-areas/
+      status: needed
+      impact: "Keyword cannibalization"
+
+  high:
+    - task: "Standardize phone number — pick one across all pages, schema, GBP"
+      status: needed
+      impact: "NAP consistency, local pack rankings"
+    - task: "Implement FAQPage JSON-LD on /faq/ and service pages with FAQ sections"
+      status: needed
+      impact: "FAQ rich results, SERP real estate"
+    - task: "Add meta descriptions to About, Contact, EV Charger, Panel Upgrade pages"
+      status: needed
+      impact: "CTR from SERPs"
+    - task: "Fix heading structure — dual H1 on About, typos in H2s"
+      status: needed
+      impact: "Semantic clarity for crawlers"
+    - task: "Add Article/BlogPosting schema to all 24+ blog posts"
+      status: needed
+      impact: "Article rich results, E-E-A-T"
+    - task: "Fix HTTP redirect chain (2-hop to 1-hop)"
+      status: needed
+      impact: "Crawl efficiency, latency"
+
+  medium:
+    - task: "Add descriptive alt text to all images site-wide"
+      status: needed
+      impact: "Image search, accessibility"
+    - task: "Consolidate dual GTM containers (GTM-WPBNKH82 + GTM-TKPFQDZN)"
+      status: needed
+      impact: "Page speed, CWV"
+    - task: "Consolidate dual GA4 measurement IDs (G-724KZ1NSQQ + GT-57V7LTB5)"
+      status: needed
+      impact: "Accurate analytics"
+    - task: "Add internal links from service pages to related blog posts"
+      status: needed
+      impact: "Topical clustering, engagement"
+    - task: "Add outbound authority links (CSLB license lookup, Generac dealer page, NEC references)"
+      status: needed
+      impact: "E-E-A-T trust signals"
+    - task: "Clarify '25 years experience' vs 'founded 2024' on About page"
+      status: needed
+      impact: "E-E-A-T consistency"
+    - task: "Add author bylines (Austin Torres) to all blog posts"
+      status: needed
+      impact: "E-E-A-T, AI citability"
+    - task: "Link Google Business Profile from website footer/About page"
+      status: needed
+      impact: "Review velocity, local entity association"
+
+# ──────────────────────────────────────
+# PIPELINE SUMMARY
+# ──────────────────────────────────────
+# pages_pipeline: 35 pages total
+#   - 8 generator sub-service pages
+#   - 6 panel sub-service pages
+#   - 5 EV charger sub-service pages
+#   - 3 lighting sub-service pages
+#   - 5 rewiring/repair/specialty sub-service pages
+#   - 1 commercial pillar page
+#   - 24 location pages
+#   - 5 service+city combo pages
+#
+# blogs_pipeline: 35 blog posts total
+#   - 14 generator posts (40%)
+#   - 7 panel posts (20%)
+#   - 6 EV charger posts (17%)
+#   - 4 emergency/safety posts (11%)
+#   - 4 specialty/local posts (11%)
