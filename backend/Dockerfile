@@ -19,8 +19,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy ALL application code (invalidate cache on any file change)
 COPY . .
 
-# Install Node.js dependencies (docx npm package for branded DOCX output)
-RUN npm install --omit=dev
+# Install Node.js dependencies inline (no package.json to avoid Railpack static detection)
+RUN npm init -y > /dev/null 2>&1 && npm install --omit=dev docx@9.5.3 jszip@3.10.1
 
 # Ensure default directories exist
 RUN mkdir -p temp_docs
