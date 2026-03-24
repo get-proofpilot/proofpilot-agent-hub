@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code — v22 (Anti-AI writing post-processing for location pages)
+# Copy application code — v23 (SEO Playbook tabs, SOP reference, month calendar)
 COPY . .
 
 # Install Node.js dependencies (docx npm package for branded DOCX output)
