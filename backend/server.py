@@ -1053,7 +1053,7 @@ async def update_task(client_id: int, task_id: int, body: UpdateTaskRequest):
 # ── Serve frontend ────────────────────────────────────────────────
 # Explicit routes instead of StaticFiles mount — prevents the mount from
 # intercepting /api/* routes (known FastAPI/Starlette issue with root mounts).
-static_dir = Path(__file__).parent / "static"
+static_dir = Path(__file__).parent / "web"
 
 @app.get("/")
 async def serve_index():
