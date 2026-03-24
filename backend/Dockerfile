@@ -1,5 +1,8 @@
 FROM python:3.11-slim
 
+# Cache-bust arg — change value to force full rebuild
+ARG BUILD_VERSION=v24-seo-playbook
+
 WORKDIR /app
 
 # Install Node.js (for docx npm package — branded DOCX generation)
@@ -13,7 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code — v23 (SEO Playbook tabs, SOP reference, month calendar)
+# Copy ALL application code (invalidate cache on any file change)
 COPY . .
 
 # Install Node.js dependencies (docx npm package for branded DOCX output)
