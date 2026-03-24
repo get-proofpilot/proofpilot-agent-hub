@@ -1069,6 +1069,14 @@ async def serve_script():
 async def serve_style():
     return FileResponse(static_dir / "style.css", media_type="text/css")
 
+@app.get("/seo-playbook.css")
+async def serve_seo_css():
+    return FileResponse(static_dir / "seo-playbook.css", media_type="text/css")
+
+@app.get("/seo-playbook.js")
+async def serve_seo_js():
+    return FileResponse(static_dir / "seo-playbook.js", media_type="application/javascript")
+
 # ── SEO Playbook API ──────────────────────────────────────────────────────────
 
 VAULT_DATA_DIR = Path(__file__).parent / 'data' / 'vault'
