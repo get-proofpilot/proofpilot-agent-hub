@@ -331,7 +331,7 @@
 .pb-task-detail { color:var(--pb-muted); }
 
 /* Output panel */
-.pb-output-panel { position:fixed; top:0; right:-420px; width:420px; height:100vh; background:var(--pb-card); border-left:1px solid var(--pb-border); z-index:200; transition:right 0.3s; display:flex; flex-direction:column; }
+.pb-output-panel { position:fixed; top:0; right:-420px; width:420px; height:100vh; background:var(--pb-card); border-left:1px solid var(--pb-border); z-index:150; transition:right 0.3s; display:flex; flex-direction:column; }
 .pb-output-panel.open { right:0; }
 .pb-output-hdr { padding:16px 20px; border-bottom:1px solid var(--pb-border); display:flex; align-items:center; justify-content:space-between; }
 .pb-output-hdr h3 { font-size:14px; font-weight:600; }

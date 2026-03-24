@@ -9,6 +9,7 @@ import json
 import uuid
 import asyncio
 from pathlib import Path
+from datetime import datetime as _dt
 
 import yaml
 import anthropic
@@ -1080,7 +1081,6 @@ async def serve_seo_js():
 # ── SEO Playbook API ──────────────────────────────────────────────────────────
 
 VAULT_DATA_DIR = Path(__file__).parent / 'data' / 'vault'
-from datetime import datetime as _dt
 
 
 def _parse_yaml(filepath: Path):
@@ -1095,7 +1095,7 @@ def _parse_yaml(filepath: Path):
 def _build_playbook_data():
     index_data = _parse_yaml(VAULT_DATA_DIR / '_clients-index.yaml')
     if not index_data or 'clients' not in index_data:
-        return {'generated': _dt.utcnow().strftime('%Y-%m-%d'), 'month': '', 'clients': []}
+        return {'generated': _dt.utcnow().strftime('%Y-%m-%d'), 'month': '', 'clients': [], 'vault_synced': False}
     now = _dt.utcnow()
     mn = ['January','February','March','April','May','June',
           'July','August','September','October','November','December']

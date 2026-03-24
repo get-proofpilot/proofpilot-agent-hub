@@ -169,29 +169,77 @@ function tc(tier){return 'pb-tier-'+tier;}
 function ac(m){return m==='Matthew'?'pb-av-m':m==='Marcos'?'pb-av-marcos':'pb-av-jo';}
 function ini(m){return m.split(' ').map(function(w){return w[0];}).join('');}
 
-// ── INIT ──
+var pbInitialized=false, canRunCommands=false;
+
+// ── INIT (lazy — only loads when view becomes active) ──
 document.addEventListener('DOMContentLoaded',function(){
-  var root=document.getElementById('seo-playbook-root');
-  if(!root)return;
   var now=new Date();calYear=now.getFullYear();calMonth=now.getMonth();
-  root.appendChild(el('div','pb-loading','Loading playbook data...'));
-  fetch('/api/seo/playbook-data').then(function(r){return r.json();}).then(function(d){
-    DATA=d;render(root);connectSSE();
-  }).catch(function(){root.textContent='';root.appendChild(el('div','pb-loading','Failed to load. Run scripts/sync-vault-data.sh first.'));});
+  // Watch for the SEO Playbook view becoming active
+  var observer=new MutationObserver(function(){
+    var view=document.getElementById('view-seo-playbook');
+    if(view&&view.classList.contains('active')&&!pbInitialized){
+      pbInitialized=true;
+      initPlaybook();
+      observer.disconnect();
+    }
+  });
+  var main=document.getElementById('main');
+  if(main)observer.observe(main,{attributes:true,subtree:true,attributeFilter:['class']});
+  // Also handle direct nav click
+  var navItem=document.getElementById('nav-seo-playbook');
+  if(navItem){navItem.addEventListener('click',function(){if(!pbInitialized){pbInitialized=true;initPlaybook();}});}
 });
 
-function connectSSE(){if(evtSource)evtSource.close();evtSource=new EventSource('/api/seo/events');evtSource.onmessage=function(e){try{handleSSE(JSON.parse(e.data));}catch(err){}};evtSource.onerror=function(){var d=document.getElementById('pb-conn-dot');if(d)d.className='pb-status-dot disconnected';};evtSource.onopen=function(){var d=document.getElementById('pb-conn-dot');if(d)d.className='pb-status-dot connected';};}
+function initPlaybook(){
+  var root=document.getElementById('seo-playbook-root');
+  if(!root)return;
+  root.textContent='';
+  root.appendChild(el('div','pb-loading','Loading playbook data...'));
+  fetch('/api/seo/playbook-data').then(function(r){return r.json();}).then(function(d){
+    DATA=d;
+    if(d.vault_synced===false){
+      root.textContent='';
+      root.appendChild(el('div','pb-loading','No client data found. Run scripts/sync-vault-data.sh to populate.'));
+      return;
+    }
+    render(root);
+    checkCommandSupport();
+  }).catch(function(){root.textContent='';root.appendChild(el('div','pb-loading','Failed to load playbook data.'));});
+}
+
+// Check if the server supports command execution (won't work on Railway)
+function checkCommandSupport(){
+  fetch('/api/seo/status').then(function(r){
+    if(r.ok){
+      canRunCommands=true;
+      var dot=document.getElementById('pb-conn-dot');
+      if(dot)dot.style.display='';
+      connectSSE();
+    }
+  }).catch(function(){canRunCommands=false;});
+}
+
+function connectSSE(){
+  if(!canRunCommands)return;
+  if(evtSource)evtSource.close();
+  evtSource=new EventSource('/api/seo/events');
+  evtSource.onmessage=function(e){try{handleSSE(JSON.parse(e.data));}catch(err){}};
+  evtSource.onerror=function(){var d=document.getElementById('pb-conn-dot');if(d)d.className='pb-status-dot disconnected';};
+  evtSource.onopen=function(){var d=document.getElementById('pb-conn-dot');if(d)d.className='pb-status-dot connected';};
+}
 function handleSSE(msg){var p=document.getElementById('pb-output-body');if(!p)return;if(msg.type==='start'){var e=el('div','pb-output-entry');e.appendChild(el('div','pb-output-cmd',msg.command));e.appendChild(el('div','pb-output-text'));e.appendChild(el('div','pb-output-status run','Running...'));p.insertBefore(e,p.firstChild);openPanel();}else if(msg.type==='output'){var es=p.querySelectorAll('.pb-output-entry');if(es.length){var t=es[0].querySelector('.pb-output-text');if(t)t.textContent+=msg.text;}}else if(msg.type==='complete'){var es2=p.querySelectorAll('.pb-output-entry');if(es2.length){var s=es2[0].querySelector('.pb-output-status');if(s){s.className='pb-output-status ok';s.textContent='Complete';}}}else if(msg.type==='error'){var es3=p.querySelectorAll('.pb-output-entry');if(es3.length){var s2=es3[0].querySelector('.pb-output-status');if(s2){s2.className='pb-output-status err';s2.textContent='Error: '+(msg.error||'Failed');}}}}
 function openPanel(){var p=document.getElementById('pb-output-panel');if(p)p.classList.add('open');}
 function closePanel(){var p=document.getElementById('pb-output-panel');if(p)p.classList.remove('open');}
-function doRun(cmd){fetch('/api/seo/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({command:cmd})}).catch(function(){});}
-function doBatch(cmds){fetch('/api/seo/batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({commands:cmds})}).catch(function(){});}
+function doRun(cmd){if(!canRunCommands)return;fetch('/api/seo/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({command:cmd})}).catch(function(){});}
+function doBatch(cmds){if(!canRunCommands)return;fetch('/api/seo/batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({commands:cmds})}).catch(function(){});}
 
 // ── RENDER ROOT ──
 function render(root){
   root.textContent='';
   var hdr=el('div','pb-header');hdr.appendChild(el('h2','','SEO Operations Playbook'));
-  var right=el('div');var dot=el('span','pb-status-dot disconnected');dot.id='pb-conn-dot';right.appendChild(dot);right.appendChild(el('span','','\u00A0'+(DATA.month||'')));hdr.appendChild(right);root.appendChild(hdr);
+  var right=el('div');right.style.cssText='display:flex;align-items:center;gap:8px;';
+  var dot=el('span','pb-status-dot disconnected');dot.id='pb-conn-dot';dot.style.display='none';
+  right.appendChild(dot);right.appendChild(el('span','',DATA.month||''));hdr.appendChild(right);root.appendChild(hdr);
 
   var tabs=el('div','pb-tabs');
   var ids=['pb-p-fw','pb-p-cal','pb-p-sop','pb-p-mc'];
@@ -562,8 +610,10 @@ function renderMyClients(container){
   container.textContent='';
   container.appendChild(el('div','pb-title','Client Overview'));
   container.appendChild(el('div','pb-subtitle','Filter by manager to see assigned clients, tasks, and next pages.'));
+  var managers=['all'];
+  DATA.clients.forEach(function(c){if(managers.indexOf(c.manager)<0)managers.push(c.manager);});
   var pills=el('div','pb-pills');
-  ['all','Matthew','Marcos','Jo Paula'].forEach(function(m){
+  managers.forEach(function(m){
     var pill=el('div','pb-pill'+(m===curFilter?' active':''),m==='all'?'All Clients':m);
     pill.addEventListener('click',function(){curFilter=m;renderMyClients(container);});
     pills.appendChild(pill);
