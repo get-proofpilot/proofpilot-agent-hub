@@ -1080,7 +1080,7 @@ async def serve_seo_js():
 
 # ── SEO Playbook API ──────────────────────────────────────────────────────────
 
-VAULT_DATA_DIR = Path(__file__).parent / 'data' / 'vault'
+VAULT_DATA_DIR = Path(__file__).parent / 'vault_data'
 
 
 def _parse_yaml(filepath: Path):
