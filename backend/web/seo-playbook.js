@@ -150,13 +150,13 @@ var CAT_CHIP={
 "Social":"pb-chip-social","Reporting":"pb-chip-reporting","PR":"pb-chip-pr","Technical SEO":"pb-chip-technical-seo"
 };
 var CAT_CALCHIP={
-"Content":"background:rgba(139,92,246,0.12);color:#a78bfa;border-color:rgba(139,92,246,0.25)",
-"Local SEO":"background:rgba(59,130,246,0.12);color:#60a5fa;border-color:rgba(59,130,246,0.25)",
-"Link Building":"background:rgba(251,146,60,0.12);color:#fb923c;border-color:rgba(251,146,60,0.25)",
-"Social":"background:rgba(236,72,153,0.12);color:#f472b6;border-color:rgba(236,72,153,0.25)",
-"Reporting":"background:rgba(20,184,166,0.12);color:#2dd4bf;border-color:rgba(20,184,166,0.25)",
-"PR":"background:rgba(251,191,36,0.12);color:#fbbf24;border-color:rgba(251,191,36,0.25)",
-"Technical SEO":"background:rgba(148,163,184,0.12);color:#94a3b8;border-color:rgba(148,163,184,0.25)"
+"Content":"background:#f3f0ff;color:#7c3aed;border-color:#e0d4fc",
+"Local SEO":"background:#eff6ff;color:#2563eb;border-color:#bfdbfe",
+"Link Building":"background:#fff7ed;color:#c2410c;border-color:#fed7aa",
+"Social":"background:#fdf2f8;color:#be185d;border-color:#fbcfe8",
+"Reporting":"background:#f0fdfa;color:#0f766e;border-color:#99f6e4",
+"PR":"background:#fefce8;color:#a16207;border-color:#fde68a",
+"Technical SEO":"background:#f1f5f9;color:#475569;border-color:#cbd5e1"
 };
 
 // ── HELPERS ──
@@ -252,6 +252,8 @@ function render(root){
 }
 
 // ── SOP REFERENCE TAB ──
+var _sopSummary, _sopFilters, _sopCards;
+
 function renderSOP(c){
   c.textContent='';
   c.appendChild(el('div','pb-title','SOP Reference'));
@@ -259,17 +261,14 @@ function renderSOP(c){
   sub.textContent='Time estimates, priority levels, and step-by-step processes for every monthly deliverable. Use this to set expectations, train new specialists, and audit completion quality.';
   c.appendChild(sub);
 
-  // Summary bar
-  var sumBar=el('div','pb-summary');sumBar.id='sop-summary';
-  c.appendChild(sumBar);
+  _sopSummary=el('div','pb-summary');
+  c.appendChild(_sopSummary);
 
-  // Filter pills
-  var filters=el('div','pb-filters');filters.id='sop-filters';
-  c.appendChild(filters);
+  _sopFilters=el('div','pb-filters');
+  c.appendChild(_sopFilters);
 
-  // Card container
-  var cards=el('div','');cards.id='sop-cards';
-  c.appendChild(cards);
+  _sopCards=el('div','');
+  c.appendChild(_sopCards);
 
   updateSOP();
 }
@@ -279,8 +278,7 @@ function updateSOP(){
   var totalTime=filtered.reduce(function(a,s){return a+Math.round((s.timeMin+s.timeMax)/2);},0);
   var h=Math.floor(totalTime/60),m=totalTime%60;
 
-  // Summary
-  var sumBar=document.getElementById('sop-summary');
+  var sumBar=_sopSummary;
   if(sumBar){
     sumBar.textContent='';
     var timeItem=el('div','pb-summary-item');
@@ -301,7 +299,7 @@ function updateSOP(){
   }
 
   // Filters
-  var filtersEl=document.getElementById('sop-filters');
+  var filtersEl=_sopFilters;
   if(filtersEl){
     filtersEl.textContent='';
     CATEGORIES.forEach(function(cat){
@@ -316,7 +314,7 @@ function updateSOP(){
   }
 
   // Cards
-  var cardsEl=document.getElementById('sop-cards');
+  var cardsEl=_sopCards;
   if(cardsEl){
     cardsEl.textContent='';
     filtered.forEach(function(task){
@@ -359,22 +357,21 @@ function updateSOP(){
 }
 
 // ── MONTH CALENDAR TAB ──
+var _calWsum, _calWrap, _calLeg;
+
 function renderCalendar(c){
   c.textContent='';
   c.appendChild(el('div','pb-title','Month Calendar'));
   c.appendChild(el('div','pb-subtitle','Visual distribution of every deliverable across working days, based on the master template.'));
 
-  // Week summary
-  var wsum=el('div','pb-week-summary');wsum.id='cal-week-summary';
-  c.appendChild(wsum);
+  _calWsum=el('div','pb-week-summary');
+  c.appendChild(_calWsum);
 
-  // Calendar
-  var calWrap=el('div','pb-cal-wrap');calWrap.id='cal-wrap';
-  c.appendChild(calWrap);
+  _calWrap=el('div','pb-cal-wrap');
+  c.appendChild(_calWrap);
 
-  // Legend
-  var leg=el('div','pb-legend');leg.id='cal-legend';
-  c.appendChild(leg);
+  _calLeg=el('div','pb-legend');
+  c.appendChild(_calLeg);
 
   updateCalendar();
 }
@@ -416,7 +413,7 @@ function buildTaskMap(y,m){
 
 function updateCalendar(){
   // Week summary
-  var wsEl=document.getElementById('cal-week-summary');
+  var wsEl=_calWsum;
   if(wsEl){
     wsEl.textContent='';
     for(var w=1;w<=4;w++){
@@ -432,7 +429,7 @@ function updateCalendar(){
   }
 
   // Calendar grid
-  var calWrap=document.getElementById('cal-wrap');
+  var calWrap=_calWrap;
   if(!calWrap)return;
   calWrap.textContent='';
 
@@ -503,7 +500,7 @@ function updateCalendar(){
   calWrap.appendChild(gridEl);
 
   // Legend
-  var leg=document.getElementById('cal-legend');
+  var leg=_calLeg;
   if(leg){
     leg.textContent='';
     leg.appendChild(el('span','pb-legend-label','Category'));
