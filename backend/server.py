@@ -1241,12 +1241,14 @@ async def execute_seo_command(body: SeoExecuteRequest):
 
 
 @app.get("/api/seo/results")
-async def list_seo_results():
+async def list_seo_results(client: str = None):
     """List all saved SEO operation results, most recent first."""
     results = []
     for f in sorted(SEO_RESULTS_DIR.glob('*.json'), reverse=True):
         try:
             data = json.loads(f.read_text())
+            if client and data.get('client') != client:
+                continue
             results.append({
                 'id': data.get('id', f.stem),
                 'command': data.get('command', ''),
@@ -1309,6 +1311,96 @@ async def run_setup_tracking(body: SetupTrackingRequest):
     """Crawl a client's website via Firecrawl and generate/update their tracker.yaml."""
     result = await setup_tracking(body.client, VAULT_DATA_DIR)
     return result
+
+
+# ── Client Hub summary ─────────────────────────────────────────────────────
+
+@app.get("/api/seo/client/{client_slug}/summary")
+async def get_client_summary(client_slug: str):
+    """Get complete summary for a client's operations page."""
+    safe_slug = ''.join(c for c in client_slug if c.isalnum() or c in '-_')
+
+    # Get client from playbook data
+    playbook = _build_playbook_data()
+    client = None
+    for c in playbook.get('clients', []):
+        if c.get('folder') == safe_slug:
+            client = c
+            break
+    if not client:
+        raise HTTPException(404, 'Client not found')
+
+    # Get memory
+    memory = read_memory(safe_slug)
+    history_text = get_recent_history(safe_slug)
+
+    # Get results for this client
+    results = []
+    for f in sorted(SEO_RESULTS_DIR.glob('*.json'), reverse=True):
+        try:
+            data = json.loads(f.read_text())
+            if data.get('client') == safe_slug:
+                results.append({
+                    'id': data.get('id', f.stem),
+                    'command': data.get('command', ''),
+                    'timestamp': data.get('timestamp', ''),
+                    'status': data.get('status', 'complete'),
+                    'output_preview': data.get('output', '')[:300],
+                })
+        except Exception:
+            continue
+
+    # Get content inventory
+    tracker_data = None
+    inventory_text = "Run Setup Tracking to generate content inventory"
+    try:
+        from site_crawler import build_content_inventory, categorize_url_deep, format_inventory_text
+        tracker_data = _parse_yaml(VAULT_DATA_DIR / 'clients' / safe_slug / 'tracker.yaml')
+        if tracker_data and 'pages' in tracker_data:
+            industry = client.get('industry', 'electrical') if isinstance(client, dict) else 'electrical'
+            pages = tracker_data['pages']
+            for page in pages:
+                if 'service_category' not in page:
+                    deep = categorize_url_deep(page.get('url', '/'), industry)
+                    page.update(deep)
+            inventory = build_content_inventory(pages, industry)
+            inventory_text = format_inventory_text(inventory)
+    except Exception:
+        pass
+
+    # Get ClickUp progress
+    clickup_progress = None
+    try:
+        clickup_progress = await get_client_progress(safe_slug)
+    except Exception:
+        pass
+
+    # Determine status
+    has_tracker = (VAULT_DATA_DIR / 'clients' / safe_slug / 'tracker.yaml').exists()
+    has_roadmap = client.get('hasRoadmap', False)
+    latest_plan = None
+    latest_audit = None
+    for r in results:
+        if r['command'] == 'monthly-plan' and not latest_plan:
+            latest_plan = r['timestamp']
+        if r['command'] == 'audit' and not latest_audit:
+            latest_audit = r['timestamp']
+
+    return {
+        'client': client,
+        'status': {
+            'has_tracker': has_tracker,
+            'has_roadmap': has_roadmap,
+            'latest_plan': latest_plan,
+            'latest_audit': latest_audit,
+            'total_pages': tracker_data.get('total_pages', 0) if tracker_data else 0,
+        },
+        'memory': memory,
+        'history_text': history_text,
+        'results': results[:20],
+        'inventory_text': inventory_text,
+        'clickup': clickup_progress,
+    }
 
 
 # ── Vault data refresh ─────────────────────────────────────────────────────

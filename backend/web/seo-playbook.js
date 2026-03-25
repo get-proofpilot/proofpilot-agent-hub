@@ -180,6 +180,7 @@ document.addEventListener('DOMContentLoaded',function(){
     DATA=d;
     initSOP();
     initOps();
+    initClientHub();
   }).catch(function(){
     var sopRoot=document.getElementById('seo-sop-root');
     if(sopRoot){sopRoot.textContent='';sopRoot.appendChild(el('div','pb-loading','Failed to load playbook data.'));}
@@ -189,8 +190,9 @@ document.addEventListener('DOMContentLoaded',function(){
   var observer=new MutationObserver(function(){
     var sopView=document.getElementById('view-seo-sop');
     var opsView=document.getElementById('view-seo-ops');
+    var hubView=document.getElementById('view-seo-client-hub');
     var jm=document.getElementById('view-job-monitor');
-    var isActive=(sopView&&sopView.classList.contains('active'))||(opsView&&opsView.classList.contains('active'));
+    var isActive=(sopView&&sopView.classList.contains('active'))||(opsView&&opsView.classList.contains('active'))||(hubView&&hubView.classList.contains('active'));
     if(isActive){
       document.body.classList.add('pb-active');
       if(jm)jm.style.display='none';
@@ -1274,6 +1276,527 @@ function buildComparisonTable(cols,rows){
   table.appendChild(tbody);
   wrap.appendChild(table);
   return wrap;
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// CLIENT HUB (SEO Operations)
+// ══════════════════════════════════════════════════════════════════════════
+
+var _clientHubRoot=null;
+var _clientHubDetailSlug=null;
+
+function initClientHub(){
+  _clientHubRoot=document.getElementById('client-hub-root');
+  if(!_clientHubRoot||!DATA)return;
+  renderClientHubList();
+}
+
+function renderClientHubList(){
+  if(!_clientHubRoot||!DATA)return;
+  _clientHubDetailSlug=null;
+  _clientHubRoot.textContent='';
+
+  var header=el('div','pb-header');
+  var h2=document.createElement('h2');
+  h2.textContent='Client Hub';
+  header.appendChild(h2);
+  _clientHubRoot.appendChild(header);
+
+  var subtitle=el('div','pb-subtitle','Per-client operations center. Click a client to see their content inventory, run operations, view history, and manage notes.');
+  _clientHubRoot.appendChild(subtitle);
+
+  var grid=el('div','pb-hub-grid');
+
+  DATA.clients.forEach(function(client){
+    var card=el('div','pb-hub-card');
+    card.addEventListener('click',function(){ openClientDetail(client.folder); });
+
+    // Header row: name + tier badge
+    var cardHeader=el('div','pb-hub-card-header');
+    var nameEl=el('span','pb-hub-card-name',client.name);
+    cardHeader.appendChild(nameEl);
+    var tierBadge=el('span','pb-chip '+tc(client.tier),'Tier '+client.tier);
+    cardHeader.appendChild(tierBadge);
+    card.appendChild(cardHeader);
+
+    // Meta row: MRR, manager
+    var meta=el('div','pb-hub-card-meta');
+    if(client.mrr){
+      meta.appendChild(el('span','','$'+client.mrr+'/mo'));
+    }
+    if(client.manager){
+      meta.appendChild(el('span','',client.manager));
+    }
+    if(client.cadence){
+      meta.appendChild(el('span','',client.cadence));
+    }
+    card.appendChild(meta);
+
+    // Status row
+    var statusRow=el('div','pb-hub-card-status');
+    // We don't know tracked pages from playbook data alone,
+    // but we can show warnings
+    if(!client.hasRoadmap){
+      var warn=el('span','pb-chip pb-chip-reporting','No roadmap');
+      statusRow.appendChild(warn);
+    }
+    if(!client.hasRecurring){
+      var warn2=el('span','pb-chip pb-chip-link-building','No recurring');
+      statusRow.appendChild(warn2);
+    }
+    if(client.hasRoadmap&&client.hasRecurring){
+      var ok=el('span','','Setup complete');
+      ok.style.color='#10B981';
+      ok.style.fontWeight='600';
+      statusRow.appendChild(ok);
+    }
+    card.appendChild(statusRow);
+
+    // Next pages hint
+    if(client.nextPages&&client.nextPages.length>0){
+      var nextEl=el('div','pb-hub-card-next','Next: '+client.nextPages[0].url);
+      card.appendChild(nextEl);
+    }
+
+    grid.appendChild(card);
+  });
+
+  _clientHubRoot.appendChild(grid);
+}
+
+function openClientDetail(slug){
+  if(!_clientHubRoot)return;
+  _clientHubDetailSlug=slug;
+  _clientHubRoot.textContent='';
+
+  // Loading state
+  var loading=el('div','pb-loading','Loading client data...');
+  _clientHubRoot.appendChild(loading);
+
+  fetch('/api/seo/client/'+encodeURIComponent(slug)+'/summary')
+    .then(function(r){
+      if(!r.ok) throw new Error('Client not found');
+      return r.json();
+    })
+    .then(function(data){
+      _clientHubRoot.textContent='';
+      renderClientDetailPage(data,slug);
+    })
+    .catch(function(err){
+      _clientHubRoot.textContent='';
+      var errMsg=el('div','pb-loading','Error loading client: '+err.message);
+      _clientHubRoot.appendChild(errMsg);
+      var backBtn=el('div','pb-detail-back','< Back to clients');
+      backBtn.addEventListener('click',function(){ renderClientHubList(); });
+      _clientHubRoot.insertBefore(backBtn,_clientHubRoot.firstChild);
+    });
+}
+
+function renderClientDetailPage(data,slug){
+  var client=data.client;
+  var status=data.status;
+
+  // Back button
+  var backBtn=el('div','pb-detail-back','< Back to clients');
+  backBtn.addEventListener('click',function(){ renderClientHubList(); });
+  _clientHubRoot.appendChild(backBtn);
+
+  // Header
+  var headerRow=el('div','pb-detail-header');
+  var nameEl=el('span','pb-detail-name',client.name);
+  headerRow.appendChild(nameEl);
+  var tierBadge=el('span','pb-chip '+tc(client.tier),'Tier '+client.tier);
+  headerRow.appendChild(tierBadge);
+  _clientHubRoot.appendChild(headerRow);
+
+  // Status bar
+  var statusBar=el('div','pb-status-bar');
+
+  var trackItem=el('div','pb-status-item');
+  if(status.has_tracker&&status.total_pages>0){
+    var trackIcon=el('span','','\u2705');
+    trackItem.appendChild(trackIcon);
+    var trackLabel=el('strong','','Tracked: '+status.total_pages+' pages');
+    trackItem.appendChild(trackLabel);
+  } else {
+    var warnIcon=el('span','','\u26A0\uFE0F');
+    trackItem.appendChild(warnIcon);
+    var trackLabel2=el('span','','Not tracked');
+    trackItem.appendChild(trackLabel2);
+  }
+  statusBar.appendChild(trackItem);
+
+  var planItem=el('div','pb-status-item');
+  planItem.appendChild(el('span','','Last Plan:'));
+  planItem.appendChild(el('strong','',status.latest_plan?status.latest_plan.split('T')[0]:'None'));
+  statusBar.appendChild(planItem);
+
+  var auditItem=el('div','pb-status-item');
+  auditItem.appendChild(el('span','','Last Audit:'));
+  auditItem.appendChild(el('strong','',status.latest_audit?status.latest_audit.split('T')[0]:'None'));
+  statusBar.appendChild(auditItem);
+
+  if(data.clickup){
+    var cuItem=el('div','pb-status-item');
+    cuItem.appendChild(el('span','','ClickUp:'));
+    var pct=data.clickup.completion_pct!==undefined?data.clickup.completion_pct+'%':'N/A';
+    cuItem.appendChild(el('strong','',pct));
+    statusBar.appendChild(cuItem);
+  }
+
+  _clientHubRoot.appendChild(statusBar);
+
+  // Sub-tabs
+  var tabNames=['Content Inventory','Operations','History','Notes'];
+  var tabKeys=['inventory','operations','history','notes'];
+  var tabBar=el('div','pb-detail-tabs');
+  var panels=[];
+
+  tabKeys.forEach(function(key,i){
+    var tab=el('div','pb-detail-tab'+(i===0?' active':''),tabNames[i]);
+    tab.setAttribute('data-panel',key);
+    tab.addEventListener('click',function(){
+      tabBar.querySelectorAll('.pb-detail-tab').forEach(function(t){t.classList.remove('active');});
+      tab.classList.add('active');
+      panels.forEach(function(p){p.classList.remove('active');});
+      var target=document.getElementById('pb-panel-'+key);
+      if(target)target.classList.add('active');
+    });
+    tabBar.appendChild(tab);
+  });
+  _clientHubRoot.appendChild(tabBar);
+
+  // Panel: Content Inventory
+  var panelInv=el('div','pb-detail-panel active');
+  panelInv.id='pb-panel-inventory';
+  var invText=el('div','pb-inventory-text',data.inventory_text||'No inventory data available.');
+  panelInv.appendChild(invText);
+  if(!status.has_tracker||status.total_pages===0){
+    var crawlBtn=el('button','pb-client-op-btn','Run Setup Tracking');
+    crawlBtn.style.marginTop='16px';
+    crawlBtn.style.maxWidth='220px';
+    crawlBtn.addEventListener('click',function(){ runClientSetupTracking(slug); });
+    panelInv.appendChild(crawlBtn);
+  }
+  _clientHubRoot.appendChild(panelInv);
+  panels.push(panelInv);
+
+  // Panel: Operations
+  var panelOps=el('div','pb-detail-panel');
+  panelOps.id='pb-panel-operations';
+
+  var opsCommands=[
+    {cmd:'audit',label:'Audit',desc:'Run a full SEO audit'},
+    {cmd:'monthly-plan',label:'Monthly Plan',desc:'Generate the monthly action plan'},
+    {cmd:'wrapup',label:'Wrap-up',desc:'Generate month-end wrap-up report'},
+    {cmd:'re-crawl',label:'Re-Crawl',desc:'Re-crawl site and update tracker'},
+    {cmd:'clickup-sync',label:'ClickUp Sync',desc:'Sync plan to ClickUp'}
+  ];
+
+  var opsGrid=el('div','pb-client-ops-grid');
+  opsCommands.forEach(function(op){
+    var opCard=el('div','pb-client-op-card');
+    var h4=document.createElement('h4');
+    h4.textContent=op.label;
+    opCard.appendChild(h4);
+    var p=document.createElement('p');
+    p.textContent=op.desc;
+    opCard.appendChild(p);
+    var btn=el('button','pb-client-op-btn','\u25B6 Run');
+    btn.addEventListener('click',function(e){
+      e.stopPropagation();
+      runClientCommand(slug,op.cmd);
+    });
+    opCard.appendChild(btn);
+    opsGrid.appendChild(opCard);
+  });
+  panelOps.appendChild(opsGrid);
+
+  // Results area for streaming output
+  var opsResultsArea=el('div','pb-cmd-output');
+  opsResultsArea.id='pb-client-ops-output';
+  opsResultsArea.appendChild(el('div','pb-cmd-desc','Run an operation above to see results here.'));
+  panelOps.appendChild(opsResultsArea);
+
+  _clientHubRoot.appendChild(panelOps);
+  panels.push(panelOps);
+
+  // Panel: History
+  var panelHist=el('div','pb-detail-panel');
+  panelHist.id='pb-panel-history';
+
+  if(data.results&&data.results.length>0){
+    data.results.forEach(function(r){
+      var entry=el('div','pb-cmd-result-entry');
+      entry.style.cursor='pointer';
+      var header=el('div','pb-cmd-result-header');
+      header.appendChild(el('span','pb-cmd-result-label',r.command));
+      var statusClass=r.status==='complete'?'pb-cmd-done':'pb-cmd-running';
+      var statusText=r.timestamp?r.timestamp.split('T')[0]:'';
+      header.appendChild(el('span','pb-cmd-result-status '+statusClass,statusText));
+      entry.appendChild(header);
+
+      if(r.output_preview){
+        var preview=el('div','pb-cmd-result-body',r.output_preview);
+        preview.style.maxHeight='60px';
+        preview.style.overflow='hidden';
+        entry.appendChild(preview);
+      }
+
+      entry.addEventListener('click',function(){
+        var existingBody=entry.querySelector('.pb-cmd-result-body');
+        if(existingBody&&existingBody.style.maxHeight!=='none'){
+          // Expand: fetch full result
+          fetch('/api/seo/results/'+encodeURIComponent(r.id))
+            .then(function(r2){return r2.json();})
+            .then(function(detail){
+              if(existingBody){existingBody.remove();}
+              var fullBody=el('div','pb-cmd-result-body',detail.output||'No output');
+              fullBody.style.maxHeight='none';
+              entry.appendChild(fullBody);
+            });
+        } else if(existingBody){
+          existingBody.style.maxHeight='60px';
+          existingBody.style.overflow='hidden';
+        }
+      });
+
+      panelHist.appendChild(entry);
+    });
+  } else {
+    panelHist.appendChild(el('div','pb-cmd-desc','No operation history for this client yet.'));
+  }
+
+  _clientHubRoot.appendChild(panelHist);
+  panels.push(panelHist);
+
+  // Panel: Notes
+  var panelNotes=el('div','pb-detail-panel');
+  panelNotes.id='pb-panel-notes';
+
+  // Add note form
+  var noteForm=el('div','pb-note-input');
+  var noteInput=document.createElement('input');
+  noteInput.type='text';
+  noteInput.placeholder='Add a strategic note...';
+  noteForm.appendChild(noteInput);
+  var noteBtn=el('button','pb-client-op-btn','Add Note');
+  noteBtn.style.maxWidth='120px';
+  noteBtn.addEventListener('click',function(){
+    var noteText=noteInput.value.trim();
+    if(!noteText)return;
+    noteBtn.disabled=true;
+    noteBtn.textContent='Saving...';
+    fetch('/api/seo/memory/note',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({client:slug,note:noteText})
+    }).then(function(r){return r.json();}).then(function(){
+      noteInput.value='';
+      noteBtn.disabled=false;
+      noteBtn.textContent='Add Note';
+      // Add the note to the list immediately
+      var newItem=el('div','pb-note-item',noteText);
+      var notesList=document.getElementById('pb-notes-strategic');
+      if(notesList){
+        notesList.insertBefore(newItem,notesList.firstChild);
+      }
+    }).catch(function(){
+      noteBtn.disabled=false;
+      noteBtn.textContent='Add Note';
+    });
+  });
+  noteForm.appendChild(noteBtn);
+  panelNotes.appendChild(noteForm);
+
+  // Strategic context
+  var stratTitle=el('div','pb-title','Strategic Context');
+  stratTitle.style.fontSize='18px';
+  stratTitle.style.marginTop='16px';
+  stratTitle.style.marginBottom='8px';
+  panelNotes.appendChild(stratTitle);
+
+  var stratList=el('div','');
+  stratList.id='pb-notes-strategic';
+  var memory=data.memory||{};
+  var stratContext=memory.strategic_context||[];
+  if(stratContext.length>0){
+    stratContext.forEach(function(note){
+      stratList.appendChild(el('div','pb-note-item',note));
+    });
+  } else {
+    stratList.appendChild(el('div','pb-cmd-desc','No strategic notes yet.'));
+  }
+  panelNotes.appendChild(stratList);
+
+  // Learnings
+  var learnTitle=el('div','pb-title','Learnings');
+  learnTitle.style.fontSize='18px';
+  learnTitle.style.marginTop='24px';
+  learnTitle.style.marginBottom='8px';
+  panelNotes.appendChild(learnTitle);
+
+  var learnList=el('div','');
+  var learnings=memory.learnings||[];
+  if(learnings.length>0){
+    learnings.forEach(function(learning){
+      learnList.appendChild(el('div','pb-note-item',learning));
+    });
+  } else {
+    learnList.appendChild(el('div','pb-cmd-desc','No learnings recorded yet.'));
+  }
+  panelNotes.appendChild(learnList);
+
+  _clientHubRoot.appendChild(panelNotes);
+  panels.push(panelNotes);
+}
+
+function runClientCommand(slug,command){
+  var outputArea=document.getElementById('pb-client-ops-output');
+  if(!outputArea)return;
+
+  // Special handling for setup tracking / re-crawl
+  if(command==='re-crawl'){
+    runClientSetupTracking(slug);
+    return;
+  }
+
+  // Special handling for ClickUp sync
+  if(command==='clickup-sync'){
+    runClientClickUpSync(slug);
+    return;
+  }
+
+  var entry=el('div','pb-cmd-result-entry');
+  var header=el('div','pb-cmd-result-header');
+  var label=command+' \u2014 '+slug;
+  header.appendChild(el('span','pb-cmd-result-label',label));
+  header.appendChild(el('span','pb-cmd-result-status pb-cmd-running','\u23F3 Running...'));
+  entry.appendChild(header);
+  var body=el('div','pb-cmd-result-body','Executing...');
+  entry.appendChild(body);
+
+  // Clear placeholder if present
+  if(outputArea.firstChild&&outputArea.firstChild.className==='pb-cmd-desc') outputArea.textContent='';
+  outputArea.insertBefore(entry,outputArea.firstChild);
+
+  var reqBody={command:command,client:slug};
+
+  fetch('/api/seo/execute',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(reqBody)
+  }).then(function(response){
+    var reader=response.body.getReader();
+    var decoder=new TextDecoder();
+    var fullText='';
+    body.textContent='';
+    function read(){
+      reader.read().then(function(result){
+        if(result.done){
+          var statusEl=entry.querySelector('.pb-cmd-result-status');
+          if(statusEl){statusEl.className='pb-cmd-result-status pb-cmd-done';statusEl.textContent='\u2705 Complete';}
+          return;
+        }
+        var chunk=decoder.decode(result.value,{stream:true});
+        var lines=chunk.split('\n');
+        lines.forEach(function(line){
+          if(line.startsWith('data: ')){
+            try{
+              var msg=JSON.parse(line.slice(6));
+              if(msg.type==='output'){fullText+=msg.text;body.textContent=fullText;}
+              else if(msg.type==='complete'){
+                var statusEl2=entry.querySelector('.pb-cmd-result-status');
+                if(statusEl2){statusEl2.className='pb-cmd-result-status pb-cmd-done';statusEl2.textContent='\u2705 Complete';}
+              }
+            }catch(e){}
+          }
+        });
+        read();
+      });
+    }
+    read();
+  }).catch(function(err){
+    body.textContent='Error: '+err.message;
+    var statusEl3=entry.querySelector('.pb-cmd-result-status');
+    if(statusEl3){statusEl3.className='pb-cmd-result-status pb-cmd-error';statusEl3.textContent='\u274C Failed';}
+  });
+}
+
+function runClientSetupTracking(slug){
+  var outputArea=document.getElementById('pb-client-ops-output');
+  if(!outputArea)return;
+
+  var entry=el('div','pb-cmd-result-entry');
+  var header=el('div','pb-cmd-result-header');
+  header.appendChild(el('span','pb-cmd-result-label','Setup Tracking \u2014 '+slug));
+  header.appendChild(el('span','pb-cmd-result-status pb-cmd-running','\u23F3 Crawling site...'));
+  entry.appendChild(header);
+  var body=el('div','pb-cmd-result-body','Crawling with Firecrawl. This may take 10-30 seconds...');
+  entry.appendChild(body);
+  if(outputArea.firstChild&&outputArea.firstChild.className==='pb-cmd-desc') outputArea.textContent='';
+  outputArea.insertBefore(entry,outputArea.firstChild);
+
+  fetch('/api/seo/setup-tracking',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({client:slug})
+  }).then(function(r){return r.json();}).then(function(data){
+    if(data.error){
+      body.textContent='Error: '+data.error;
+      var st=entry.querySelector('.pb-cmd-result-status');
+      if(st){st.className='pb-cmd-result-status pb-cmd-error';st.textContent='\u274C Failed';}
+    } else {
+      var summary='Crawled '+data.client+'\n';
+      summary+='Total pages found: '+data.total_pages+'\n';
+      summary+='New pages: '+(data.new_pages||0)+'\n';
+      if(data.categories){
+        summary+='Categories: ';
+        var cats=[];
+        for(var cat in data.categories){cats.push(cat+': '+data.categories[cat]);}
+        summary+=cats.join(', ');
+      }
+      body.textContent=summary;
+      var st2=entry.querySelector('.pb-cmd-result-status');
+      if(st2){st2.className='pb-cmd-result-status pb-cmd-done';st2.textContent='\u2705 Tracked';}
+    }
+  }).catch(function(err){
+    body.textContent='Error: '+err.message;
+    var st3=entry.querySelector('.pb-cmd-result-status');
+    if(st3){st3.className='pb-cmd-result-status pb-cmd-error';st3.textContent='\u274C Failed';}
+  });
+}
+
+function runClientClickUpSync(slug){
+  var outputArea=document.getElementById('pb-client-ops-output');
+  if(!outputArea)return;
+
+  var now=new Date();
+  var month=(now.getMonth()+1)+'-'+now.getFullYear();
+
+  var entry=el('div','pb-cmd-result-entry');
+  var header=el('div','pb-cmd-result-header');
+  header.appendChild(el('span','pb-cmd-result-label','ClickUp Sync \u2014 '+slug));
+  header.appendChild(el('span','pb-cmd-result-status pb-cmd-running','\u23F3 Syncing...'));
+  entry.appendChild(header);
+  var body=el('div','pb-cmd-result-body','Pushing tasks to ClickUp...');
+  entry.appendChild(body);
+  if(outputArea.firstChild&&outputArea.firstChild.className==='pb-cmd-desc') outputArea.textContent='';
+  outputArea.insertBefore(entry,outputArea.firstChild);
+
+  fetch('/api/seo/clickup/sync-plan',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({client:slug,month:month})
+  }).then(function(r){return r.json();}).then(function(data){
+    body.textContent='Created list: '+(data.list_name||'?')+' with '+(data.tasks_created||0)+' tasks.';
+    var st=entry.querySelector('.pb-cmd-result-status');
+    if(st){st.className='pb-cmd-result-status pb-cmd-done';st.textContent='\u2705 Synced';}
+  }).catch(function(err){
+    body.textContent='Error: '+err.message;
+    var st2=entry.querySelector('.pb-cmd-result-status');
+    if(st2){st2.className='pb-cmd-result-status pb-cmd-error';st2.textContent='\u274C Failed';}
+  });
 }
 
 })();
