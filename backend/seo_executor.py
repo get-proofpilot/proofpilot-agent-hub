@@ -212,6 +212,49 @@ def _format_targets_text(targets: dict | None) -> str:
     return '\n'.join(lines) if lines else "No targets available"
 
 
+def _extract_services_from_context(context_text: str) -> list[str]:
+    """Parse context.md to find the 'Services They Offer' section and return a list."""
+    services = []
+    in_section = False
+    for line in context_text.split('\n'):
+        stripped = line.strip()
+        # Look for the services section header
+        if 'services they offer' in stripped.lower() or 'services offered' in stripped.lower():
+            in_section = True
+            continue
+        # Stop at next header
+        if in_section and stripped.startswith('##'):
+            break
+        # Collect bullet items
+        if in_section and stripped.startswith('- '):
+            service = stripped[2:].strip()
+            if service:
+                services.append(service)
+    return services
+
+
+def _extract_content_quota(recurring_text: str) -> str:
+    """Parse recurring.yaml text to summarize the content quota."""
+    parts = []
+    import re
+    # Look for content task descriptions
+    blog_match = re.search(r'(\d+)\s*blog\s*posts?', recurring_text, re.IGNORECASE)
+    loc_match = re.search(r'(\d+(?:-\d+)?)\s*(?:location|cities)', recurring_text, re.IGNORECASE)
+    svc_match = re.search(r'(\d+(?:-\d+)?)\s*service\s*(?:sub-)?pages?', recurring_text, re.IGNORECASE)
+    neighborhood_match = re.search(r'(\d+)\s*neighborhood', recurring_text, re.IGNORECASE)
+
+    if svc_match:
+        parts.append(f"{svc_match.group(1)} service pages")
+    if loc_match:
+        parts.append(f"{loc_match.group(1)} location pages")
+    if neighborhood_match:
+        parts.append(f"{neighborhood_match.group(1)} neighborhood pages")
+    if blog_match:
+        parts.append(f"{blog_match.group(1)} blog posts")
+
+    return ', '.join(parts) if parts else "See recurring template for quantities"
+
+
 def read_client_context(slug: str, vault_dir: Path) -> dict:
     """Read all YAML/MD files for a single client and return structured data."""
     index_data = _safe_read_yaml(vault_dir / '_clients-index.yaml')
@@ -267,6 +310,9 @@ def read_client_context(slug: str, vault_dir: Path) -> dict:
         'next_pages_text': _format_next_pages_text(next_pages),
         'next_blogs_text': _format_next_blogs_text(next_blogs),
         'targets_text': _format_targets_text(targets),
+        'has_roadmap': bool(next_pages or next_blogs or targets),
+        'client_services': _extract_services_from_context(context_text),
+        'content_quota': _extract_content_quota(recurring_text),
     }
 
 
@@ -547,6 +593,74 @@ def _prepare_client_format_dict(client_data: dict) -> dict:
     return d
 
 
+_STRATEGY_FRAMEWORK = """⚠️ NO ROADMAP AVAILABLE — USING STRATEGY FRAMEWORK
+
+This client does not have a roadmap.yaml with pre-defined pages. You MUST
+think like a senior SEO manager and recommend specific pages using gap analysis.
+
+CLIENT SERVICES (from their website/context):
+{services_list}
+
+CLIENT LOCATION & MARKET:
+{location}
+
+INDUSTRY:
+{industry}
+
+MONTHLY CONTENT QUOTA (from recurring template):
+{content_quota}
+
+APPLY THIS 5-LAYER GAP ANALYSIS TO RECOMMEND SPECIFIC PAGES:
+
+LAYER 1 — MAIN SERVICE PAGES (HIGH priority):
+For each service listed above, does the client likely have a dedicated page?
+Suggest 2-3 service pages they're probably missing. Name them specifically.
+Example: "Service Page 1 | Federal Pacific Panel Replacement"
+
+LAYER 2 — SUB-SERVICE PAGES (HIGH priority):
+For their top 2-3 services, suggest specialization/sub-service pages.
+Example for "Panel Upgrades": Federal Pacific, Zinsco, 100 Amp, Sub-Panel
+Example for "EV Charger": Tesla Wall Connector, Level 2, Commercial
+Name each one specifically.
+
+LAYER 3 — LOCATION PAGES (HIGH priority):
+Based on their market area, suggest specific cities they should target.
+For "{location}", identify 3-5 nearby cities that are likely high-value.
+Example: "Location Page 1 | Electrician in Mission Viejo, CA"
+
+LAYER 4 — BLOG CONTENT (MEDIUM priority):
+Suggest 2-3 blog posts that support the service pages and capture AI citations:
+- "How to Find the Best [Service Provider] in [City]" (AEO-optimized)
+- "[Service] Cost Guide: What to Expect in 2026"
+- "Signs You Need [Service] — Warning Signs Homeowners Miss"
+
+IMPORTANT RULES:
+- Use this naming convention: "Service Page 1 | [Name]", "Location Page 1 | [City]", "Blog 1 | [Topic]"
+- Match the content quota from recurring (don't exceed it)
+- It's OK to suggest all location pages OR all service pages if that's what's most needed
+- Mark EVERY recommended page with: "⚠️ Strategy framework suggestion — confirm with SEO manager"
+- If you truly can't determine specific pages, use: "Service Page 1 | [To Be Defined by SEO Manager]"
+"""
+
+
+def _inject_strategy_framework(format_dict: dict, client_data: dict) -> dict:
+    """Replace the empty roadmap sections with the strategy framework prompt."""
+    services = client_data.get('client_services', [])
+    services_list = '\n'.join(f'- {s}' for s in services) if services else '(Not specified in context — infer from industry and client profile)'
+    content_quota = client_data.get('content_quota', 'See recurring template')
+
+    framework_text = _STRATEGY_FRAMEWORK.format(
+        services_list=services_list,
+        location=format_dict.get('location', 'Unknown'),
+        industry=format_dict.get('industry', 'Unknown'),
+        content_quota=content_quota,
+    )
+
+    format_dict['next_pages_text'] = framework_text
+    format_dict['next_blogs_text'] = '(See strategy framework above for blog recommendations)'
+    return format_dict
+
+
 def build_prompt(command: str, client_data_or_list) -> str:
     """Build the full prompt for the given command.
 
@@ -566,6 +680,11 @@ def build_prompt(command: str, client_data_or_list) -> str:
         raise ValueError(f"Unknown command: {command}")
 
     format_dict = _prepare_client_format_dict(client_data_or_list)
+
+    # For monthly-plan without a roadmap, inject the strategy framework
+    if command == 'monthly-plan' and not client_data_or_list.get('has_roadmap'):
+        format_dict = _inject_strategy_framework(format_dict, client_data_or_list)
+
     # Escape braces in user data fields to prevent KeyError/ValueError
     # when context.md or YAML files contain { or } characters
     text_fields = ('recurring', 'context', 'roadmap', 'next_pages_text',
