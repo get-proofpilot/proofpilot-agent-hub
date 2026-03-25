@@ -766,11 +766,37 @@ function renderCommandCenter(c){
   cuSection.appendChild(cuRow);
   c.appendChild(cuSection);
 
+  // Refresh Data button
+  var refreshSection=el('div','pb-cmd-section');
+  refreshSection.appendChild(el('div','pb-cmd-section-title','Data Management'));
+  var refreshRow=el('div','pb-cmd-card-bottom');
+  refreshRow.style.cssText='border-top:none;padding-top:0;';
+  var refreshBtn=el('button','pb-cmd-run-btn','\u25B6 Refresh Vault Data');
+  refreshBtn.addEventListener('click',function(){
+    refreshBtn.textContent='\u23F3 Refreshing...';
+    fetch('/api/seo/refresh-data',{method:'POST'}).then(function(r){return r.json();}).then(function(d){
+      refreshBtn.textContent='\u2705 Refreshed ('+d.clients.length+' clients)';
+      setTimeout(function(){refreshBtn.textContent='\u25B6 Refresh Vault Data';},3000);
+    }).catch(function(){refreshBtn.textContent='\u274C Failed';});
+  });
+  refreshRow.appendChild(refreshBtn);
+  var syncVaultDesc=el('div','pb-cmd-desc','Re-reads vault data from the server. Run after syncing new client data.');
+  refreshSection.appendChild(syncVaultDesc);
+  refreshSection.appendChild(refreshRow);
+  c.appendChild(refreshSection);
+
   // Results feed
   var resultsSection=el('div','pb-cmd-section');
-  resultsSection.appendChild(el('div','pb-cmd-section-title','Results Feed'));
+  var resultsHeader=el('div','');
+  resultsHeader.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;';
+  resultsHeader.appendChild(el('div','pb-cmd-section-title','Results Feed'));
+  var historyBtn=el('button','pb-cmd-run-btn','Load History');
+  historyBtn.style.cssText='font-size:12px;padding:6px 14px;';
+  historyBtn.addEventListener('click',function(){loadResultsHistory();});
+  resultsHeader.appendChild(historyBtn);
+  resultsSection.appendChild(resultsHeader);
   _cmdOutput=el('div','pb-cmd-results');
-  _cmdOutput.appendChild(el('div','pb-cmd-desc','Run an operation above to see results here.'));
+  _cmdOutput.appendChild(el('div','pb-cmd-desc','Run an operation above to see results here, or click Load History.'));
   resultsSection.appendChild(_cmdOutput);
   c.appendChild(resultsSection);
 }
@@ -861,6 +887,39 @@ function syncToClickUp(clientSlug,month){
     body.textContent='Error: '+err.message;
     var st2=entry.querySelector('.pb-cmd-result-status');
     if(st2){st2.className='pb-cmd-result-status pb-cmd-error';st2.textContent='\u274C Failed';}
+  });
+}
+
+function loadResultsHistory(){
+  if(!_cmdOutput)return;
+  _cmdOutput.textContent='';
+  _cmdOutput.appendChild(el('div','pb-cmd-desc','Loading history...'));
+  fetch('/api/seo/results').then(function(r){return r.json();}).then(function(data){
+    _cmdOutput.textContent='';
+    if(!data.results||!data.results.length){
+      _cmdOutput.appendChild(el('div','pb-cmd-desc','No past results found.'));
+      return;
+    }
+    data.results.forEach(function(r){
+      var entry=el('div','pb-cmd-result-entry');
+      entry.style.cursor='pointer';
+      var header=el('div','pb-cmd-result-header');
+      header.appendChild(el('span','pb-cmd-result-label',r.command+(r.client?' \u2014 '+r.client:'')));
+      header.appendChild(el('span','pb-cmd-result-status pb-cmd-done',r.timestamp?r.timestamp.split('T')[0]:''));
+      entry.appendChild(header);
+      entry.addEventListener('click',function(){
+        fetch('/api/seo/results/'+r.id).then(function(r2){return r2.json();}).then(function(detail){
+          var body=entry.querySelector('.pb-cmd-result-body');
+          if(body){body.remove();}
+          var newBody=el('div','pb-cmd-result-body',detail.output||'No output');
+          entry.appendChild(newBody);
+        });
+      });
+      _cmdOutput.appendChild(entry);
+    });
+  }).catch(function(){
+    _cmdOutput.textContent='';
+    _cmdOutput.appendChild(el('div','pb-cmd-desc','Could not load history.'));
   });
 }
 

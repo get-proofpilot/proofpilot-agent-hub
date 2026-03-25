@@ -1165,6 +1165,15 @@ class SeoExecuteRequest(BaseModel):
     client: str = None  # client slug, required for per-client commands
 
 
+_results_base = Path(os.environ.get('DOCS_DIR', Path(__file__).parent / 'data'))
+SEO_RESULTS_DIR = _results_base / 'seo-results'
+try:
+    SEO_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    SEO_RESULTS_DIR = Path(__file__).parent / 'seo-results'
+    SEO_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+
+
 @app.post("/api/seo/execute")
 async def execute_seo_command(body: SeoExecuteRequest):
     allowed = ['audit', 'monthly-plan', 'weekly-plan', 'wrap-up', 'workload']
@@ -1173,12 +1182,58 @@ async def execute_seo_command(body: SeoExecuteRequest):
     if body.command not in ('weekly-plan', 'workload') and not body.client:
         raise HTTPException(400, 'Client slug required for this command')
 
+    result_id = f"{body.command}-{body.client or 'all'}-{_dt.utcnow().strftime('%Y%m%d-%H%M%S')}"
+
     async def stream():
-        async for chunk in seo_execute(body.command, body.client, VAULT_DATA_DIR):
-            yield f"data: {json.dumps({'type': 'output', 'text': chunk})}\n\n"
-        yield f"data: {json.dumps({'type': 'complete'})}\n\n"
+        full_output = []
+        try:
+            async for chunk in seo_execute(body.command, body.client, VAULT_DATA_DIR):
+                full_output.append(chunk)
+                yield f"data: {json.dumps({'type': 'output', 'text': chunk})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'text': str(e)})}\n\n"
+            return
+        # Save result to persistent storage
+        result_data = {
+            'id': result_id,
+            'command': body.command,
+            'client': body.client,
+            'timestamp': _dt.utcnow().isoformat(),
+            'output': ''.join(full_output)
+        }
+        result_path = SEO_RESULTS_DIR / f"{result_id}.json"
+        result_path.write_text(json.dumps(result_data, indent=2))
+        yield f"data: {json.dumps({'type': 'complete', 'result_id': result_id})}\n\n"
 
     return StreamingResponse(stream(), media_type='text/event-stream')
+
+
+@app.get("/api/seo/results")
+async def list_seo_results():
+    """List all saved SEO operation results, most recent first."""
+    results = []
+    for f in sorted(SEO_RESULTS_DIR.glob('*.json'), reverse=True):
+        try:
+            data = json.loads(f.read_text())
+            results.append({
+                'id': data.get('id', f.stem),
+                'command': data.get('command', ''),
+                'client': data.get('client', ''),
+                'timestamp': data.get('timestamp', ''),
+            })
+        except Exception:
+            continue
+    return {'results': results[:50]}
+
+
+@app.get("/api/seo/results/{result_id}")
+async def get_seo_result(result_id: str):
+    """Get a specific SEO operation result by ID."""
+    safe_id = Path(result_id).name
+    result_path = SEO_RESULTS_DIR / f"{safe_id}.json"
+    if not result_path.exists():
+        raise HTTPException(404, 'Result not found')
+    return json.loads(result_path.read_text())
 
 
 # ── ClickUp Sync API ─────────────────────────────────────────────────────────
@@ -1204,6 +1259,14 @@ async def clickup_progress():
 async def clickup_client_progress(client_slug: str):
     result = await get_client_progress(client_slug)
     return result
+
+
+# ── Vault data refresh ─────────────────────────────────────────────────────
+
+@app.post("/api/seo/refresh-data")
+async def refresh_seo_data():
+    """Re-read vault data and return fresh playbook data. Equivalent to /seo-calendar."""
+    return _build_playbook_data()
 
 
 # ── SPA fallback (must be last) ──────────────────────────────────────────────
