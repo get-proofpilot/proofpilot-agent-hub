@@ -324,6 +324,27 @@ def read_client_context(slug: str, vault_dir: Path) -> dict:
     if tracker_text == "Not available":
         tracker_text = "No page tracker available"
 
+    # Build content inventory from tracker if available
+    content_inventory_text = "No content inventory available"
+    try:
+        from site_crawler import build_content_inventory, categorize_url_deep
+        tracker_data = _safe_read_yaml(client_dir / 'tracker.yaml')
+        if tracker_data and 'pages' in tracker_data:
+            industry = client_entry.get('industry', 'electrical')
+            # Enrich pages with deep categorization if not already done
+            pages = tracker_data['pages']
+            for page in pages:
+                if 'service_category' not in page:
+                    deep = categorize_url_deep(page.get('url', '/'), industry)
+                    page['type'] = deep['type']
+                    page['service_category'] = deep['service_category']
+                    page['city'] = deep['city']
+            from site_crawler import format_inventory_text
+            inventory = build_content_inventory(pages, industry)
+            content_inventory_text = format_inventory_text(inventory)
+    except Exception:
+        pass  # Content inventory is optional — don't break if crawler not ready
+
     # Last monthly plan (for audit reference)
     monthly_plans_dir = client_dir / 'monthly-plans'
     last_plan_text = "No previous monthly plan available"
@@ -368,6 +389,7 @@ def read_client_context(slug: str, vault_dir: Path) -> dict:
         'work_log': log_text,
         'tracker': tracker_text,
         'last_plan': last_plan_text,
+        'content_inventory': content_inventory_text,
     }
 
 
@@ -441,6 +463,8 @@ _PROMPTS = {
         "- Services: {services_str}\n\n"
         "## Strategic Context\n"
         "{targets_text}\n\n"
+        "## Content Inventory (what already exists on the site)\n"
+        "{content_inventory}\n\n"
         "## Next Priority Pages to Build (from roadmap)\n"
         "{next_pages_text}\n\n"
         "## Next Blog Posts to Write (from roadmap)\n"
@@ -451,8 +475,10 @@ _PROMPTS = {
         "## Client Context\n"
         "{context}\n\n"
         "## Instructions\n"
-        "Use the memory section above to build upon previous months. Do NOT repeat pages that were already built. "
-        "Reference what worked and what was missed. Your plan should show strategic progression, not repetition.\n\n"
+        "Use the Content Inventory to understand what already exists on the site. Identify GAPS — "
+        "service categories with thin coverage, cities without location pages, topics without blog content. "
+        "Use the memory section to build upon previous months. Do NOT repeat pages already built. "
+        "Prioritize filling the biggest content gaps. Your plan should show strategic progression.\n\n"
         "Generate a comprehensive monthly plan with:\n\n"
         "1. **Strategic Theme** — One sentence describing this month's focus based on "
         "roadmap priorities and business goals\n\n"
@@ -672,6 +698,7 @@ def _prepare_client_format_dict(client_data: dict) -> dict:
     d.setdefault('last_plan', 'No previous monthly plan available')
     d.setdefault('clickup_status', 'ClickUp data not loaded for this command')
     d.setdefault('memory_context', 'No previous history available')
+    d.setdefault('content_inventory', 'No content inventory available')
     return d
 
 
@@ -771,7 +798,8 @@ def build_prompt(command: str, client_data_or_list) -> str:
     # when context.md or YAML files contain { or } characters
     text_fields = ('recurring', 'context', 'roadmap', 'next_pages_text',
                    'next_blogs_text', 'targets_text', 'memory_context',
-                   'work_log', 'tracker', 'last_plan', 'clickup_status')
+                   'work_log', 'tracker', 'last_plan', 'clickup_status',
+                   'content_inventory')
     for key in text_fields:
         if key in format_dict and isinstance(format_dict[key], str):
             format_dict[key] = format_dict[key].replace('{', '{{').replace('}', '}}')

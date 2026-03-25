@@ -53,6 +53,124 @@ _LOCATION_INDICATORS = {
     'service-area', 'areas-served', 'service-areas',
 }
 
+# ---------------------------------------------------------------------------
+# Industry-specific service category maps
+# ---------------------------------------------------------------------------
+
+ELECTRICAL_CATEGORIES = {
+    'panel-upgrades': ['panel', '200-amp', '100-amp', 'sub-panel', 'circuit-breaker',
+                       'federal-pacific', 'zinsco', 'challenger', 'pushmatic', 'fuse-box',
+                       'breaker', 'electrical-panel'],
+    'ev-charger': ['ev-charger', 'ev-charging', 'tesla-wall', 'chargepoint', 'level-2',
+                   'charge-ready', 'electric-vehicle', 'charging-station'],
+    'rewiring': ['rewir', 'knob-and-tube', 'aluminum-wiring', 'wire-upgrade',
+                 'whole-home-rewir', 'whole-house-rewir'],
+    'lighting': ['lighting', 'recessed-light', 'landscape-light', 'ceiling-fan',
+                 'chandelier', 'led-', 'track-light', 'pendant-light', 'outdoor-light'],
+    'generator': ['generator', 'standby', 'backup-power', 'transfer-switch', 'generac',
+                  'whole-house-generator', 'backup-generator'],
+    'electrical-safety': ['inspection', 'safety-inspection', 'surge-protect',
+                          'smoke-detect', 'gfci', 'arc-fault', 'code-compliance',
+                          'grounding', 'electrical-safety'],
+    'outlets-switches': ['outlet', 'switch', 'receptacle', 'usb-outlet', 'dimmer',
+                         'gfci-outlet'],
+    'commercial': ['commercial', 'tenant-improvement', 'office-electrical',
+                   'warehouse', 'industrial', 'retail-electrical'],
+    'emergency': ['emergency', '24-hour', 'urgent', 'same-day'],
+    'smart-home': ['smart-home', 'automation', 'home-automation', 'nest', 'ring-doorbell'],
+    'hot-tub-spa': ['hot-tub', 'spa-wiring', 'pool-electrical', 'jacuzzi'],
+}
+
+PROPERTY_MANAGEMENT_CATEGORIES = {
+    'tenant-screening': ['tenant-screen', 'background-check', 'credit-check', 'application'],
+    'maintenance': ['maintenance', 'repair', 'plumbing', 'hvac', 'appliance'],
+    'leasing': ['leasing', 'rental', 'vacancy', 'listing', 'showing'],
+    'accounting': ['accounting', 'rent-collection', 'financial', 'budget', 'invoice'],
+    'eviction': ['eviction', 'notice', 'legal', 'compliance'],
+    'marketing': ['marketing', 'advertising', 'listing-photos', 'virtual-tour'],
+}
+
+PHOTOGRAPHY_CATEGORIES = {
+    'wedding': ['wedding', 'bridal', 'engagement', 'ceremony', 'reception'],
+    'portrait': ['portrait', 'headshot', 'family-photo', 'senior-photo'],
+    'event': ['event', 'corporate', 'birthday', 'party', 'conference'],
+    'commercial': ['commercial', 'product', 'real-estate', 'architecture'],
+}
+
+HEALTHCARE_CATEGORIES = {
+    'pain-management': ['pain', 'chronic-pain', 'back-pain', 'neck-pain', 'sciatica'],
+    'sports-medicine': ['sports', 'athlete', 'injury', 'rehabilitation', 'physical-therapy'],
+    'chiropractic': ['chiropractic', 'spinal', 'adjustment', 'alignment'],
+    'regenerative': ['regenerative', 'stem-cell', 'prp', 'platelet'],
+}
+
+INDUSTRY_CATEGORIES = {
+    'electrical': ELECTRICAL_CATEGORIES,
+    'property management': PROPERTY_MANAGEMENT_CATEGORIES,
+    'photography': PHOTOGRAPHY_CATEGORIES,
+    'healthcare': HEALTHCARE_CATEGORIES,
+    'healthcare / pain management': HEALTHCARE_CATEGORIES,
+}
+
+# Flat set of all service keywords across all industries for enhanced categorize_url
+_ALL_SERVICE_KEYWORDS: set[str] = set()
+for _cat_map in INDUSTRY_CATEGORIES.values():
+    for _kw_list in _cat_map.values():
+        _ALL_SERVICE_KEYWORDS.update(_kw_list)
+
+
+def detect_service_category(url_path: str, industry: str = 'electrical') -> str:
+    """Detect the service category from URL slug keywords.
+
+    Checks the URL path against the keyword map for the given industry.
+    Falls back to ELECTRICAL_CATEGORIES for unknown industries.
+
+    Args:
+        url_path: URL path (e.g., '/panel-upgrades-downey-ca/')
+        industry: Industry name (case-insensitive)
+
+    Returns:
+        Category slug (e.g., 'panel-upgrades') or 'general' if no match.
+    """
+    slug = url_path.strip('/').lower()
+    categories = INDUSTRY_CATEGORIES.get(industry.lower(), ELECTRICAL_CATEGORIES)
+    for category, keywords in categories.items():
+        if any(kw in slug for kw in keywords):
+            return category
+    return 'general'
+
+
+def extract_city(url_path: str) -> str | None:
+    """Extract city name from a URL if it contains a location reference.
+
+    Looks for segments ending with a two-letter US state abbreviation and
+    strips common service-keyword prefixes.
+
+    Args:
+        url_path: URL path (e.g., '/electrician-in-downey-ca/')
+
+    Returns:
+        City-state slug (e.g., 'downey-ca') or None if no city detected.
+    """
+    slug = url_path.strip('/').lower()
+    segments = slug.split('/')
+
+    for segment in segments:
+        parts = segment.split('-')
+        # Check if ends with state abbreviation (2 letters)
+        if len(parts) >= 2 and parts[-1] in _STATE_ABBREVS:
+            # City is everything before the state abbrev
+            city_parts = parts[:-1]
+            # Remove service keywords that might prefix the city
+            # e.g., "electrician-in-downey" -> "downey"
+            skip_prefixes = ['electrician', 'plumber', 'contractor', 'hvac',
+                             'service', 'services', 'in', 'near', 'serving']
+            while city_parts and city_parts[0] in skip_prefixes:
+                city_parts.pop(0)
+            if city_parts:
+                return '-'.join(city_parts) + '-' + parts[-1]
+    return None
+
 
 def _get_api_key() -> str | None:
     """Read the Firecrawl API key from environment."""
@@ -199,10 +317,22 @@ async def crawl_site(website: str) -> list[str]:
 
 
 def categorize_url(url_path: str) -> str:
-    """Categorize a URL path into: core, service, location, blog, or other.
+    """Categorize a URL path into an enhanced type taxonomy.
+
+    Returns one of: core, service, sub-service, service-location, location,
+    blog, or other.
 
     Uses heuristics — not perfect, but good enough for initial triage.
     The SEO manager will review and correct.
+
+    Enhanced type logic (checked in order):
+        1. Core pages -> 'core'
+        2. Category/tag/author -> 'other'
+        3. Blog patterns -> 'blog'
+        4. Has city AND service keywords -> 'service-location'
+        5. Has city pattern -> 'location'
+        6. Has service keywords -> 'service' or 'sub-service'
+        7. Default -> 'other'
     """
     path = url_path.strip().lower()
 
@@ -210,19 +340,19 @@ def categorize_url(url_path: str) -> str:
     if not path.endswith('/'):
         path = path + '/'
 
-    # Core pages
+    # 1. Core pages
     if path in _CORE_PATHS:
         return 'core'
 
-    # Blog detection — check prefix first
+    # 2. Category/tag pages -> other (not real content)
+    if path.startswith('/category/') or path.startswith('/tag/') or path.startswith('/author/'):
+        return 'other'
+
+    # 3. Blog detection — check prefix first
     if path.startswith('/blog/') or '/blog/' in path or path == '/blog/':
         return 'blog'
     if path.startswith('/news/') or path.startswith('/articles/') or path.startswith('/resources/'):
         return 'blog'
-
-    # Category/tag pages → other (not real content)
-    if path.startswith('/category/') or path.startswith('/tag/') or path.startswith('/author/'):
-        return 'other'
 
     # Blog detection — informational content patterns (guides, how-to, lists)
     slug = path.strip('/')
@@ -235,35 +365,57 @@ def categorize_url(url_path: str) -> str:
     if any(indicator in slug for indicator in blog_indicators):
         return 'blog'
 
-    # Location detection — look for city + state abbreviation patterns
-    # e.g., /electrician-downey-ca/, /panel-upgrades-in-long-beach-ca/
+    # --- Detect city presence and service-keyword presence ---
+    has_city = False
+    has_service_kw = False
+
+    # City detection: state abbreviation at or near end of path
     segments = path.strip('/').replace('/', '-').split('-')
-
-    # Check if any location indicator words are in the path
-    for indicator in _LOCATION_INDICATORS:
-        if indicator in path:
-            return 'location'
-
-    # Check for state abbreviation at or near end of path
-    # Pattern: something-city-ST/ where ST is a state abbreviation
     if len(segments) >= 2:
-        # Check last segment
         if segments[-1] in _STATE_ABBREVS:
-            return 'location'
-        # Check second-to-last if last is empty
-        if segments[-1] == '' and len(segments) >= 3 and segments[-2] in _STATE_ABBREVS:
-            return 'location'
+            has_city = True
+        elif segments[-1] == '' and len(segments) >= 3 and segments[-2] in _STATE_ABBREVS:
+            has_city = True
 
-    # Service pages — most remaining paths with descriptive slugs are services
-    # Skip very short paths that might be categories
+    # Also check location indicator words
+    if not has_city:
+        for indicator in _LOCATION_INDICATORS:
+            if indicator in path:
+                has_city = True
+                break
+
+    # Service keyword detection: check against all industry keyword maps
+    for kw in _ALL_SERVICE_KEYWORDS:
+        if kw in slug:
+            has_service_kw = True
+            break
+
+    # 4. Has city AND service keywords -> 'service-location'
+    if has_city and has_service_kw:
+        return 'service-location'
+
+    # 5. Has city pattern -> 'location'
+    if has_city:
+        return 'location'
+
+    # 6. Service pages — check for service keywords or descriptive slugs
     path_clean = path.strip('/')
     if path_clean and path_clean not in ('sitemap', 'sitemap.xml'):
+        if has_service_kw:
+            # Sub-service detection: longer slugs with 3+ hyphenated segments
+            # that contain a service keyword suggest a specialization page
+            # e.g., /federal-pacific-panel-replacement/ is a sub-service of panel-upgrades
+            hyphen_count = path_clean.count('-')
+            if hyphen_count >= 3:
+                return 'sub-service'
+            return 'service'
         # If it has 2+ words (hyphens) and doesn't match other categories, it's likely a service
         if '-' in path_clean:
             return 'service'
         # Single-word paths that aren't core are usually services or categories
         return 'service'
 
+    # 7. Default
     return 'other'
 
 
@@ -304,19 +456,224 @@ def _parse_frontmatter(text: str) -> dict:
         return {}
 
 
+# ---------------------------------------------------------------------------
+# Deep taxonomy helpers
+# ---------------------------------------------------------------------------
+
+def categorize_url_deep(url_path: str, industry: str = 'electrical') -> dict:
+    """Return full taxonomy for a URL: type, service_category, and city.
+
+    Combines the enhanced categorize_url(), detect_service_category(), and
+    extract_city() into a single dict.
+
+    Args:
+        url_path: URL path (e.g., '/panel-upgrades-downey-ca/')
+        industry: Industry name for service category detection.
+
+    Returns:
+        Dict with keys 'type', 'service_category', 'city'.
+    """
+    return {
+        'type': categorize_url(url_path),
+        'service_category': detect_service_category(url_path, industry),
+        'city': extract_city(url_path),
+    }
+
+
+def build_content_inventory(pages: list[dict], industry: str = 'electrical') -> dict:
+    """Build a structured content inventory from categorized pages.
+
+    Args:
+        pages: List of page dicts with 'url', 'type', 'service_category', 'city' keys.
+        industry: Industry name (used in gap labels).
+
+    Returns:
+        Inventory dict with 'by_service_category', 'by_city', and 'gap_analysis'.
+    """
+    if not pages:
+        return {
+            'by_service_category': {},
+            'by_city': {},
+            'gap_analysis': {
+                'categories_without_blog': [],
+                'thin_categories': [],
+                'categories_without_location_pages': [],
+                'thin_cities': [],
+            },
+        }
+
+    # --- Group by service_category, then by type within each ---
+    by_category: dict[str, dict[str, list[dict]]] = {}
+    for page in pages:
+        cat = page.get('service_category', 'general')
+        ptype = page.get('type', 'other')
+        by_category.setdefault(cat, {}).setdefault(ptype, []).append(page)
+
+    # --- Group by city ---
+    by_city: dict[str, list[dict]] = {}
+    for page in pages:
+        city = page.get('city')
+        if city:
+            by_city.setdefault(city, []).append(page)
+
+    # --- Gap analysis ---
+    categories_without_blog: list[str] = []
+    thin_categories: list[str] = []
+    categories_without_location_pages: list[str] = []
+    thin_cities: list[str] = []
+
+    for cat, type_map in by_category.items():
+        if cat == 'general':
+            continue  # skip the catch-all bucket
+        total = sum(len(v) for v in type_map.values())
+        blog_count = len(type_map.get('blog', []))
+        location_count = len(type_map.get('service-location', []))
+        has_service = bool(type_map.get('service') or type_map.get('sub-service'))
+
+        if blog_count == 0:
+            categories_without_blog.append(cat)
+        if total < 2:
+            thin_categories.append(cat)
+        if has_service and location_count == 0:
+            categories_without_location_pages.append(cat)
+
+    for city, city_pages in by_city.items():
+        if len(city_pages) <= 1:
+            thin_cities.append(city)
+
+    return {
+        'by_service_category': by_category,
+        'by_city': by_city,
+        'gap_analysis': {
+            'categories_without_blog': sorted(categories_without_blog),
+            'thin_categories': sorted(thin_categories),
+            'categories_without_location_pages': sorted(categories_without_location_pages),
+            'thin_cities': sorted(thin_cities),
+        },
+    }
+
+
+def format_inventory_text(inventory: dict) -> str:
+    """Format the content inventory as readable text for prompt injection.
+
+    Args:
+        inventory: Output from build_content_inventory().
+
+    Returns:
+        Multi-line string suitable for embedding in an LLM prompt.
+    """
+    lines: list[str] = ['## Content Inventory', '']
+
+    by_cat = inventory.get('by_service_category', {})
+    by_city = inventory.get('by_city', {})
+    gaps = inventory.get('gap_analysis', {})
+
+    # --- By Service Category ---
+    lines.append('### By Service Category')
+    if not by_cat:
+        lines.append('(no pages)')
+    else:
+        for cat in sorted(by_cat.keys()):
+            type_map = by_cat[cat]
+            total = sum(len(v) for v in type_map.values())
+            service_ct = len(type_map.get('service', []))
+            sub_ct = len(type_map.get('sub-service', []))
+            loc_ct = len(type_map.get('service-location', []))
+            blog_ct = len(type_map.get('blog', []))
+
+            label = cat.replace('-', ' ').title()
+            detail = f"{total} pages ({service_ct} service, {sub_ct} sub-service, {loc_ct} service-location, {blog_ct} blog)"
+
+            # Annotate thin / needs-depth
+            warnings: list[str] = []
+            if total < 2:
+                warnings.append('NEEDS DEPTH')
+            elif total <= 3 and (loc_ct == 0 or blog_ct == 0):
+                warnings.append('THIN')
+            if blog_ct == 0 and total >= 2:
+                warnings.append('needs blog content')
+
+            suffix = ''
+            if warnings:
+                suffix = ' <- ' + ', '.join(warnings)
+
+            lines.append(f'{label}: {detail}{suffix}')
+    lines.append('')
+
+    # --- Location Coverage ---
+    lines.append('### Location Coverage')
+    if not by_city:
+        lines.append('(no location pages detected)')
+    else:
+        deep_cities = sorted(
+            [(c, len(p)) for c, p in by_city.items() if len(p) >= 3],
+            key=lambda x: -x[1],
+        )
+        thin_cities_list = sorted(
+            [(c, len(p)) for c, p in by_city.items() if len(p) < 3],
+            key=lambda x: -x[1],
+        )
+
+        if deep_cities:
+            deep_str = ', '.join(f'{c.replace("-", " ").title()} ({n})' for c, n in deep_cities)
+            lines.append(f'Cities with deep coverage (3+ pages): {deep_str}')
+        if thin_cities_list:
+            thin_str = ', '.join(f'{c.replace("-", " ").title()} ({n})' for c, n in thin_cities_list)
+            lines.append(f'Cities with thin coverage (1-2 pages): {thin_str}')
+        if not deep_cities and not thin_cities_list:
+            lines.append('(no city data)')
+    lines.append('')
+
+    # --- Content Gaps ---
+    lines.append('### Content Gaps')
+    gap_lines: list[str] = []
+
+    cats_no_loc = gaps.get('categories_without_location_pages', [])
+    cats_no_blog = gaps.get('categories_without_blog', [])
+    thin_cats = gaps.get('thin_categories', [])
+
+    # Build per-category gap summary
+    all_gap_cats = sorted(set(cats_no_loc + cats_no_blog + thin_cats))
+    for cat in all_gap_cats:
+        label = cat.replace('-', ' ').title()
+        missing: list[str] = []
+        type_map = by_cat.get(cat, {})
+        if cat in thin_cats:
+            missing.append('needs more pages overall')
+        if not type_map.get('sub-service'):
+            missing.append('0 sub-service pages')
+        if cat in cats_no_loc:
+            missing.append('0 location pages')
+        if cat in cats_no_blog:
+            missing.append('0 blog posts')
+        if missing:
+            gap_lines.append(f'- {label}: {", ".join(missing)}')
+
+    if gap_lines:
+        lines.extend(gap_lines)
+    else:
+        lines.append('(no significant gaps detected)')
+
+    return '\n'.join(lines)
+
+
 async def setup_tracking(client_slug: str, vault_dir: Path) -> dict:
     """Crawl a client's website and generate/update their tracker.yaml.
+
+    Uses deep categorization (type, service_category, city) for each page
+    and builds a content inventory with gap analysis.
 
     Args:
         client_slug: The client folder name (e.g., 'saiyan-electric').
         vault_dir: Path to the vault_data directory.
 
     Returns:
-        Summary dict with total_pages, new_pages, and category counts.
+        Summary dict with total_pages, new_pages, category counts,
+        content_inventory, and inventory_text.
     """
     client_dir = vault_dir / 'clients' / client_slug
 
-    # 1. Read context.md to get website domain
+    # 1. Read context.md to get website domain and industry
     context_path = client_dir / 'context.md'
     if not context_path.exists():
         raise FileNotFoundError(f"No context.md found for client '{client_slug}' at {context_path}")
@@ -326,27 +683,31 @@ async def setup_tracking(client_slug: str, vault_dir: Path) -> dict:
 
     website = frontmatter.get('website', '')
     client_name = frontmatter.get('client', client_slug.replace('-', ' ').title())
+    industry = frontmatter.get('industry', 'electrical')
 
     if not website:
         raise ValueError(f"No 'website' field in context.md frontmatter for '{client_slug}'")
 
-    logger.info(f"Setting up tracking for {client_name} ({website})")
+    logger.info(f"Setting up tracking for {client_name} ({website}), industry={industry}")
 
     # 2. Crawl the site
     paths = await crawl_site(website)
 
-    # 3. Categorize each URL
+    # 3. Deep-categorize each URL
     crawled_pages = []
     category_counts: dict[str, int] = {}
     for path in paths:
-        cat = categorize_url(path)
+        taxonomy = categorize_url_deep(path, industry)
         page_name = _url_to_page_name(path)
         crawled_pages.append({
             'page': page_name,
             'url': path,
-            'category': cat,
+            'type': taxonomy['type'],
+            'service_category': taxonomy['service_category'],
+            'city': taxonomy['city'],
         })
-        category_counts[cat] = category_counts.get(cat, 0) + 1
+        ptype = taxonomy['type']
+        category_counts[ptype] = category_counts.get(ptype, 0) + 1
 
     # 4. Load existing tracker if present
     tracker_path = client_dir / 'tracker.yaml'
@@ -370,16 +731,27 @@ async def setup_tracking(client_slug: str, vault_dir: Path) -> dict:
         if url in existing_pages:
             # Keep existing entry (preserves status, history, last_updated)
             existing = existing_pages[url]
-            # Update category if it was 'other' before but we have a better guess now
-            if existing.get('category') == 'other' and cp['category'] != 'other':
-                existing['category'] = cp['category']
+            # Upgrade taxonomy fields — always overwrite with fresh deep categorization
+            # but preserve 'category' for backward compat if present
+            if existing.get('type', existing.get('category', 'other')) == 'other' and cp['type'] != 'other':
+                existing['type'] = cp['type']
+            elif 'type' not in existing:
+                existing['type'] = cp['type']
+            # Always update service_category and city from fresh crawl
+            existing['service_category'] = cp['service_category']
+            existing['city'] = cp['city']
+            # Migrate legacy 'category' field to 'type'
+            if 'category' in existing and 'type' not in existing:
+                existing['type'] = existing.pop('category')
             merged_pages.append(existing)
         else:
             # New page found in crawl
             merged_pages.append({
                 'page': cp['page'],
                 'url': url,
-                'category': cp['category'],
+                'type': cp['type'],
+                'service_category': cp['service_category'],
+                'city': cp['city'],
                 'status': 'planned',
                 'last_updated': None,
                 'history': [],
@@ -391,6 +763,13 @@ async def setup_tracking(client_slug: str, vault_dir: Path) -> dict:
     for url, old_page in existing_pages.items():
         if url not in crawled_urls:
             old_page['status'] = 'missing'
+            # Ensure deep taxonomy fields exist on legacy entries
+            if 'type' not in old_page:
+                old_page['type'] = old_page.get('category', 'other')
+            if 'service_category' not in old_page:
+                old_page['service_category'] = detect_service_category(url, industry)
+            if 'city' not in old_page:
+                old_page['city'] = extract_city(url)
             merged_pages.append(old_page)
             missing_count += 1
 
@@ -402,10 +781,15 @@ async def setup_tracking(client_slug: str, vault_dir: Path) -> dict:
 
     today = date.today().isoformat()
 
-    # 6. Build tracker.yaml
+    # 6. Build content inventory from merged pages
+    inventory = build_content_inventory(merged_pages, industry)
+    inventory_text = format_inventory_text(inventory)
+
+    # 7. Build tracker.yaml
     tracker_data = {
         'client': client_name,
         'website': website,
+        'industry': industry,
         'total_pages': len(merged_pages),
         'pages_optimized': pages_optimized,
         'last_updated': today,
@@ -419,18 +803,22 @@ async def setup_tracking(client_slug: str, vault_dir: Path) -> dict:
         # Add header comment
         f.write(f"# {client_name} — Page Tracker\n")
         f.write(f"# Generated by /setup-tracking on {today}\n")
-        f.write("# Statuses: planned | in-progress | done | missing\n\n")
+        f.write("# Statuses: planned | in-progress | done | missing\n")
+        f.write(f"# Industry: {industry}\n\n")
         yaml.dump(tracker_data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
 
     logger.info(f"Saved tracker.yaml: {len(merged_pages)} pages ({new_count} new, {missing_count} missing)")
 
-    # 7. Return summary
+    # 8. Return summary with inventory
     return {
         'client': client_name,
         'website': website,
+        'industry': industry,
         'total_pages': len(merged_pages),
         'new_pages': new_count,
         'missing_pages': missing_count,
         'pages_optimized': pages_optimized,
         'categories': category_counts,
+        'content_inventory': inventory,
+        'inventory_text': inventory_text,
     }
