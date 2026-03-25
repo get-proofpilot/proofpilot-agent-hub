@@ -175,6 +175,21 @@ var canRunCommands=false;
 document.addEventListener('DOMContentLoaded',function(){
   var now=new Date();calYear=now.getFullYear();calMonth=now.getMonth();
   initPlaybook();
+
+  // Hide job monitor terminal when SEO Playbook is active
+  var observer=new MutationObserver(function(){
+    var view=document.getElementById('view-seo-playbook');
+    var jm=document.getElementById('view-job-monitor');
+    if(view&&view.classList.contains('active')){
+      document.body.classList.add('pb-active');
+      if(jm)jm.style.display='none';
+    } else {
+      document.body.classList.remove('pb-active');
+      if(jm)jm.style.display='';
+    }
+  });
+  var main=document.getElementById('main');
+  if(main)observer.observe(main,{attributes:true,subtree:true,attributeFilter:['class']});
 });
 
 function initPlaybook(){
