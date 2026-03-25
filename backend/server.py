@@ -1168,6 +1168,7 @@ async def seo_clients():
 # ── SEO Executor API ─────────────────────────────────────────────────────────
 
 from seo_executor import execute as seo_execute, read_client_context, read_all_clients
+from seo_memory import update_after_plan, update_after_audit, update_after_wrapup, add_strategic_note, read_memory, get_recent_history, mark_page_complete
 
 
 class SeoExecuteRequest(BaseModel):
@@ -1221,6 +1222,18 @@ async def execute_seo_command(body: SeoExecuteRequest):
             result_path.write_text(json.dumps(result_data, indent=2))
         except Exception:
             pass  # Don't fail the SSE stream if result save fails
+        # Update per-client memory after successful operations
+        if status == 'complete' and body.client:
+            try:
+                output_text = ''.join(full_output)
+                if body.command == 'monthly-plan':
+                    update_after_plan(body.client, output_text, result_id)
+                elif body.command == 'audit':
+                    update_after_audit(body.client, output_text)
+                elif body.command == 'wrap-up':
+                    update_after_wrapup(body.client, output_text)
+            except Exception:
+                pass  # Memory update failure should never break the stream
         if status == 'complete':
             yield f"data: {json.dumps({'type': 'complete', 'result_id': result_id})}\n\n"
 
@@ -1288,6 +1301,45 @@ async def clickup_client_progress(client_slug: str):
 async def refresh_seo_data():
     """Re-read vault data and return fresh playbook data. Equivalent to /seo-calendar."""
     return _build_playbook_data()
+
+
+# ── Memory API ─────────────────────────────────────────────────────────────
+
+class MemoryNoteRequest(BaseModel):
+    client: str
+    note: str
+
+class MarkPageRequest(BaseModel):
+    client: str
+    url: str
+
+
+@app.post("/api/seo/memory/note")
+async def add_memory_note(body: MemoryNoteRequest):
+    """Add a strategic note to a client's memory."""
+    add_strategic_note(body.client, body.note)
+    return {"status": "saved", "client": body.client}
+
+
+@app.post("/api/seo/memory/page-complete")
+async def mark_memory_page_complete(body: MarkPageRequest):
+    """Mark a roadmap page as live in memory."""
+    mark_page_complete(body.client, body.url)
+    return {"status": "updated", "client": body.client, "url": body.url}
+
+
+@app.get("/api/seo/memory/{client_slug}")
+async def get_client_memory(client_slug: str):
+    """Get a client's full memory."""
+    safe_slug = ''.join(c for c in client_slug if c.isalnum() or c in '-_')
+    return read_memory(safe_slug)
+
+
+@app.get("/api/seo/memory/{client_slug}/history")
+async def get_client_history(client_slug: str):
+    """Get formatted recent history for a client (what gets injected into prompts)."""
+    safe_slug = ''.join(c for c in client_slug if c.isalnum() or c in '-_')
+    return {"history": get_recent_history(safe_slug)}
 
 
 # ── SPA fallback (must be last) ──────────────────────────────────────────────

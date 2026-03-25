@@ -12,6 +12,8 @@ from typing import AsyncGenerator
 import yaml
 import anthropic
 
+from seo_memory import get_recent_history
+
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -313,6 +315,7 @@ def read_client_context(slug: str, vault_dir: Path) -> dict:
         'has_roadmap': bool(next_pages or next_blogs or targets),
         'client_services': _extract_services_from_context(context_text),
         'content_quota': _extract_content_quota(recurring_text),
+        'memory_context': get_recent_history(slug),
     }
 
 
@@ -392,9 +395,12 @@ _PROMPTS = {
         "{next_blogs_text}\n\n"
         "## Monthly Recurring Deliverables\n"
         "{recurring}\n\n"
+        "{memory_context}\n\n"
         "## Client Context\n"
         "{context}\n\n"
         "## Instructions\n"
+        "Use the memory section above to build upon previous months. Do NOT repeat pages that were already built. "
+        "Reference what worked and what was missed. Your plan should show strategic progression, not repetition.\n\n"
         "Generate a comprehensive monthly plan with:\n\n"
         "1. **Strategic Theme** — One sentence describing this month's focus based on "
         "roadmap priorities and business goals\n\n"
@@ -431,9 +437,12 @@ _PROMPTS = {
         "{targets_text}\n\n"
         "## Next Priority Pages (are we building the right things?)\n"
         "{next_pages_text}\n\n"
+        "{memory_context}\n\n"
         "## Client Context\n"
         "{context}\n\n"
         "## Instructions\n"
+        "Use the memory section above to compare against what was ACTUALLY planned this month (not just the recurring template). "
+        "If memory shows specific pages were planned, check if they were built.\n\n"
         "Produce an audit with:\n\n"
         "1. **Deliverables Scorecard** — For each category (Content, GBP, Off-Page, Technical, "
         "Reporting), rate as: COMPLETE / PARTIAL / MISSING. Present as a table.\n\n"
@@ -462,9 +471,12 @@ _PROMPTS = {
         "{next_blogs_text}\n\n"
         "## Strategic Targets\n"
         "{targets_text}\n\n"
+        "{memory_context}\n\n"
         "## Client Context\n"
         "{context}\n\n"
         "## Instructions\n"
+        "Use the memory section above to reference what was planned this month and compare against results. "
+        "The wrap-up should show month-over-month progression.\n\n"
         "Generate a month-end wrap-up with:\n\n"
         "1. **Executive Summary** — 3-4 bullet points of what was accomplished this month\n\n"
         "2. **Client Update Email** — Professional, results-focused email draft:\n"
@@ -688,7 +700,7 @@ def build_prompt(command: str, client_data_or_list) -> str:
     # Escape braces in user data fields to prevent KeyError/ValueError
     # when context.md or YAML files contain { or } characters
     text_fields = ('recurring', 'context', 'roadmap', 'next_pages_text',
-                   'next_blogs_text', 'targets_text')
+                   'next_blogs_text', 'targets_text', 'memory_context')
     for key in text_fields:
         if key in format_dict and isinstance(format_dict[key], str):
             format_dict[key] = format_dict[key].replace('{', '{{').replace('}', '}}')
