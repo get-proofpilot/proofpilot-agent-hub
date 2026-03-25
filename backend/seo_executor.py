@@ -14,6 +14,36 @@ import anthropic
 
 from seo_memory import get_recent_history
 
+async def _get_clickup_context(client_slug: str) -> str:
+    """Pull ClickUp task completion data for audit context."""
+    try:
+        from clickup_sync import get_client_progress
+        data = await get_client_progress(client_slug)
+        if not data or not data.get('tasks'):
+            return "No ClickUp data available for this client."
+        tasks = data['tasks']
+        list_name = data.get('list_name', 'Current Month')
+        completed = [t for t in tasks if t.get('status', '').lower() in ('complete', 'closed', 'done')]
+        in_progress = [t for t in tasks if t.get('status', '').lower() in ('in progress', 'active')]
+        not_started = [t for t in tasks if t.get('status', '').lower() in ('to do', 'open', 'not started')]
+
+        lines = [f"ClickUp List: {list_name}", f"Total tasks: {len(tasks)}", f"Completed: {len(completed)}", f"In Progress: {len(in_progress)}", f"Not Started: {len(not_started)}", ""]
+        if completed:
+            lines.append("COMPLETED TASKS:")
+            for t in completed:
+                lines.append(f"  ✅ {t.get('name', '?')}")
+        if in_progress:
+            lines.append("IN PROGRESS:")
+            for t in in_progress:
+                lines.append(f"  🔄 {t.get('name', '?')}")
+        if not_started:
+            lines.append("NOT STARTED:")
+            for t in not_started:
+                lines.append(f"  ⬜ {t.get('name', '?')}")
+        return '\n'.join(lines)
+    except Exception as e:
+        return f"Could not load ClickUp data: {str(e)}"
+
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -459,6 +489,8 @@ _PROMPTS = {
         "{work_log}\n\n"
         "## Page Tracker (current page statuses)\n"
         "{tracker}\n\n"
+        "## ClickUp Task Status (source of truth for task completion)\n"
+        "{clickup_status}\n\n"
         "## Last Monthly Plan\n"
         "{last_plan}\n\n"
         "## Strategic Targets\n"
@@ -469,10 +501,12 @@ _PROMPTS = {
         "## Client Context\n"
         "{context}\n\n"
         "## Instructions\n"
-        "IMPORTANT: Use the Work Log and Page Tracker above to determine what was ACTUALLY completed. "
-        "The work log shows chronological entries of work done. The page tracker shows which URLs are live, in-progress, or planned. "
-        "Compare these against the recurring template AND the last monthly plan to produce an accurate audit. "
-        "Do NOT assume zero work was done if the log shows entries.\n\n"
+        "IMPORTANT: Use the ClickUp Task Status as your PRIMARY source of truth for what was completed. "
+        "ClickUp shows which tasks were marked done, in progress, or not started. "
+        "Cross-reference with the Work Log and Page Tracker for additional context. "
+        "The page tracker shows which URLs are live on the site. "
+        "Compare all three data sources against the recurring template AND the last monthly plan. "
+        "Do NOT assume zero work was done — check all data sources before scoring.\n\n"
         "Produce an audit with:\n\n"
         "1. **Deliverables Scorecard** — For each category (Content, GBP, Off-Page, Technical, "
         "Reporting), rate as: COMPLETE / PARTIAL / MISSING. Present as a table.\n\n"
@@ -632,6 +666,12 @@ def _prepare_client_format_dict(client_data: dict) -> dict:
         d['services_str'] = ', '.join(str(s) for s in services) if services else 'N/A'
     else:
         d['services_str'] = str(services)
+    # Defaults for optional fields
+    d.setdefault('work_log', 'No work log available')
+    d.setdefault('tracker', 'No page tracker available')
+    d.setdefault('last_plan', 'No previous monthly plan available')
+    d.setdefault('clickup_status', 'ClickUp data not loaded for this command')
+    d.setdefault('memory_context', 'No previous history available')
     return d
 
 
@@ -731,7 +771,7 @@ def build_prompt(command: str, client_data_or_list) -> str:
     # when context.md or YAML files contain { or } characters
     text_fields = ('recurring', 'context', 'roadmap', 'next_pages_text',
                    'next_blogs_text', 'targets_text', 'memory_context',
-                   'work_log', 'tracker', 'last_plan')
+                   'work_log', 'tracker', 'last_plan', 'clickup_status')
     for key in text_fields:
         if key in format_dict and isinstance(format_dict[key], str):
             format_dict[key] = format_dict[key].replace('{', '{{').replace('}', '}}')
@@ -756,6 +796,11 @@ async def execute(
         if not client_slug:
             raise ValueError(f"Client slug is required for command '{command}'")
         data = read_client_context(client_slug, vault_dir)
+
+    # For audits and wrap-ups, pull live ClickUp data
+    if command in ('audit', 'wrap-up') and client_slug:
+        clickup_context = await _get_clickup_context(client_slug)
+        data['clickup_status'] = clickup_context
 
     prompt = build_prompt(command, data)
 
