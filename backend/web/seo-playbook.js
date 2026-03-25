@@ -1,5 +1,5 @@
 // ProofPilot SEO Playbook — Agent Hub
-// 4 tabs: Framework, Month Calendar, SOP Reference, My Clients
+// 5 tabs: Framework, Month Calendar, SOP Reference, My Clients, Pricing & Packages
 (function(){
 var DATA=null, evtSource=null, curFilter='all', curCatFilter='All', calYear, calMonth, expandAll=false;
 var CLOCK='<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
@@ -251,8 +251,8 @@ function renderSOPView(root){
   hdr.appendChild(right);root.appendChild(hdr);
 
   var tabs=el('div','pb-tabs');
-  var ids=['pb-p-fw','pb-p-cal','pb-p-sop','pb-p-mc'];
-  ['Framework','Month Calendar','SOP Reference','My Clients'].forEach(function(name,i){
+  var ids=['pb-p-fw','pb-p-cal','pb-p-sop','pb-p-mc','pb-p-pricing'];
+  ['Framework','Month Calendar','SOP Reference','My Clients','Pricing & Packages'].forEach(function(name,i){
     var tab=el('div','pb-tab'+(i===0?' active':''),name);
     tab.addEventListener('click',function(){
       tabs.querySelectorAll('.pb-tab').forEach(function(t){t.classList.remove('active');});
@@ -265,6 +265,7 @@ function renderSOPView(root){
   var p1=el('div','pb-panel');p1.id='pb-p-cal';renderCalendar(p1);root.appendChild(p1);
   var p2=el('div','pb-panel');p2.id='pb-p-sop';renderSOP(p2);root.appendChild(p2);
   var p3=el('div','pb-panel');p3.id='pb-p-mc';renderMyClients(p3);root.appendChild(p3);
+  var p4=el('div','pb-panel');p4.id='pb-p-pricing';renderPricing(p4);root.appendChild(p4);
 }
 
 // ── RENDER: Operations View ──
@@ -980,4 +981,255 @@ function loadClickUpProgress(){
     container.appendChild(el('div','pb-cmd-desc','Could not load ClickUp data.'));
   });
 }
+// ── PRICING & PACKAGES TAB ──
+
+function renderPricing(c){
+  c.textContent='';
+  c.appendChild(el('div','pb-title','Pricing & Packages'));
+  c.appendChild(el('div','pb-subtitle','Complete pricing guide for growth packages, SEO services, websites, and add-ons. Use this to scope proposals and match clients to the right tier.'));
+
+  // ── Section 1: Growth Packages Overview ──
+  var s1=el('div','pb-pricing-section');
+  s1.appendChild(el('div','pb-pricing-section-title','Growth Packages Overview'));
+  s1.appendChild(el('div','pb-pricing-section-sub','Bundled packages combining website, SEO, ads, and strategy into one monthly investment.'));
+
+  var growthCols=[
+    {name:'Foundation',price:'$4,417/mo',color:'#2563eb',recommended:false},
+    {name:'Growth',price:'$6,567/mo',color:'#16a34a',recommended:false},
+    {name:'Domination',price:'$11,550/mo',color:'#7c3aed',recommended:true},
+    {name:'Market Leader',price:'$16,083/mo',color:'#d97706',recommended:false}
+  ];
+  var growthRows=[
+    {label:'Website',vals:['Starter (8 pg)','Growth (15 pg)','Territory (30 pg)','Market Leader (50+)']},
+    {label:'SEO',vals:['Local Visibility','Market Growth','Territory Domination','Market Leader']},
+    {label:'Google Ads',vals:[true,true,true,true]},
+    {label:'LSA',vals:[true,true,true,true]},
+    {label:'Meta Ads',vals:[false,false,true,'Yes + Creative+']},
+    {label:'Funnel',vals:[false,false,'Starter (free)','Advanced (free)']},
+    {label:'Maintenance',vals:[false,true,true,true]},
+    {label:'Heat Maps',vals:[false,'Bi-weekly','Weekly','Weekly']},
+    {label:'Lead Tracking',vals:[false,false,true,true]},
+    {label:'Strategy Calls',vals:['1x monthly','2x monthly','Weekly','Weekly']},
+    {label:'Reporting',vals:['Monthly','Bi-weekly','Bi-weekly','Weekly']},
+    {label:'Dedicated Strategist',vals:[false,false,false,true]},
+    {label:'Ideal Revenue',vals:['$200K-$500K','$500K-$1.5M','$1M-$5M','$3M+']},
+    {label:'Savings',vals:['Entry tier','$600/mo','$1,700/mo + funnel','$2,500/mo + funnel']}
+  ];
+  s1.appendChild(buildComparisonTable(growthCols,growthRows));
+  c.appendChild(s1);
+
+  // ── Section 2: SEO Packages (A La Carte) ──
+  var s2=el('div','pb-pricing-section');
+  s2.appendChild(el('div','pb-pricing-section-title','SEO Packages (A La Carte)'));
+  s2.appendChild(el('div','pb-pricing-section-sub','Standalone SEO services for clients who already have a website or need SEO only.'));
+
+  var seoCols=[
+    {name:'Local Visibility',price:'$2,500/mo',color:'#2563eb',recommended:false},
+    {name:'Market Growth',price:'$4,500/mo',color:'#16a34a',recommended:false},
+    {name:'Territory',price:'$8,000/mo',color:'#7c3aed',recommended:true},
+    {name:'Market Leader',price:'$12,000/mo',color:'#d97706',recommended:false}
+  ];
+  var seoRows=[
+    {label:'Service Pages/mo',vals:['1','2','4','6']},
+    {label:'Location Pages/mo',vals:['1','2','4','6']},
+    {label:'Blog Posts/mo',vals:['1','2','4','6']},
+    {label:'GBP Posts/mo',vals:['8','8','8','8']},
+    {label:'Citations',vals:['25+','25+','25+','25+']},
+    {label:'Backlinks/mo',vals:[false,'3-5','8-12','15-20']},
+    {label:'Press Release',vals:[false,true,'Campaigns','Premium']},
+    {label:'GBP Optimization',vals:['90-point','90-point','90-point','90-point']},
+    {label:'Schema Markup',vals:['Basic','Standard','Advanced','Complete']},
+    {label:'Heat Maps',vals:[true,'Bi-weekly','Weekly','Weekly']},
+    {label:'Strategy Calls',vals:['1x 60min','2x 60min','Weekly 30min','2x 45min']},
+    {label:'Competitor Analysis',vals:[false,'Basic','Detailed','Intelligence']},
+    {label:'Reputation Mgmt',vals:[false,false,'Advanced','Enterprise']},
+    {label:'Video Content',vals:[false,false,true,true]},
+    {label:'Programmatic SEO',vals:[false,false,false,true]},
+    {label:'Best For',vals:['$200K-$500K','$500K-$1M','$1M-$3M','$2M+']}
+  ];
+  s2.appendChild(buildComparisonTable(seoCols,seoRows));
+  c.appendChild(s2);
+
+  // ── Section 3: Website Packages ──
+  var s3=el('div','pb-pricing-section');
+  s3.appendChild(el('div','pb-pricing-section-title','Website Packages'));
+  s3.appendChild(el('div','pb-pricing-section-sub','One-time website builds with monthly payment plans. All include mobile-responsive design and SEO-ready architecture.'));
+
+  var webPkgs=[
+    {name:'Starter',price:'$5,000',color:'#2563eb',recommended:false,items:['8 total pages','4 service pages','Mobile responsive','30 days support','$417/mo x 12']},
+    {name:'Growth',price:'$8,000',color:'#16a34a',recommended:false,items:['15 pages','8 service pages','Gallery + reviews','30 days support','$667/mo x 12']},
+    {name:'Territory',price:'$15,000',color:'#7c3aed',recommended:true,items:['30 pages','14 service pages','4 location pages','Marketing automation','60 days support','$1,250/mo x 12']},
+    {name:'Market Leader',price:'$25,000',color:'#d97706',recommended:false,items:['50+ pages','20+ service pages','10+ location pages','Custom dashboards','90 days support','$2,083/mo x 12']}
+  ];
+
+  var webGrid=el('div','pb-pricing-grid');
+  webPkgs.forEach(function(pkg){
+    var card=el('div','pb-pricing-card'+(pkg.recommended?' pb-pricing-recommended':''));
+    if(pkg.recommended){
+      card.style.borderColor=pkg.color;
+      var badge=el('div','pb-pricing-badge','Recommended');
+      badge.style.background=pkg.color;
+      card.appendChild(badge);
+    }
+    var hdr=el('div','pb-pricing-header');
+    hdr.style.background=pkg.color;
+    hdr.appendChild(el('div','pb-pricing-header-name',pkg.name));
+    hdr.appendChild(el('div','pb-pricing-header-price',pkg.price));
+    card.appendChild(hdr);
+    var body=el('div','pb-pricing-card-body');
+    pkg.items.forEach(function(item){
+      var row=el('div','pb-pricing-feature');
+      var check=el('span','pb-pricing-check','\u2713');
+      row.appendChild(check);
+      row.appendChild(el('span','',item));
+      body.appendChild(row);
+    });
+    card.appendChild(body);
+    webGrid.appendChild(card);
+  });
+  s3.appendChild(webGrid);
+  c.appendChild(s3);
+
+  // ── Section 4: Add-Ons ──
+  var s4=el('div','pb-pricing-section');
+  s4.appendChild(el('div','pb-pricing-section-title','Add-Ons'));
+  s4.appendChild(el('div','pb-pricing-section-sub','Individual services that can be added to any package or purchased standalone.'));
+
+  var addOns=[
+    {name:'AEO / AI Search',detail:'$1,500/mo'},
+    {name:'Meta Ads',detail:'$1,500/mo (Creative+ add-on: +$1,000/mo)'},
+    {name:'Google Ads + LSA',detail:'$1,500/mo'},
+    {name:'Funnel',detail:'Starter: $2,500 | Advanced: $4,500 | Enterprise: $7,500+'},
+    {name:'Website Maintenance',detail:'$500/mo'},
+    {name:'Consulting',detail:'$300/hr | 10-hr block: $2,500 | Growth retainer: $4,200/mo'}
+  ];
+
+  var addGrid=el('div','pb-pricing-grid pb-pricing-grid-addons');
+  addOns.forEach(function(a){
+    var card=el('div','pb-pricing-card pb-pricing-addon');
+    var hdr=el('div','pb-pricing-addon-header');
+    hdr.appendChild(el('div','pb-pricing-addon-name',a.name));
+    card.appendChild(hdr);
+    var body=el('div','pb-pricing-card-body');
+    body.appendChild(el('div','pb-pricing-addon-detail',a.detail));
+    card.appendChild(body);
+    addGrid.appendChild(card);
+  });
+  s4.appendChild(addGrid);
+  c.appendChild(s4);
+
+  // ── Section 5: Current Client Mapping ──
+  var s5=el('div','pb-pricing-section');
+  s5.appendChild(el('div','pb-pricing-section-title','Current Client Mapping'));
+  s5.appendChild(el('div','pb-pricing-section-sub','Which package each current client is on, inferred from their monthly recurring revenue.'));
+
+  var cmTable=el('table','pb-pricing-table');
+  var cmThead=document.createElement('thead');
+  var cmTr=document.createElement('tr');
+  ['Client','Tier','MRR','Package Level','Services'].forEach(function(h){
+    var th=document.createElement('th');th.textContent=h;cmTr.appendChild(th);
+  });
+  cmThead.appendChild(cmTr);cmTable.appendChild(cmThead);
+
+  var cmTbody=document.createElement('tbody');
+  DATA.clients.slice().sort(function(a,b){return a.tier-b.tier||b.mrr-a.mrr;}).forEach(function(cl){
+    var tr=document.createElement('tr');
+    var tdName=document.createElement('td');tdName.textContent=cl.name;tr.appendChild(tdName);
+
+    var tdTier=document.createElement('td');
+    var tierBadge=el('span','pb-tier '+tc(cl.tier),'T'+cl.tier);
+    tdTier.appendChild(tierBadge);tr.appendChild(tdTier);
+
+    var tdMrr=document.createElement('td');
+    tdMrr.textContent='$'+cl.mrr.toLocaleString();
+    tdMrr.style.fontWeight='600';
+    tr.appendChild(tdMrr);
+
+    var tdPkg=document.createElement('td');
+    var pkgLevel=inferPackageLevel(cl.mrr);
+    tdPkg.textContent=pkgLevel;tr.appendChild(tdPkg);
+
+    var tdSvc=document.createElement('td');
+    var svcs=Object.keys(cl.tasks).join(', ');
+    tdSvc.textContent=svcs;tr.appendChild(tdSvc);
+
+    cmTbody.appendChild(tr);
+  });
+  cmTable.appendChild(cmTbody);
+
+  var tableWrap=el('div','pb-pricing-table-wrap');
+  tableWrap.appendChild(cmTable);
+  s5.appendChild(tableWrap);
+  c.appendChild(s5);
+}
+
+function inferPackageLevel(mrr){
+  if(mrr>=8000)return 'Market Leader';
+  if(mrr>=4500)return 'Territory';
+  if(mrr>=2000)return 'Market Growth';
+  return 'Local Visibility';
+}
+
+function buildComparisonTable(cols,rows){
+  var wrap=el('div','pb-pricing-table-wrap');
+  var table=el('table','pb-pricing-table');
+
+  // Header row
+  var thead=document.createElement('thead');
+  var htr=document.createElement('tr');
+  var thCorner=document.createElement('th');
+  thCorner.textContent='';
+  htr.appendChild(thCorner);
+
+  cols.forEach(function(col){
+    var th=document.createElement('th');
+    th.style.textAlign='center';
+    var nameDiv=el('div','pb-pricing-col-name',col.name);
+    var priceDiv=el('div','pb-pricing-col-price',col.price);
+    th.appendChild(nameDiv);th.appendChild(priceDiv);
+    if(col.recommended){
+      var badge=el('div','pb-pricing-badge-inline','Recommended');
+      badge.style.background=col.color;
+      th.appendChild(badge);
+      th.classList.add('pb-pricing-th-recommended');
+      th.style.borderTop='3px solid '+col.color;
+    }
+    th.style.borderBottom='3px solid '+col.color;
+    htr.appendChild(th);
+  });
+  thead.appendChild(htr);table.appendChild(thead);
+
+  // Body rows
+  var tbody=document.createElement('tbody');
+  rows.forEach(function(row){
+    var tr=document.createElement('tr');
+    var tdLabel=document.createElement('td');
+    tdLabel.textContent=row.label;
+    tdLabel.style.fontWeight='600';
+    tr.appendChild(tdLabel);
+
+    row.vals.forEach(function(v,vi){
+      var td=document.createElement('td');
+      td.style.textAlign='center';
+      if(v===true){
+        var chk=el('span','pb-pricing-check','\u2713');
+        td.appendChild(chk);
+      }else if(v===false){
+        var dash=el('span','pb-pricing-dash','\u2014');
+        td.appendChild(dash);
+      }else{
+        td.textContent=v;
+      }
+      if(cols[vi].recommended){
+        td.classList.add('pb-pricing-td-recommended');
+      }
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  return wrap;
+}
+
 })();
