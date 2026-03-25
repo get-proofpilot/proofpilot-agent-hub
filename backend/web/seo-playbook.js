@@ -697,7 +697,8 @@ function renderCommandCenter(c){
     {cmd:'monthly-plan',label:'Monthly Plan',desc:'Generate next month\'s task plan from roadmap',icon:'\uD83D\uDCC5',timing:'Week 1',perClient:true,color:'#2563eb'},
     {cmd:'weekly-plan',label:'Weekly Plan',desc:'Prioritized checklist by manager for this week',icon:'\uD83D\uDCCB',timing:'Week 1',perClient:false,color:'#7c3aed'},
     {cmd:'workload',label:'Workload Check',desc:'Team completion rates, stalled clients',icon:'\u2696\uFE0F',timing:'Week 2-3',perClient:false,color:'#d97706'},
-    {cmd:'wrap-up',label:'Wrap-up',desc:'Month-end summary, email draft, next actions',icon:'\u2705',timing:'Week 4',perClient:true,color:'#16a34a'}
+    {cmd:'wrap-up',label:'Wrap-up',desc:'Month-end summary, email draft, next actions',icon:'\u2705',timing:'Week 4',perClient:true,color:'#16a34a'},
+    {cmd:'setup-tracking',label:'Setup Tracking',desc:'Crawl site with Firecrawl to discover and track all pages',icon:'\uD83D\uDD77\uFE0F',timing:'Onboarding',perClient:true,color:'#0891b2',isTracker:true}
   ];
 
   commands.forEach(function(cmd){
@@ -734,7 +735,9 @@ function renderCommandCenter(c){
             if(!confirm(client.name+' has no roadmap.yaml — the plan will use recurring tasks only (no specific page suggestions). Continue?'))return;
           }
         }
-        if(slug==='__all__'){
+        if(cmd.isTracker){
+          runSetupTracking(slug);
+        } else if(slug==='__all__'){
           runAllClients(cmd.cmd);
         } else {
           runCommand(cmd.cmd,slug);
@@ -950,6 +953,47 @@ function loadResultsHistory(){
   }).catch(function(){
     _cmdOutput.textContent='';
     _cmdOutput.appendChild(el('div','pb-cmd-desc','Could not load history.'));
+  });
+}
+
+function runSetupTracking(clientSlug){
+  var entry=el('div','pb-cmd-result-entry');
+  var header=el('div','pb-cmd-result-header');
+  header.appendChild(el('span','pb-cmd-result-label','Setup Tracking \u2014 '+clientSlug));
+  header.appendChild(el('span','pb-cmd-result-status pb-cmd-running','\u23F3 Crawling site...'));
+  entry.appendChild(header);
+  var body=el('div','pb-cmd-result-body','Crawling with Firecrawl. This may take 10-30 seconds...');
+  entry.appendChild(body);
+  if(_cmdOutput.firstChild&&_cmdOutput.firstChild.className==='pb-cmd-desc') _cmdOutput.textContent='';
+  _cmdOutput.insertBefore(entry,_cmdOutput.firstChild);
+
+  fetch('/api/seo/setup-tracking',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({client:clientSlug})
+  }).then(function(r){return r.json();}).then(function(data){
+    if(data.error){
+      body.textContent='Error: '+data.error;
+      var st=entry.querySelector('.pb-cmd-result-status');
+      if(st){st.className='pb-cmd-result-status pb-cmd-error';st.textContent='\u274C Failed';}
+    } else {
+      var summary='Crawled '+data.client+'\n';
+      summary+='Total pages found: '+data.total_pages+'\n';
+      summary+='New pages: '+(data.new_pages||0)+'\n';
+      if(data.categories){
+        summary+='Categories: ';
+        var cats=[];
+        for(var cat in data.categories){cats.push(cat+': '+data.categories[cat]);}
+        summary+=cats.join(', ');
+      }
+      body.textContent=summary;
+      var st2=entry.querySelector('.pb-cmd-result-status');
+      if(st2){st2.className='pb-cmd-result-status pb-cmd-done';st2.textContent='\u2705 Tracked';}
+    }
+  }).catch(function(err){
+    body.textContent='Error: '+err.message;
+    var st3=entry.querySelector('.pb-cmd-result-status');
+    if(st3){st3.className='pb-cmd-result-status pb-cmd-error';st3.textContent='\u274C Failed';}
   });
 }
 

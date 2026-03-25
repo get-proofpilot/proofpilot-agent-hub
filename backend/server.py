@@ -1295,6 +1295,22 @@ async def clickup_client_progress(client_slug: str):
     return result
 
 
+# ── Site Crawler / Setup Tracking ──────────────────────────────────────────
+
+from site_crawler import setup_tracking
+
+
+class SetupTrackingRequest(BaseModel):
+    client: str
+
+
+@app.post("/api/seo/setup-tracking")
+async def run_setup_tracking(body: SetupTrackingRequest):
+    """Crawl a client's website via Firecrawl and generate/update their tracker.yaml."""
+    result = await setup_tracking(body.client, VAULT_DATA_DIR)
+    return result
+
+
 # ── Vault data refresh ─────────────────────────────────────────────────────
 
 @app.post("/api/seo/refresh-data")
