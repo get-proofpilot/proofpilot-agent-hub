@@ -64,6 +64,7 @@ from utils.meta_ads_sync import sync_meta_ads_data, sync_meta_ads_campaigns
 from utils.sheets_sync import sync_sheets_data
 from utils.content_db import get_content_roadmap, get_content_stats, bulk_insert_content, clear_content_roadmap
 from utils.tasks_db import get_client_tasks, create_client_task, update_task_status, sync_tasks_from_jobs
+from clickup_sync import sync_monthly_plan, get_progress, get_client_progress
 
 # ── App setup ─────────────────────────────────────────────
 app = FastAPI(title="ProofPilot Agency Hub API", version="1.0.0")
@@ -1152,6 +1153,57 @@ async def seo_playbook_data():
 async def seo_clients():
     data = _parse_yaml(VAULT_DATA_DIR / '_clients-index.yaml')
     return data if data else {'clients': []}
+
+
+# ── SEO Executor API ─────────────────────────────────────────────────────────
+
+from seo_executor import execute as seo_execute, read_client_context, read_all_clients
+
+
+class SeoExecuteRequest(BaseModel):
+    command: str  # audit, monthly-plan, weekly-plan, wrap-up, workload
+    client: str = None  # client slug, required for per-client commands
+
+
+@app.post("/api/seo/execute")
+async def execute_seo_command(body: SeoExecuteRequest):
+    allowed = ['audit', 'monthly-plan', 'weekly-plan', 'wrap-up', 'workload']
+    if body.command not in allowed:
+        raise HTTPException(400, f'Unknown command: {body.command}')
+    if body.command not in ('weekly-plan', 'workload') and not body.client:
+        raise HTTPException(400, 'Client slug required for this command')
+
+    async def stream():
+        async for chunk in seo_execute(body.command, body.client, VAULT_DATA_DIR):
+            yield f"data: {json.dumps({'type': 'output', 'text': chunk})}\n\n"
+        yield f"data: {json.dumps({'type': 'complete'})}\n\n"
+
+    return StreamingResponse(stream(), media_type='text/event-stream')
+
+
+# ── ClickUp Sync API ─────────────────────────────────────────────────────────
+
+class ClickUpSyncRequest(BaseModel):
+    client: str
+    month: str  # e.g. "April 2026"
+
+
+@app.post("/api/seo/clickup/sync-plan")
+async def clickup_sync_plan(body: ClickUpSyncRequest):
+    result = await sync_monthly_plan(body.client, body.month, VAULT_DATA_DIR)
+    return result
+
+
+@app.get("/api/seo/clickup/progress")
+async def clickup_progress():
+    result = await get_progress(VAULT_DATA_DIR)
+    return {"clients": result}
+
+
+@app.get("/api/seo/clickup/progress/{client_slug}")
+async def clickup_client_progress(client_slug: str):
+    result = await get_client_progress(client_slug)
+    return result
 
 
 # ── SPA fallback (must be last) ──────────────────────────────────────────────

@@ -244,8 +244,8 @@ function render(root){
   right.appendChild(dot);right.appendChild(el('span','',DATA.month||''));hdr.appendChild(right);root.appendChild(hdr);
 
   var tabs=el('div','pb-tabs');
-  var ids=['pb-p-fw','pb-p-cal','pb-p-sop','pb-p-mc'];
-  ['Framework','Month Calendar','SOP Reference','My Clients'].forEach(function(name,i){
+  var ids=['pb-p-fw','pb-p-cal','pb-p-sop','pb-p-mc','pb-p-cmd'];
+  ['Framework','Month Calendar','SOP Reference','My Clients','Command Center'].forEach(function(name,i){
     var tab=el('div','pb-tab'+(i===0?' active':''),name);
     tab.addEventListener('click',function(){
       tabs.querySelectorAll('.pb-tab').forEach(function(t){t.classList.remove('active');});
@@ -258,12 +258,7 @@ function render(root){
   var p1=el('div','pb-panel');p1.id='pb-p-cal';renderCalendar(p1);root.appendChild(p1);
   var p2=el('div','pb-panel');p2.id='pb-p-sop';renderSOP(p2);root.appendChild(p2);
   var p3=el('div','pb-panel');p3.id='pb-p-mc';renderMyClients(p3);root.appendChild(p3);
-
-  // Output panel
-  var op=el('div','pb-output-panel');op.id='pb-output-panel';
-  var opH=el('div','pb-output-hdr');opH.appendChild(el('h3','','Command Output'));
-  var cb=el('span','pb-output-close','\u2715');cb.addEventListener('click',closePanel);opH.appendChild(cb);op.appendChild(opH);
-  var opB=el('div','pb-output-body');opB.id='pb-output-body';opB.appendChild(el('div','','No commands run yet.'));op.appendChild(opB);root.appendChild(op);
+  var p4=el('div','pb-panel');p4.id='pb-p-cmd';renderCommandCenter(p4);root.appendChild(p4);
 }
 
 // ── SOP REFERENCE TAB ──
@@ -656,5 +651,245 @@ function renderMyClients(container){
       grid.appendChild(card);
     });
   container.appendChild(grid);
+}
+
+// ── COMMAND CENTER TAB ──
+var _cmdOutput;
+
+function renderCommandCenter(c){
+  c.textContent='';
+  c.appendChild(el('div','pb-title','Command Center'));
+  c.appendChild(el('div','pb-subtitle','Run SEO operations, generate plans, and sync with ClickUp. Commands execute via the Anthropic API with your vault client data as context.'));
+
+  // Operations panel
+  var opsSection=el('div','pb-cmd-section');
+  opsSection.appendChild(el('div','pb-cmd-section-title','Operations'));
+
+  var opsGrid=el('div','pb-cmd-ops-grid');
+
+  // Command cards data
+  var commands=[
+    {cmd:'audit',label:'Run Audit',desc:'Compare plan vs actual for last month',icon:'\uD83D\uDD0D',timing:'Week 1',perClient:true,color:'#dc2626'},
+    {cmd:'monthly-plan',label:'Monthly Plan',desc:'Generate next month\'s task plan from roadmap',icon:'\uD83D\uDCC5',timing:'Week 1',perClient:true,color:'#2563eb'},
+    {cmd:'weekly-plan',label:'Weekly Plan',desc:'Prioritized checklist by manager for this week',icon:'\uD83D\uDCCB',timing:'Week 1',perClient:false,color:'#7c3aed'},
+    {cmd:'workload',label:'Workload Check',desc:'Team completion rates, stalled clients',icon:'\u2696\uFE0F',timing:'Week 2-3',perClient:false,color:'#d97706'},
+    {cmd:'wrap-up',label:'Wrap-up',desc:'Month-end summary, email draft, next actions',icon:'\u2705',timing:'Week 4',perClient:true,color:'#16a34a'}
+  ];
+
+  commands.forEach(function(cmd){
+    var card=el('div','pb-cmd-card');
+    card.style.borderLeftColor=cmd.color;
+
+    var cardTop=el('div','pb-cmd-card-top');
+    var iconEl=el('span','pb-cmd-icon',cmd.icon);
+    var info=el('div','pb-cmd-info');
+    info.appendChild(el('div','pb-cmd-label',cmd.label));
+    info.appendChild(el('div','pb-cmd-desc',cmd.desc));
+    cardTop.appendChild(iconEl);
+    cardTop.appendChild(info);
+    var timing=el('span','pb-cmd-timing',cmd.timing);
+    cardTop.appendChild(timing);
+    card.appendChild(cardTop);
+
+    var cardBottom=el('div','pb-cmd-card-bottom');
+    if(cmd.perClient){
+      var select=document.createElement('select');
+      select.className='pb-cmd-select';
+      var optAll=document.createElement('option');optAll.value='__all__';optAll.textContent='All Clients';select.appendChild(optAll);
+      DATA.clients.forEach(function(cl){
+        var opt=document.createElement('option');opt.value=cl.folder;opt.textContent=cl.name+' (T'+cl.tier+')';select.appendChild(opt);
+      });
+      cardBottom.appendChild(select);
+      var runBtn=el('button','pb-cmd-run-btn','\u25B6 Run');
+      runBtn.addEventListener('click',function(){
+        var slug=select.value;
+        if(slug==='__all__'){
+          // Run for all clients sequentially
+          runAllClients(cmd.cmd);
+        } else {
+          runCommand(cmd.cmd,slug);
+        }
+      });
+      cardBottom.appendChild(runBtn);
+    } else {
+      var runBtn2=el('button','pb-cmd-run-btn','\u25B6 Run');
+      runBtn2.addEventListener('click',function(){ runCommand(cmd.cmd,null); });
+      cardBottom.appendChild(runBtn2);
+    }
+    card.appendChild(cardBottom);
+    opsGrid.appendChild(card);
+  });
+  opsSection.appendChild(opsGrid);
+  c.appendChild(opsSection);
+
+  // ClickUp Sync section
+  var cuSection=el('div','pb-cmd-section');
+  cuSection.appendChild(el('div','pb-cmd-section-title','ClickUp Sync'));
+
+  var cuRow=el('div','pb-cmd-cu-row');
+
+  // Push plan button
+  var pushCard=el('div','pb-cmd-cu-card');
+  pushCard.appendChild(el('div','pb-cmd-label','Push Monthly Plan to ClickUp'));
+  pushCard.appendChild(el('div','pb-cmd-desc','Creates tasks in ClickUp from recurring.yaml for the selected client'));
+  var pushBottom=el('div','pb-cmd-card-bottom');
+  var cuSelect=document.createElement('select');
+  cuSelect.className='pb-cmd-select';
+  DATA.clients.forEach(function(cl){
+    var opt=document.createElement('option');opt.value=cl.folder;opt.textContent=cl.name;cuSelect.appendChild(opt);
+  });
+  pushBottom.appendChild(cuSelect);
+  var pushBtn=el('button','pb-cmd-run-btn pb-cmd-cu-btn','\u25B6 Sync to ClickUp');
+  pushBtn.addEventListener('click',function(){
+    var slug=cuSelect.value;
+    var now=new Date();
+    var monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var month=monthNames[now.getMonth()]+' '+now.getFullYear();
+    syncToClickUp(slug,month);
+  });
+  pushBottom.appendChild(pushBtn);
+  pushCard.appendChild(pushBottom);
+  cuRow.appendChild(pushCard);
+
+  // Pull progress
+  var pullCard=el('div','pb-cmd-cu-card');
+  pullCard.appendChild(el('div','pb-cmd-label','ClickUp Progress'));
+  pullCard.appendChild(el('div','pb-cmd-desc','Task completion rates from ClickUp for all clients'));
+  var pullBtn=el('button','pb-cmd-run-btn','\u25B6 Refresh Progress');
+  pullBtn.addEventListener('click',function(){ loadClickUpProgress(); });
+  pullCard.appendChild(pullBtn);
+  var progressContainer=el('div','pb-cmd-progress');progressContainer.id='pb-cu-progress';
+  progressContainer.appendChild(el('div','pb-cmd-desc','Click Refresh to load ClickUp data.'));
+  pullCard.appendChild(progressContainer);
+  cuRow.appendChild(pullCard);
+
+  cuSection.appendChild(cuRow);
+  c.appendChild(cuSection);
+
+  // Results feed
+  var resultsSection=el('div','pb-cmd-section');
+  resultsSection.appendChild(el('div','pb-cmd-section-title','Results Feed'));
+  _cmdOutput=el('div','pb-cmd-results');
+  _cmdOutput.appendChild(el('div','pb-cmd-desc','Run an operation above to see results here.'));
+  resultsSection.appendChild(_cmdOutput);
+  c.appendChild(resultsSection);
+}
+
+function runCommand(command,clientSlug){
+  var entry=el('div','pb-cmd-result-entry');
+  var header=el('div','pb-cmd-result-header');
+  var label=command+(clientSlug?' \u2014 '+clientSlug:'');
+  header.appendChild(el('span','pb-cmd-result-label',label));
+  header.appendChild(el('span','pb-cmd-result-status pb-cmd-running','\u23F3 Running...'));
+  entry.appendChild(header);
+  var body=el('div','pb-cmd-result-body');
+  body.textContent='Executing...';
+  entry.appendChild(body);
+  if(_cmdOutput.firstChild&&_cmdOutput.firstChild.className==='pb-cmd-desc') _cmdOutput.textContent='';
+  _cmdOutput.insertBefore(entry,_cmdOutput.firstChild);
+
+  var reqBody={command:command};
+  if(clientSlug)reqBody.client=clientSlug;
+
+  fetch('/api/seo/execute',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(reqBody)
+  }).then(function(response){
+    var reader=response.body.getReader();
+    var decoder=new TextDecoder();
+    var fullText='';
+    body.textContent='';
+    function read(){
+      reader.read().then(function(result){
+        if(result.done){
+          var statusEl=entry.querySelector('.pb-cmd-result-status');
+          if(statusEl){statusEl.className='pb-cmd-result-status pb-cmd-done';statusEl.textContent='\u2705 Complete';}
+          return;
+        }
+        var chunk=decoder.decode(result.value,{stream:true});
+        var lines=chunk.split('\n');
+        lines.forEach(function(line){
+          if(line.startsWith('data: ')){
+            try{
+              var msg=JSON.parse(line.slice(6));
+              if(msg.type==='output'){fullText+=msg.text;body.textContent=fullText;}
+              else if(msg.type==='complete'){
+                var statusEl2=entry.querySelector('.pb-cmd-result-status');
+                if(statusEl2){statusEl2.className='pb-cmd-result-status pb-cmd-done';statusEl2.textContent='\u2705 Complete';}
+              }
+            }catch(e){}
+          }
+        });
+        read();
+      });
+    }
+    read();
+  }).catch(function(err){
+    body.textContent='Error: '+err.message;
+    var statusEl3=entry.querySelector('.pb-cmd-result-status');
+    if(statusEl3){statusEl3.className='pb-cmd-result-status pb-cmd-error';statusEl3.textContent='\u274C Failed';}
+  });
+}
+
+function runAllClients(command){
+  DATA.clients.forEach(function(cl,i){
+    setTimeout(function(){runCommand(command,cl.folder);},i*500);
+  });
+}
+
+function syncToClickUp(clientSlug,month){
+  var entry=el('div','pb-cmd-result-entry');
+  var header=el('div','pb-cmd-result-header');
+  header.appendChild(el('span','pb-cmd-result-label','ClickUp Sync \u2014 '+clientSlug+' \u2014 '+month));
+  header.appendChild(el('span','pb-cmd-result-status pb-cmd-running','\u23F3 Syncing...'));
+  entry.appendChild(header);
+  var body=el('div','pb-cmd-result-body','Pushing tasks to ClickUp...');
+  entry.appendChild(body);
+  if(_cmdOutput.firstChild&&_cmdOutput.firstChild.className==='pb-cmd-desc') _cmdOutput.textContent='';
+  _cmdOutput.insertBefore(entry,_cmdOutput.firstChild);
+
+  fetch('/api/seo/clickup/sync-plan',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({client:clientSlug,month:month})
+  }).then(function(r){return r.json();}).then(function(data){
+    body.textContent='Created list: '+(data.list_name||'?')+' with '+(data.tasks_created||0)+' tasks.';
+    var st=entry.querySelector('.pb-cmd-result-status');
+    if(st){st.className='pb-cmd-result-status pb-cmd-done';st.textContent='\u2705 Synced';}
+  }).catch(function(err){
+    body.textContent='Error: '+err.message;
+    var st2=entry.querySelector('.pb-cmd-result-status');
+    if(st2){st2.className='pb-cmd-result-status pb-cmd-error';st2.textContent='\u274C Failed';}
+  });
+}
+
+function loadClickUpProgress(){
+  var container=document.getElementById('pb-cu-progress');
+  if(!container)return;
+  container.textContent='';
+  container.appendChild(el('div','pb-cmd-desc','Loading from ClickUp...'));
+  fetch('/api/seo/clickup/progress').then(function(r){return r.json();}).then(function(data){
+    container.textContent='';
+    if(!data.clients||!data.clients.length){
+      container.appendChild(el('div','pb-cmd-desc','No ClickUp data available.'));
+      return;
+    }
+    data.clients.forEach(function(cl){
+      var row=el('div','pb-cmd-progress-row');
+      row.appendChild(el('span','pb-cmd-progress-name',cl.client));
+      var barWrap=el('div','pb-cmd-progress-bar-wrap');
+      var barFill=el('div','pb-cmd-progress-bar-fill');
+      barFill.style.width=(cl.percent||0)+'%';
+      barFill.style.background=cl.percent>=80?'#16a34a':cl.percent>=50?'#d97706':'#dc2626';
+      barWrap.appendChild(barFill);
+      row.appendChild(barWrap);
+      row.appendChild(el('span','pb-cmd-progress-pct',(cl.percent||0)+'%'));
+      container.appendChild(row);
+    });
+  }).catch(function(){
+    container.textContent='';
+    container.appendChild(el('div','pb-cmd-desc','Could not load ClickUp data.'));
+  });
 }
 })();

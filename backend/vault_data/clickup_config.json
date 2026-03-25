@@ -1,0 +1,50 @@
+{
+  "workspace_id": "9006070686",
+  "clients": {
+    "saiyan-electric": {
+      "space_id": "90171038884",
+      "seo_folder_id": "90177120114",
+      "folder_name": "SEO 2026"
+    },
+    "all-thingz-electric": {
+      "space_id": "90170921347",
+      "seo_folder_id": "90177053781",
+      "folder_name": "SEO 2026"
+    },
+    "pelican-coast-electric": {
+      "space_id": "90171147412",
+      "seo_folder_id": "90172566418",
+      "folder_name": "SEO"
+    },
+    "dolce-electric": {
+      "space_id": "90171140336",
+      "seo_folder_id": "90177129396",
+      "folder_name": "SEO 2026"
+    },
+    "integrative-sports-spine": {
+      "space_id": "90171158237",
+      "seo_folder_id": "90172605906",
+      "folder_name": "SEO"
+    },
+    "trading-academy": {
+      "space_id": "90171158234",
+      "seo_folder_id": "90172605899",
+      "folder_name": "SEO"
+    },
+    "alpha-property-management": {
+      "space_id": "90173548886",
+      "seo_folder_id": "90175776918",
+      "folder_name": "SEO"
+    },
+    "adam-levinstein-photography": {
+      "space_id": "90171157281",
+      "seo_folder_id": "90172601720",
+      "folder_name": "SEO"
+    },
+    "cedar-gold-group": {
+      "space_id": "90173603726",
+      "seo_folder_id": "90177608560",
+      "folder_name": "Content Retainer"
+    }
+  }
+}

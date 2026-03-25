@@ -207,3 +207,54 @@ body.pb-active #view-job-monitor { display:none !important; }
 .pb-wl-hours span { font-size:13px; color:var(--text3,#9CA3AF); font-weight:400; }
 
 .pb-output-panel { display:none; }
+
+/* ── Command Center ── */
+.pb-cmd-section { margin-bottom:32px; }
+.pb-cmd-section-title { font-family:'Bebas Neue',sans-serif; font-size:22px; font-weight:400; letter-spacing:0.5px; color:var(--text,#111827); margin-bottom:16px; }
+
+.pb-cmd-ops-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:14px; }
+
+.pb-cmd-card { background:var(--bg2,#fff); border:1px solid var(--border,rgba(0,0,0,0.07)); border-left:4px solid #2563eb; border-radius:12px; padding:18px 20px; transition:box-shadow 0.15s; }
+.pb-cmd-card:hover { box-shadow:0 4px 16px rgba(0,0,0,0.07); }
+
+.pb-cmd-card-top { display:flex; align-items:flex-start; gap:12px; margin-bottom:14px; }
+.pb-cmd-icon { font-size:24px; flex-shrink:0; margin-top:2px; }
+.pb-cmd-info { flex:1; min-width:0; }
+.pb-cmd-label { font-size:16px; font-weight:600; color:var(--text,#111827); margin-bottom:3px; }
+.pb-cmd-desc { font-size:13px; color:var(--text2,#4B5563); line-height:1.5; }
+.pb-cmd-timing { font-size:11px; font-weight:600; color:var(--text3,#9CA3AF); background:var(--bg3,#F4F6FC); padding:3px 10px; border-radius:99px; white-space:nowrap; flex-shrink:0; }
+
+.pb-cmd-card-bottom { display:flex; align-items:center; gap:10px; padding-top:12px; border-top:1px solid var(--border,rgba(0,0,0,0.07)); }
+
+.pb-cmd-select { flex:1; padding:8px 12px; border:1px solid var(--border2,rgba(0,0,0,0.1)); border-radius:8px; font-size:13px; color:var(--text,#111827); background:var(--bg2,#fff); outline:none; cursor:pointer; }
+.pb-cmd-select:focus { border-color:var(--elec-blue,#0051FF); }
+
+.pb-cmd-run-btn { padding:8px 18px; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; background:var(--elec-blue,#0051FF); color:#fff; transition:all 0.15s; white-space:nowrap; }
+.pb-cmd-run-btn:hover { opacity:0.9; box-shadow:0 2px 8px rgba(0,81,255,0.25); }
+.pb-cmd-run-btn:active { transform:scale(0.97); }
+
+.pb-cmd-cu-btn { background:#16a34a; }
+.pb-cmd-cu-btn:hover { box-shadow:0 2px 8px rgba(22,163,74,0.25); }
+
+.pb-cmd-cu-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media(max-width:800px) { .pb-cmd-cu-row { grid-template-columns:1fr; } }
+.pb-cmd-cu-card { background:var(--bg2,#fff); border:1px solid var(--border,rgba(0,0,0,0.07)); border-radius:12px; padding:18px 20px; }
+
+/* Progress bars */
+.pb-cmd-progress { margin-top:12px; }
+.pb-cmd-progress-row { display:flex; align-items:center; gap:10px; padding:6px 0; }
+.pb-cmd-progress-name { font-size:13px; font-weight:500; color:var(--text,#111827); min-width:140px; }
+.pb-cmd-progress-bar-wrap { flex:1; height:8px; background:#f1f5f9; border-radius:4px; overflow:hidden; }
+.pb-cmd-progress-bar-fill { height:100%; border-radius:4px; transition:width 0.3s; }
+.pb-cmd-progress-pct { font-size:13px; font-weight:600; min-width:40px; text-align:right; color:var(--text2,#4B5563); }
+
+/* Results feed */
+.pb-cmd-results { max-height:500px; overflow-y:auto; }
+.pb-cmd-result-entry { background:var(--bg2,#fff); border:1px solid var(--border,rgba(0,0,0,0.07)); border-radius:10px; padding:14px 18px; margin-bottom:10px; }
+.pb-cmd-result-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.pb-cmd-result-label { font-size:14px; font-weight:600; color:var(--text,#111827); }
+.pb-cmd-result-status { font-size:12px; font-weight:600; }
+.pb-cmd-running { color:var(--elec-blue,#0051FF); }
+.pb-cmd-done { color:#16a34a; }
+.pb-cmd-error { color:#dc2626; }
+.pb-cmd-result-body { font-size:13px; color:var(--text2,#4B5563); line-height:1.7; white-space:pre-wrap; word-break:break-word; max-height:300px; overflow-y:auto; padding:10px 14px; background:var(--bg3,#F4F6FC); border-radius:8px; font-family:'JetBrains Mono','Martian Mono',monospace; }
