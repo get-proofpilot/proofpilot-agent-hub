@@ -1182,7 +1182,9 @@ async def execute_seo_command(body: SeoExecuteRequest):
     if body.command not in ('weekly-plan', 'workload') and not body.client:
         raise HTTPException(400, 'Client slug required for this command')
 
-    result_id = f"{body.command}-{body.client or 'all'}-{_dt.utcnow().strftime('%Y%m%d-%H%M%S')}"
+    # Sanitize client slug for filesystem safety
+    safe_client = ''.join(c for c in (body.client or 'all') if c.isalnum() or c in '-_')
+    result_id = f"{body.command}-{safe_client}-{_dt.utcnow().strftime('%Y%m%d-%H%M%S')}"
 
     async def stream():
         full_output = []
@@ -1229,9 +1231,11 @@ async def list_seo_results():
 @app.get("/api/seo/results/{result_id}")
 async def get_seo_result(result_id: str):
     """Get a specific SEO operation result by ID."""
-    safe_id = Path(result_id).name
+    safe_id = ''.join(c for c in Path(result_id).name if c.isalnum() or c in '-_')
+    if not safe_id:
+        raise HTTPException(400, 'Invalid result ID')
     result_path = SEO_RESULTS_DIR / f"{safe_id}.json"
-    if not result_path.exists():
+    if not result_path.exists() or not result_path.resolve().is_relative_to(SEO_RESULTS_DIR.resolve()):
         raise HTTPException(404, 'Result not found')
     return json.loads(result_path.read_text())
 

@@ -592,12 +592,12 @@ async def execute(
 
     prompt = build_prompt(command, data)
 
-    client = anthropic.Anthropic()
+    client = anthropic.AsyncAnthropic()
 
-    with client.messages.stream(
+    async with client.messages.stream(
         model="claude-sonnet-4-20250514",
         max_tokens=8192,
         messages=[{"role": "user", "content": prompt}],
     ) as stream:
-        for text in stream.text_stream:
+        async for text in stream.text_stream:
             yield text
