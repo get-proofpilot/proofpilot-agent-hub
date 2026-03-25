@@ -285,6 +285,25 @@ def read_client_context(slug: str, vault_dir: Path) -> dict:
 
     context_text = _safe_read_text(client_dir / 'context.md')
 
+    # Work history files (for audits)
+    log_text = _safe_read_text(client_dir / 'log.md')
+    if log_text == "Not available":
+        log_text = "No work log available"
+
+    tracker_text = _safe_read_text(client_dir / 'tracker.yaml')
+    if tracker_text == "Not available":
+        tracker_text = "No page tracker available"
+
+    # Last monthly plan (for audit reference)
+    monthly_plans_dir = client_dir / 'monthly-plans'
+    last_plan_text = "No previous monthly plan available"
+    if monthly_plans_dir.exists():
+        plan_files = sorted(monthly_plans_dir.glob('*.md'), reverse=True)
+        if plan_files:
+            last_plan_text = _safe_read_text(plan_files[0])
+            if last_plan_text == "Not available":
+                last_plan_text = "No previous monthly plan available"
+
     # Parse roadmap for structured extraction
     roadmap_data = _safe_read_yaml(client_dir / 'roadmap.yaml')
 
@@ -316,6 +335,9 @@ def read_client_context(slug: str, vault_dir: Path) -> dict:
         'client_services': _extract_services_from_context(context_text),
         'content_quota': _extract_content_quota(recurring_text),
         'memory_context': get_recent_history(slug),
+        'work_log': log_text,
+        'tracker': tracker_text,
+        'last_plan': last_plan_text,
     }
 
 
@@ -433,6 +455,12 @@ _PROMPTS = {
         "- Services: {services_str}\n\n"
         "## What Should Have Been Done (recurring template)\n"
         "{recurring}\n\n"
+        "## Work Log (what was ACTUALLY done)\n"
+        "{work_log}\n\n"
+        "## Page Tracker (current page statuses)\n"
+        "{tracker}\n\n"
+        "## Last Monthly Plan\n"
+        "{last_plan}\n\n"
         "## Strategic Targets\n"
         "{targets_text}\n\n"
         "## Next Priority Pages (are we building the right things?)\n"
@@ -441,8 +469,10 @@ _PROMPTS = {
         "## Client Context\n"
         "{context}\n\n"
         "## Instructions\n"
-        "Use the memory section above to compare against what was ACTUALLY planned this month (not just the recurring template). "
-        "If memory shows specific pages were planned, check if they were built.\n\n"
+        "IMPORTANT: Use the Work Log and Page Tracker above to determine what was ACTUALLY completed. "
+        "The work log shows chronological entries of work done. The page tracker shows which URLs are live, in-progress, or planned. "
+        "Compare these against the recurring template AND the last monthly plan to produce an accurate audit. "
+        "Do NOT assume zero work was done if the log shows entries.\n\n"
         "Produce an audit with:\n\n"
         "1. **Deliverables Scorecard** — For each category (Content, GBP, Off-Page, Technical, "
         "Reporting), rate as: COMPLETE / PARTIAL / MISSING. Present as a table.\n\n"
@@ -700,7 +730,8 @@ def build_prompt(command: str, client_data_or_list) -> str:
     # Escape braces in user data fields to prevent KeyError/ValueError
     # when context.md or YAML files contain { or } characters
     text_fields = ('recurring', 'context', 'roadmap', 'next_pages_text',
-                   'next_blogs_text', 'targets_text', 'memory_context')
+                   'next_blogs_text', 'targets_text', 'memory_context',
+                   'work_log', 'tracker', 'last_plan')
     for key in text_fields:
         if key in format_dict and isinstance(format_dict[key], str):
             format_dict[key] = format_dict[key].replace('{', '{{').replace('}', '}}')

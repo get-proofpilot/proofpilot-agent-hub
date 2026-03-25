@@ -5,7 +5,7 @@
 # Usage: ./scripts/sync-vault-data.sh
 
 VAULT_ROOT="$HOME/my-vault/client-work"
-DATA_DIR="$(dirname "$0")/../data/vault"
+DATA_DIR="$(dirname "$0")/../backend/vault_data"
 
 if [ ! -d "$VAULT_ROOT" ]; then
   echo "Error: Vault not found at $VAULT_ROOT"
@@ -18,24 +18,36 @@ mkdir -p "$DATA_DIR/clients"
 cp "$VAULT_ROOT/_clients-index.yaml" "$DATA_DIR/_clients-index.yaml"
 echo "Copied _clients-index.yaml"
 
-# Copy per-client recurring.yaml and roadmap.yaml
+# Copy per-client files (strategy + work history)
 for client_dir in "$VAULT_ROOT/clients"/*/; do
   client_name=$(basename "$client_dir")
   mkdir -p "$DATA_DIR/clients/$client_name"
 
-  if [ -f "$client_dir/recurring.yaml" ]; then
-    cp "$client_dir/recurring.yaml" "$DATA_DIR/clients/$client_name/recurring.yaml"
-    echo "  $client_name/recurring.yaml"
+  # Strategy files
+  for file in recurring.yaml roadmap.yaml context.md; do
+    if [ -f "$client_dir/$file" ]; then
+      cp "$client_dir/$file" "$DATA_DIR/clients/$client_name/$file"
+      echo "  $client_name/$file"
+    fi
+  done
+
+  # Work history files (needed for audits and memory)
+  if [ -f "$client_dir/log.md" ]; then
+    cp "$client_dir/log.md" "$DATA_DIR/clients/$client_name/log.md"
+    echo "  $client_name/log.md"
   fi
 
-  if [ -f "$client_dir/roadmap.yaml" ]; then
-    cp "$client_dir/roadmap.yaml" "$DATA_DIR/clients/$client_name/roadmap.yaml"
-    echo "  $client_name/roadmap.yaml"
+  if [ -f "$client_dir/tracker.yaml" ]; then
+    cp "$client_dir/tracker.yaml" "$DATA_DIR/clients/$client_name/tracker.yaml"
+    echo "  $client_name/tracker.yaml"
   fi
 
-  if [ -f "$client_dir/context.md" ]; then
-    cp "$client_dir/context.md" "$DATA_DIR/clients/$client_name/context.md"
-    echo "  $client_name/context.md"
+  # Monthly plans (for audit reference)
+  if [ -d "$client_dir/monthly-plans" ]; then
+    mkdir -p "$DATA_DIR/clients/$client_name/monthly-plans"
+    cp "$client_dir"/monthly-plans/*.md "$DATA_DIR/clients/$client_name/monthly-plans/" 2>/dev/null
+    plan_count=$(ls -1 "$DATA_DIR/clients/$client_name/monthly-plans/" 2>/dev/null | wc -l | tr -d ' ')
+    [ "$plan_count" -gt 0 ] && echo "  $client_name/monthly-plans/ ($plan_count plans)"
   fi
 done
 

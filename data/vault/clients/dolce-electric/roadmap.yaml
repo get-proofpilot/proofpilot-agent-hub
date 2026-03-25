@@ -1,0 +1,362 @@
+# Dolce Electric — SEO Roadmap
+# Source: Dec 2025 competitive audit + SEO Deliverables Spreadsheet
+# This is the strategic pipeline. /monthly-plan reads this to know WHAT to build next.
+# Statuses: needed | in-progress | live | skipped
+# Tier 2 client ($1,200 MRR) — scope proportionally smaller than Tier 1
+
+# ──────────────────────────────────────
+# 2026 TARGETS
+# ──────────────────────────────────────
+targets:
+  baseline_mar_2026:
+    pages: ~20
+    reviews_google: 249
+    mobile_pagespeed: 48
+    spam_backlinks: 187
+    review_gap_vs_wire_guy: -72
+  eoy_2026:
+    pages: 45
+    keywords_top_10: 20
+    mobile_pagespeed: 70
+    review_gap_vs_wire_guy: -30
+  strategic_goal: "Close ranking gap with Wire Guy in Gilbert, Queen Creek, and Mesa suburbs. Own location pages for all serviceable AZ cities."
+
+# ──────────────────────────────────────
+# PAGE PIPELINE (sorted by priority)
+# ──────────────────────────────────────
+# Pages that need to be built. Pulled from competitive audit gaps.
+# /monthly-plan reads this to suggest next pages to create.
+# Pace: 2-3 pages per month (Tier 2 budget)
+
+pages_pipeline:
+
+  # --- LOCATION PAGES (missing — highest priority from audit) ---
+  - page: Electrician in Phoenix
+    url: /electrician-phoenix-az/
+    keyword: electrician phoenix az
+    volume: 4800
+    kd: ~40
+    words: 1200
+    priority: HIGH
+    type: location
+    status: needed
+    notes: Highest volume missing location page
+
+  - page: Electrician in Tempe
+    url: /electrician-tempe-az/
+    keyword: electrician tempe az
+    volume: 1300
+    kd: ~30
+    words: 1200
+    priority: HIGH
+    type: location
+    status: needed
+
+  - page: Electrician in Scottsdale
+    url: /electrician-scottsdale-az/
+    keyword: electrician scottsdale az
+    volume: 1600
+    kd: ~35
+    words: 1200
+    priority: HIGH
+    type: location
+    status: needed
+
+  - page: Electrician in Ahwatukee
+    url: /electrician-ahwatukee-az/
+    keyword: electrician ahwatukee az
+    volume: 170
+    kd: ~10
+    words: 1000
+    priority: HIGH
+    type: location
+    status: needed
+    notes: Low KD, easy win near Mesa
+
+  - page: Electrician in Apache Junction
+    url: /electrician-apache-junction-az/
+    keyword: electrician apache junction az
+    volume: 390
+    kd: ~15
+    words: 1000
+    priority: HIGH
+    type: location
+    status: needed
+
+  - page: Electrician in San Tan Valley
+    url: /electrician-san-tan-valley-az/
+    keyword: electrician san tan valley az
+    volume: 260
+    kd: ~10
+    words: 1000
+    priority: HIGH
+    type: location
+    status: needed
+    notes: Wire Guy not ranking here either — land grab
+
+  - page: Electrician in Fountain Hills
+    url: /electrician-fountain-hills-az/
+    keyword: electrician fountain hills az
+    volume: 170
+    kd: ~10
+    words: 1000
+    priority: MED
+    type: location
+    status: needed
+
+  # --- EXISTING LOCATION PAGES (need optimization) ---
+  - page: Electrician in Gilbert (optimize)
+    url: /electrician-gilbert-az/
+    keyword: electrician gilbert az
+    volume: 1900
+    priority: HIGH
+    type: location-optimize
+    status: needed
+    notes: "Currently #29 vs Wire Guy #2. Add internal links, star rating badges, stronger local content."
+
+  - page: Electrician in Queen Creek (optimize)
+    url: /electrician-queen-creek-az/
+    keyword: electrician queen creek az
+    volume: 590
+    priority: HIGH
+    type: location-optimize
+    status: needed
+    notes: "Not ranking. Wire Guy #4. Needs full rewrite with local signals."
+
+  - page: Electrician in Chandler (optimize)
+    url: /electrician-chandler-az/
+    keyword: electrician chandler az
+    volume: 1600
+    priority: HIGH
+    type: location-optimize
+    status: needed
+    notes: Wire Guy has 14 Datagemba backlinks to their Chandler page
+
+  # --- SERVICE SUB-PAGES ---
+  - page: Panel Upgrades
+    url: /panel-upgrades/
+    keyword: electrical panel upgrade mesa az
+    volume: 320
+    kd: ~25
+    words: 1400
+    priority: HIGH
+    type: sub-service
+    parent: /services/
+    status: needed
+    notes: High-ticket service Tony wants to push
+
+  - page: EV Charger Installation
+    url: /ev-charger-installation/
+    keyword: ev charger installation mesa az
+    volume: 480
+    kd: ~30
+    words: 1400
+    priority: HIGH
+    type: sub-service
+    parent: /services/
+    status: needed
+    notes: Growing demand in AZ market
+
+  - page: Electrical Rewiring
+    url: /electrical-rewiring/
+    keyword: electrical rewiring mesa az
+    volume: 210
+    kd: ~20
+    words: 1200
+    priority: MED
+    type: sub-service
+    parent: /services/
+    status: needed
+
+  - page: Emergency Electrician
+    url: /emergency-electrician/
+    keyword: emergency electrician mesa az
+    volume: 590
+    kd: ~30
+    words: 1200
+    priority: MED
+    type: sub-service
+    parent: /services/
+    status: needed
+
+  - page: Lighting Installation
+    url: /lighting-installation/
+    keyword: lighting installation mesa az
+    volume: 260
+    kd: ~20
+    words: 1200
+    priority: MED
+    type: sub-service
+    parent: /services/
+    status: needed
+
+  - page: Commercial Electrical Services
+    url: /commercial-electrician/
+    keyword: commercial electrician mesa az
+    volume: 170
+    kd: ~20
+    words: 1200
+    priority: LOW
+    type: sub-service
+    parent: /services/
+    status: needed
+    notes: Commercial comes through referrals, not organic. Build for authority, not leads.
+
+  # --- GEO SILO PAGES ---
+  - page: GEO Silo — Mesa neighborhoods (batch of 5)
+    keyword: electrician [neighborhood] mesa az
+    words: 800
+    priority: MED
+    type: geo-silo
+    status: needed
+    notes: "Neighborhoods: Superstition Springs, Eastmark, Las Sendas, Alta Mesa, Red Mountain"
+
+  - page: GEO Silo — Gilbert neighborhoods (batch of 3)
+    keyword: electrician [neighborhood] gilbert az
+    words: 800
+    priority: MED
+    type: geo-silo
+    status: needed
+    notes: "Neighborhoods: Val Vista Lakes, Power Ranch, Agritopia"
+
+# ──────────────────────────────────────
+# BLOG PIPELINE (sorted by pillar, then priority)
+# ──────────────────────────────────────
+# Blog posts that need to be written.
+# Pace: 1 post per month (Tier 2 budget, prioritize highest-impact topics)
+
+blogs_pipeline:
+
+  # --- PILLAR: COST GUIDES (Mesa/AZ market) ---
+  - title: "How Much Does a Panel Upgrade Cost in Mesa, AZ? (2026 Pricing)"
+    keyword: panel upgrade cost mesa az
+    volume: 170
+    kd: ~15
+    funnel: BOF
+    links_to: /panel-upgrades/
+    priority: HIGH
+    words: 1600
+    status: needed
+
+  - title: "EV Charger Installation Cost in Arizona: What Homeowners Should Know"
+    keyword: ev charger installation cost arizona
+    volume: 390
+    kd: ~30
+    funnel: BOF
+    links_to: /ev-charger-installation/
+    priority: HIGH
+    words: 1600
+    status: needed
+
+  - title: "How Much Does It Cost to Rewire a House in Arizona?"
+    keyword: cost to rewire house arizona
+    volume: 260
+    kd: ~20
+    funnel: BOF
+    links_to: /electrical-rewiring/
+    priority: MED
+    words: 1400
+    status: needed
+
+  # --- PILLAR: LOCAL / AZ-SPECIFIC ---
+  - title: "Arizona Electrical Permit Requirements: What Homeowners Need to Know"
+    keyword: arizona electrical permit requirements
+    volume: 210
+    kd: ~10
+    funnel: MOF
+    links_to: /services/
+    priority: HIGH
+    words: 1400
+    status: needed
+    notes: AZ-specific content Wire Guy does not have
+
+  - title: "APS Rebates for Electrical Upgrades in 2026: Complete Guide"
+    keyword: aps rebates electrical
+    volume: 140
+    kd: ~5
+    funnel: MOF
+    links_to: /panel-upgrades/
+    priority: HIGH
+    words: 1400
+    status: needed
+    notes: Utility-specific content that builds local authority
+
+  - title: "Do You Need a Permit for EV Charger Installation in Mesa?"
+    keyword: ev charger permit mesa az
+    volume: 70
+    kd: ~5
+    funnel: MOF
+    links_to: /ev-charger-installation/
+    priority: MED
+    words: 1200
+    status: needed
+
+  # --- PILLAR: SAFETY / EDUCATIONAL ---
+  - title: "5 Signs Your Home Needs an Electrical Panel Upgrade"
+    keyword: signs need electrical panel upgrade
+    volume: 390
+    kd: ~25
+    funnel: TOF
+    links_to: /panel-upgrades/
+    priority: HIGH
+    words: 1400
+    status: needed
+
+  - title: "Why Is My Circuit Breaker Tripping? Mesa Electrician Explains"
+    keyword: circuit breaker keeps tripping
+    volume: 1600
+    kd: ~40
+    funnel: TOF
+    links_to: /services/
+    priority: MED
+    words: 1400
+    status: needed
+
+  - title: "Aluminum Wiring in Arizona Homes: Risks and What to Do"
+    keyword: aluminum wiring arizona
+    volume: 110
+    kd: ~10
+    funnel: MOF
+    links_to: /electrical-rewiring/
+    priority: MED
+    words: 1400
+    status: needed
+
+  - title: "How to Choose an Electrician in Mesa: What 40 Years Taught Us"
+    keyword: how to choose electrician mesa
+    volume: 70
+    kd: ~5
+    funnel: BOF
+    links_to: /
+    priority: MED
+    words: 1200
+    status: needed
+    notes: Leverage Tony's 40+ years for E-E-A-T signals
+
+# ──────────────────────────────────────
+# TECHNICAL DEBT (from Dec 2025 audit)
+# ──────────────────────────────────────
+technical:
+  - task: Disavow 187 spam backlinks
+    priority: HIGH
+    status: needed
+    notes: Submit via Google Search Console disavow tool
+
+  - task: Fix mobile PageSpeed (48 -> 70+)
+    priority: HIGH
+    status: needed
+    notes: "3,640ms render-blocking. Target Wire Guy's 68 as minimum."
+
+  - task: Add internal linking to existing location pages
+    priority: HIGH
+    status: needed
+    notes: Chandler, Gilbert, Queen Creek pages all lack cross-links
+
+  - task: Add star rating schema badges to location pages
+    priority: MED
+    status: needed
+
+  - task: Optimize GBP photos (close gap with Wire Guy's 243+ photos)
+    priority: MED
+    status: needed
+    notes: Tony needs to provide more job site photos

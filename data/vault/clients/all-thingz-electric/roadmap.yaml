@@ -1,0 +1,455 @@
+# All Thingz Electric — SEO Roadmap
+# Source: 2026 SEO Strategy spreadsheet > Page Roadmap + Blog Roadmap
+# This is the strategic pipeline. /monthly-plan and /weekly-plan read this to know WHAT to build next.
+# Statuses: needed | in-progress | live | skipped
+
+# ──────────────────────────────────────
+# 2026 TARGETS
+# ──────────────────────────────────────
+targets:
+  baseline_dec_2025:
+    pages: 64
+    keywords_ranking: 628
+    keywords_top_10: 15
+    leads_per_month: 70
+    qual_rate: 0.18
+    cac: 150
+  eoy_2026:
+    pages: 105
+    keywords_ranking: 1200
+    keywords_top_10: 50
+    leads_per_month: 95
+    qual_rate: 0.30
+    cac: 100
+  strategic_goal: "SEO delivers 30% of business revenue ($40K+/month)"
+
+# ──────────────────────────────────────
+# PAGE PIPELINE (sorted by priority)
+# ──────────────────────────────────────
+# Pages that need to be built. Pulled from Page Roadmap tab.
+# /monthly-plan reads this to suggest next pages to create.
+
+pages_pipeline:
+
+  # --- ELECTRICAL PANELS ---
+  - page: Federal Pacific Panel Replacement
+    url: /federal-pacific-panel-replacement/
+    keyword: federal pacific panel replacement
+    volume: 10
+    kd: 5
+    words: 1400
+    priority: HIGH
+    type: sub-service
+    parent: /electrical-panel-upgrades/
+    status: needed
+
+  - page: Zinsco Panel Replacement
+    url: /zinsco-panel-replacement/
+    keyword: zinsco panel replacement
+    volume: 110
+    kd: 5
+    words: 1400
+    priority: MED
+    type: sub-service
+    parent: /electrical-panel-upgrades/
+    status: needed
+
+  - page: Challenger Panel Replacement
+    url: /challenger-panel-replacement/
+    keyword: challenger panel replacement
+    volume: 10
+    priority: HIGH
+    type: sub-service
+    parent: /electrical-panel-upgrades/
+    status: needed
+
+  - page: Pushmatic Panel Replacement
+    url: /pushmatic-panel-replacement/
+    keyword: pushmatic panel replacement
+    volume: 10
+    kd: 2
+    priority: HIGH
+    type: sub-service
+    parent: /electrical-panel-upgrades/
+    status: needed
+
+  - page: 100 Amp Panel Upgrade
+    url: /100-amp-panel-upgrade/
+    keyword: 100 amp panel upgrade
+    volume: 10
+    kd: 4
+    words: 1200
+    priority: MED
+    type: sub-service
+    parent: /electrical-panel-upgrades/
+    status: needed
+
+  - page: GTE-Sylvania Panel Replacement
+    url: /gte-sylvania-panel-replacement/
+    keyword: gte sylvania panel replacement
+    volume: 30
+    kd: 17
+    priority: MED
+    type: sub-service
+    parent: /electrical-panel-upgrades/
+    status: needed
+
+  - page: ITE Pushmatic Panel Replacement
+    url: /ite-pushmatic-panel-replacement/
+    keyword: ite pushmatic panel replacement
+    volume: 40
+    kd: 11
+    priority: MED
+    type: sub-service
+    parent: /electrical-panel-upgrades/
+    status: needed
+
+  # --- EV CHARGERS ---
+  - page: Level 2 EV Charger Installation
+    url: /level-2-ev-charger-installation/
+    keyword: level 2 ev charger installation
+    volume: 880
+    kd: 67
+    words: 1400
+    priority: HIGH
+    type: sub-service
+    parent: /ev-charger-installation/
+    status: needed
+
+  - page: Tesla Wall Connector Installation
+    url: /tesla-wall-connector-installation/
+    keyword: tesla wall connector installation
+    volume: 1600
+    kd: 11
+    words: 1400
+    priority: HIGH
+    type: sub-service
+    parent: /ev-charger-installation/
+    status: needed
+
+  - page: ChargePoint Installation
+    url: /chargepoint-installation/
+    keyword: chargepoint home installation
+    volume: 210
+    kd: 35
+    words: 1200
+    priority: MED
+    type: sub-service
+    parent: /ev-charger-installation/
+    status: needed
+
+  - page: NEMA 14-50 Outlet Installation
+    url: /nema-14-50-outlet/
+    keyword: nema 14-50 outlet installation
+    volume: 480
+    kd: 30
+    words: 1000
+    priority: MED
+    type: sub-service
+    parent: /ev-charger-installation/
+    status: needed
+
+  - page: EV Charger Repair
+    url: /ev-charger-repair/
+    keyword: ev charger repair
+    volume: 170
+    kd: 35
+    words: 1000
+    priority: LOW
+    type: sub-service
+    parent: /ev-charger-installation/
+    status: needed
+
+  # --- GENERATORS ---
+  - page: Whole House Generator Installation
+    url: /whole-house-generator/
+    keyword: whole house generator installation
+    volume: 320
+    kd: 31
+    words: 1400
+    priority: HIGH
+    type: sub-service
+    parent: /generator-installation/
+    status: needed
+
+  - page: Standby Generator Installation
+    url: /standby-generator-installation/
+    keyword: standby generator installation
+    volume: 720
+    kd: 43
+    words: 1400
+    priority: MED
+    type: sub-service
+    parent: /generator-installation/
+    status: needed
+
+  - page: Generator Repair and Maintenance
+    url: /generator-repair/
+    keyword: generator repair orange county
+    volume: 132
+    kd: 30
+    words: 1200
+    priority: MED
+    type: sub-service
+    parent: /generator-installation/
+    status: needed
+
+  - page: Transfer Switch Installation
+    url: /transfer-switch-installation/
+    keyword: transfer switch installation
+    volume: 110
+    kd: 50
+    words: 1200
+    priority: MED
+    type: sub-service
+    parent: /generator-installation/
+    status: needed
+
+  # --- LIGHTING ---
+  - page: Chandelier Installation
+    url: /chandelier-installation/
+    keyword: chandelier installation
+    volume: 170
+    kd: 22
+    words: 1000
+    priority: LOW
+    type: sub-service
+    parent: /lighting-services/
+    status: needed
+
+  - page: Landscape Lighting
+    url: /landscape-lighting/
+    keyword: landscape lighting installation
+    volume: 320
+    kd: 74
+    words: 1400
+    priority: MED
+    type: sub-service
+    parent: /lighting-services/
+    status: needed
+
+  - page: Outdoor Lighting
+    url: /outdoor-lighting/
+    keyword: outdoor lighting installation
+    volume: 390
+    kd: 67
+    words: 1400
+    priority: MED
+    type: sub-service
+    parent: /lighting-services/
+    status: needed
+
+  # --- REWIRING ---
+  - page: Knob and Tube Replacement
+    url: /knob-and-tube-replacement/
+    keyword: knob and tube wiring replacement
+    volume: 480
+    kd: 35
+    words: 1400
+    priority: HIGH
+    type: sub-service
+    parent: /electrical-rewiring/
+    status: needed
+
+  - page: Aluminum Wiring Replacement
+    url: /aluminum-wiring-replacement/
+    keyword: aluminum wiring replacement
+    volume: 10
+    kd: 15
+    words: 1400
+    priority: MED
+    type: sub-service
+    parent: /electrical-rewiring/
+    status: needed
+
+  # --- REPAIR ---
+  - page: Electrical Repair
+    url: /electrical-repair/
+    keyword: electrical repair orange county
+    volume: 1600
+    kd: 38
+    words: 1600
+    priority: HIGH
+    type: main-service
+    parent: /
+    status: needed
+
+  - page: Outlet Repair
+    url: /outlet-repair/
+    keyword: outlet repair electrician
+    volume: 390
+    kd: 28
+    words: 1000
+    priority: MED
+    type: sub-service
+    parent: /electrical-repair/
+    status: needed
+
+  # --- OUTLETS ---
+  - page: Outlets and Switches
+    url: /outlets-and-switches/
+    keyword: outlet installation orange county
+    volume: 720
+    kd: 30
+    words: 1400
+    priority: MED
+    type: main-service
+    parent: /
+    status: needed
+
+# ──────────────────────────────────────
+# BLOG PIPELINE (sorted by pillar, then priority)
+# ──────────────────────────────────────
+# Blog posts that need to be written. Pulled from Blog Roadmap tab.
+
+blogs_pipeline:
+
+  # --- PILLAR: ELECTRICAL PANELS ---
+  - title: "How Much Does It Cost to Upgrade from 100 Amp to 200 Amp?"
+    keyword: 100 to 200 amp upgrade cost
+    volume: null
+    kd: 45
+    funnel: BOF
+    links_to: /200-amp-panel-upgrade/
+    priority: HIGH
+    words: 1800
+    status: needed
+
+  - title: "Federal Pacific Panel Replacement: Why Your Insurance May Require It"
+    keyword: federal pacific panel replacement
+    volume: 10
+    kd: 5
+    funnel: BOF
+    links_to: /federal-pacific-panel-replacement/
+    priority: HIGH
+    words: 1800
+    status: needed
+
+  - title: "Zinsco Panel: The Hidden Fire Hazard in Your Home"
+    keyword: zinsco panel dangerous
+    volume: 260
+    funnel: BOF
+    links_to: /zinsco-panel-replacement/
+    priority: HIGH
+    words: 1600
+    status: needed
+
+  - title: "Challenger Panel Recall: Is Your Home at Risk? (2026 Update)"
+    keyword: challenger electrical panels recall
+    volume: 1000
+    funnel: BOF
+    links_to: /electrical-panel-upgrades/
+    priority: HIGH
+    words: 1600
+    status: needed
+
+  - title: "Do You Need a Permit for an Electrical Panel Upgrade in California?"
+    keyword: electrical panel permit orange county
+    volume: 170
+    funnel: BOF
+    links_to: /electrical-panel-upgrades/
+    priority: HIGH
+    words: 1400
+    status: needed
+
+  - title: "100 Amp vs 200 Amp Panel: Which Do You Actually Need?"
+    keyword: 100 vs 200 amp panel
+    volume: 480
+    funnel: MOF
+    links_to: /electrical-panel-upgrades/
+    priority: HIGH
+    words: 2000
+    status: needed
+
+  - title: "Should You Replace the Panel or Just the Breakers?"
+    keyword: replace panel or breakers
+    volume: 260
+    funnel: MOF
+    links_to: /electrical-panel-upgrades/
+    priority: HIGH
+    words: 1600
+    status: needed
+
+  - title: "Why You Shouldn't Buy an Electrical Panel at Home Depot"
+    keyword: electrical panels home depot
+    volume: 880
+    funnel: MOF
+    links_to: /electrical-panel-upgrades/
+    priority: HIGH
+    words: 1400
+    status: needed
+
+  - title: "7 Signs Your Electrical Panel Needs to Be Replaced"
+    keyword: signs need panel replacement
+    volume: 390
+    funnel: TOF
+    links_to: /electrical-panel-upgrades/
+    priority: HIGH
+    words: 1800
+    status: needed
+
+  # --- PILLAR: EV CHARGERS ---
+  - title: "Home EV Charger Installation: Cost, Timeline, and What to Expect"
+    keyword: home ev charger installation
+    volume: 480
+    kd: 72
+    funnel: BOF
+    links_to: /ev-charger-installation/
+    priority: HIGH
+    words: 2000
+    status: needed
+
+  - title: "Tesla Wall Connector Installation: Cost and What to Expect"
+    keyword: tesla ev charger installation
+    volume: 1300
+    funnel: BOF
+    links_to: /tesla-wall-connector-installation/
+    priority: HIGH
+    words: 1800
+    status: needed
+
+  - title: "EV Charger Installers Near Me: How to Find a Qualified Electrician"
+    keyword: ev charger installers near me
+    volume: 1300
+    funnel: BOF
+    links_to: /ev-charger-installation/
+    priority: HIGH
+    words: 1600
+    status: needed
+
+  - title: "California EV Charger Rebates and Incentives (2026 Guide)"
+    keyword: ev charger rebate
+    volume: 1300
+    funnel: BOF
+    links_to: /ev-charger-installation/
+    priority: HIGH
+    words: 1800
+    status: needed
+
+  - title: "SCE EV Charger Rebate: How OC Homeowners Can Save"
+    keyword: sce ev charger rebate
+    volume: 480
+    kd: 9
+    funnel: BOF
+    links_to: /ev-charger-installation/
+    priority: HIGH
+    words: 1400
+    status: needed
+
+  - title: "ChargePoint vs Tesla vs Emporia: Which Home EV Charger?"
+    keyword: chargepoint ev charger vs tesla
+    volume: 6600
+    funnel: MOF
+    links_to: /ev-charger-installation/
+    priority: HIGH
+    words: 2000
+    status: needed
+
+  - title: "Why You Shouldn't Install Your Own EV Charger"
+    keyword: how to install ev charger at home
+    volume: 320
+    funnel: MOF
+    links_to: /ev-charger-installation/
+    priority: HIGH
+    words: 1600
+    status: needed

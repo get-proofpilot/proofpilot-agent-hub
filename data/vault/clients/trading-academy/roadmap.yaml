@@ -1,0 +1,718 @@
+# Trading Academy — SEO Roadmap
+# Source: Client context + tracker.yaml gap analysis + keyword research
+# This is the strategic pipeline. /monthly-plan and /weekly-plan read this to know WHAT to build next.
+# Statuses: needed | in-progress | live | skipped
+# NOTE: NOT a local business. No citations, GBP, or local SEO. National/global content authority play.
+
+# ──────────────────────────────────────
+# 2026 TARGETS
+# ──────────────────────────────────────
+targets:
+  baseline_mar_2026:
+    pages: 103
+    monthly_organic_visitors: 10500
+    cost_per_buyer_organic: 88
+    students_total: 85000
+    years_of_data: 25
+    content_hub_pages: 45
+    calculators: 17
+    course_pages: 8
+  eoy_2026:
+    pages: 160
+    monthly_organic_visitors: 22000
+    cost_per_buyer_organic: 60
+    content_hub_pages: 70
+    calculators: 22
+    keywords_top_10: 120
+    keywords_ranking: 400
+  strategic_goal: "Double organic traffic through content hub expansion, interactive tool creation, and course companion content. Leverage 85K student dataset as unique content moat. Cost per buyer target under $65."
+
+# ──────────────────────────────────────
+# PAGE PIPELINE (sorted by priority)
+# ──────────────────────────────────────
+# Pages that need to be built. Identified from tracker.yaml gap analysis.
+# /monthly-plan reads this to suggest next pages to create.
+
+pages_pipeline:
+
+  # --- CONTENT HUB GAPS: TRADING STRATEGIES ---
+  # Has: /financial-education-center/trading-strategies.aspx, /10-day-trading-strategies-for-beginners.aspx
+  # Missing: swing trading, options strategies, candlestick patterns, technical indicators
+
+  - page: Swing Trading Guide
+    url: /financial-education-center/swing-trading.aspx
+    keyword: swing trading
+    volume: 60500
+    kd: 72
+    words: 2500
+    priority: HIGH
+    type: content-hub
+    parent: /financial-education-center/trading-strategies.aspx
+    status: needed
+    notes: "Massive volume keyword. Pillar-level page. Links to Core Strategy course."
+
+  - page: Options Trading Strategies
+    url: /financial-education-center/options-trading-strategies.aspx
+    keyword: options trading strategies
+    volume: 18100
+    kd: 65
+    words: 2500
+    priority: HIGH
+    type: content-hub
+    parent: /financial-education-center/trading-strategies.aspx
+    status: needed
+    notes: "Money keyword. Companion to Options Trading course page. Target The Failed Trader profile."
+
+  - page: Candlestick Patterns Guide
+    url: /financial-education-center/candlestick-patterns.aspx
+    keyword: candlestick patterns
+    volume: 33100
+    kd: 58
+    words: 2200
+    priority: HIGH
+    type: content-hub
+    parent: /financial-education-center/trading-analysis.aspx
+    status: needed
+    notes: "Visual content opportunity. Infographic-heavy. Strong featured snippet potential."
+
+  - page: Technical Analysis Indicators
+    url: /financial-education-center/technical-analysis-indicators.aspx
+    keyword: technical analysis indicators
+    volume: 6600
+    kd: 52
+    words: 2200
+    priority: HIGH
+    type: content-hub
+    parent: /financial-education-center/trading-analysis.aspx
+    status: needed
+    notes: "Covers RSI, MACD, moving averages, Bollinger Bands. Links to Core Strategy."
+
+  - page: Day Trading Guide
+    url: /financial-education-center/day-trading.aspx
+    keyword: day trading
+    volume: 90500
+    kd: 78
+    words: 2500
+    priority: HIGH
+    type: content-hub
+    parent: /financial-education-center/trading.aspx
+    status: needed
+    notes: "Extremely high volume. Difficult keyword but authority-building pillar. Target Career Changer and Side Income profiles."
+
+  # --- CONTENT HUB GAPS: INVESTING & WEALTH ---
+  # Has: /investing.aspx, /investing-for-beginners.aspx, /investing-strategies.aspx
+  # Missing: dividend investing, ETF investing, portfolio diversification, passive income
+
+  - page: Dividend Investing Guide
+    url: /financial-education-center/dividend-investing.aspx
+    keyword: dividend investing
+    volume: 12100
+    kd: 55
+    words: 2000
+    priority: HIGH
+    type: content-hub
+    parent: /financial-education-center/investing-strategies.aspx
+    status: needed
+    notes: "Target Passive Investor and Wealth Builder profiles. Links to Strategic Investor course."
+
+  - page: ETF Investing Guide
+    url: /financial-education-center/etf-investing.aspx
+    keyword: etf investing
+    volume: 8100
+    kd: 48
+    words: 1800
+    priority: MED
+    type: content-hub
+    parent: /financial-education-center/investing-strategies.aspx
+    status: needed
+    notes: "High intent from Passive Investor profile. Gateway content to course funnel."
+
+  - page: Portfolio Diversification
+    url: /financial-education-center/portfolio-diversification.aspx
+    keyword: portfolio diversification
+    volume: 6600
+    kd: 45
+    words: 1800
+    priority: MED
+    type: content-hub
+    parent: /financial-education-center/risk-management.aspx
+    status: needed
+    notes: "Core financial literacy topic. Links to Risk Management and Wealth Management."
+
+  - page: Passive Income Investing
+    url: /financial-education-center/passive-income-investing.aspx
+    keyword: passive income investing
+    volume: 4400
+    kd: 42
+    words: 1800
+    priority: MED
+    type: content-hub
+    parent: /financial-education-center/investing-strategies.aspx
+    status: needed
+    notes: "Target Side Income Seeker and Passive Investor profiles."
+
+  - page: Tax-Advantaged Investing Accounts
+    url: /financial-education-center/tax-advantaged-accounts.aspx
+    keyword: tax advantaged accounts
+    volume: 3600
+    kd: 38
+    words: 1600
+    priority: MED
+    type: content-hub
+    parent: /financial-education-center/account-types.aspx
+    status: needed
+    notes: "IRA, 401k, Roth, HSA breakdown. Target Wealth Builder profile."
+
+  - page: Retirement Investing Strategies
+    url: /financial-education-center/retirement-investing.aspx
+    keyword: retirement investing
+    volume: 5400
+    kd: 50
+    words: 2000
+    priority: MED
+    type: content-hub
+    parent: /financial-education-center/investing-strategies.aspx
+    status: needed
+    notes: "Target Wealth Builder and Passive Investor. Links to Wealth Management course."
+
+  # --- CONTENT HUB GAPS: MARKET MECHANICS ---
+  # Has: /order-types.aspx, /market-conditions.aspx, /support-and-resistance.aspx
+  # Missing: market orders explained, reading stock charts, supply and demand zones
+
+  - page: How to Read Stock Charts
+    url: /financial-education-center/how-to-read-stock-charts.aspx
+    keyword: how to read stock charts
+    volume: 14800
+    kd: 55
+    words: 2200
+    priority: HIGH
+    type: content-hub
+    parent: /financial-education-center/trading-analysis.aspx
+    status: needed
+    notes: "Fundamental skill page. Heavy visual content. Links to Core Strategy and Stock Trading courses."
+
+  - page: Supply and Demand Trading
+    url: /financial-education-center/supply-and-demand-trading.aspx
+    keyword: supply and demand trading
+    volume: 4400
+    kd: 40
+    words: 1800
+    priority: HIGH
+    type: content-hub
+    parent: /financial-education-center/trading-strategies.aspx
+    status: needed
+    notes: "Core OTA methodology. This IS their proprietary strategy. High authority page."
+
+  # --- NEW INTERACTIVE TOOLS ---
+  # Has: 17 calculators (mostly personal finance focused)
+  # Missing: trading-specific tools that drive course enrollment
+
+  - page: Position Size Calculator
+    url: /resources/calculators/position-size-calculator.aspx
+    keyword: position size calculator
+    volume: 22200
+    kd: 45
+    words: 1200
+    priority: HIGH
+    type: tool
+    parent: /resources/calculators/
+    status: needed
+    notes: "Highest volume calculator opportunity. Linkable asset. Every trader needs this."
+
+  - page: Risk-Reward Calculator
+    url: /resources/calculators/risk-reward-calculator.aspx
+    keyword: risk reward calculator
+    volume: 6600
+    kd: 35
+    words: 1000
+    priority: HIGH
+    type: tool
+    parent: /resources/calculators/
+    status: needed
+    notes: "Pairs with Risk Management content pillar. Strong internal linking target."
+
+  - page: Compound Interest Calculator
+    url: /resources/calculators/compound-interest-calculator.aspx
+    keyword: compound interest calculator
+    volume: 135000
+    kd: 72
+    words: 1200
+    priority: HIGH
+    type: tool
+    parent: /resources/calculators/
+    status: needed
+    notes: "Massive volume. Competitive but high link-earning potential. Gateway to Wealth Builder profile."
+
+  - page: Options Profit Calculator
+    url: /resources/calculators/options-profit-calculator.aspx
+    keyword: options profit calculator
+    volume: 33100
+    kd: 55
+    words: 1200
+    priority: HIGH
+    type: tool
+    parent: /resources/calculators/
+    status: needed
+    notes: "Direct funnel to Options Trading course. Target Failed Trader profile."
+
+  - page: Financial Literacy Quiz
+    url: /resources/financial-literacy-quiz.aspx
+    keyword: financial literacy quiz
+    volume: 6600
+    kd: 30
+    words: 800
+    priority: HIGH
+    type: tool
+    parent: /resources/
+    status: needed
+    notes: "Lead magnet. Scores users and recommends course path. First-party data collection."
+
+  # --- COMPARISON / ALTERNATIVES PAGES ---
+  # Has: nothing
+  # Missing: vs competitor pages, best-of roundups, review/value content
+
+  - page: Trading Academy vs Competitors
+    url: /financial-education-center/trading-academy-reviews-comparison.aspx
+    keyword: online trading academy review
+    volume: 2900
+    kd: 25
+    words: 2000
+    priority: HIGH
+    type: content-hub
+    parent: /reviews/default2.aspx
+    status: needed
+    notes: "BOF page. Captures branded + comparison searches. Links to all course pages."
+
+  - page: Best Online Trading Courses
+    url: /financial-education-center/best-online-trading-courses.aspx
+    keyword: best online trading courses
+    volume: 6600
+    kd: 58
+    words: 2200
+    priority: HIGH
+    type: content-hub
+    parent: /education/
+    status: needed
+    notes: "Comparison page. Position OTA prominently. Captures commercial investigation intent."
+
+  # --- FIRST-PARTY DATA PAGES ---
+  # Has: nothing leveraging the 85K student dataset
+  # Missing: data-driven content using 25 years of student outcomes
+
+  - page: What Our Data Shows About Successful Traders
+    url: /financial-education-center/successful-trader-data.aspx
+    keyword: how long to become profitable trader
+    volume: 3600
+    kd: 32
+    words: 2000
+    priority: HIGH
+    type: content-hub
+    parent: /financial-education-center/
+    status: needed
+    notes: "Unique content moat. 85K students, 25 years. No competitor can replicate this. E-E-A-T signal."
+
+  - page: Average Time to Trading Profitability
+    url: /financial-education-center/average-time-to-profitability.aspx
+    keyword: how long does it take to learn trading
+    volume: 2400
+    kd: 28
+    words: 1800
+    priority: HIGH
+    type: content-hub
+    parent: /financial-education-center/successful-trader-data.aspx
+    status: needed
+    notes: "Data-backed content from student outcomes. Target Failed Trader and Career Changer profiles."
+
+# ──────────────────────────────────────
+# BLOG PIPELINE (sorted by pillar, then priority)
+# ──────────────────────────────────────
+# Blog posts that need to be written.
+# Existing content hub pages in tracker.yaml are excluded from this pipeline.
+
+blogs_pipeline:
+
+  # --- PILLAR: FINANCIAL LITERACY FOUNDATIONS ---
+  - title: "Financial Literacy: The Complete Guide to Managing Your Money in 2026"
+    keyword: financial literacy
+    volume: 14800
+    kd: 60
+    funnel: TOF
+    links_to: /financial-education-center/
+    priority: HIGH
+    words: 3000
+    status: needed
+    target_profile: All
+    notes: "Flagship keyword. Pillar blog post. Internal link hub to entire content center."
+
+  - title: "What Is Financial Literacy and Why Does It Matter?"
+    keyword: what is financial literacy
+    volume: 8100
+    kd: 45
+    funnel: TOF
+    links_to: /financial-education-center/
+    priority: HIGH
+    words: 1800
+    target_profile: All
+    status: needed
+
+  - title: "How to Create a Personal Financial Plan (Step-by-Step)"
+    keyword: personal financial plan
+    volume: 4400
+    kd: 38
+    funnel: TOF
+    links_to: /financial-education-center/investing-essentials.aspx
+    priority: MED
+    words: 2000
+    target_profile: Wealth Builder
+    status: needed
+
+  - title: "10 Financial Mistakes That Keep You Broke (And How to Fix Them)"
+    keyword: common financial mistakes
+    volume: 2400
+    kd: 25
+    funnel: TOF
+    links_to: /financial-education-center/investing-in-your-own-financial-education.aspx
+    priority: MED
+    words: 1800
+    target_profile: Side Income Seeker
+    status: needed
+
+  # --- PILLAR: STOCK MARKET EDUCATION ---
+  - title: "Stock Market for Beginners: Everything You Need to Know in 2026"
+    keyword: stock market for beginners
+    volume: 22200
+    kd: 55
+    funnel: TOF
+    links_to: /financial-education-center/stock-market-basics.aspx
+    priority: HIGH
+    words: 2500
+    target_profile: All
+    status: needed
+    notes: "High volume gateway content. Links to Stock Trading course page."
+
+  - title: "How to Start Investing in Stocks with $500 or Less"
+    keyword: how to start investing in stocks
+    volume: 12100
+    kd: 50
+    funnel: TOF
+    links_to: /education/stock-trading.aspx
+    priority: HIGH
+    words: 2000
+    target_profile: Side Income Seeker
+    status: needed
+
+  - title: "Bull Market vs Bear Market: How to Profit in Both"
+    keyword: bull vs bear market
+    volume: 6600
+    kd: 35
+    funnel: MOF
+    links_to: /financial-education-center/investing-in-a-bear-market-using-sector-rotation.aspx
+    priority: MED
+    words: 1800
+    target_profile: Wealth Builder
+    status: needed
+
+  - title: "How to Build a Stock Watchlist That Actually Works"
+    keyword: how to build a stock watchlist
+    volume: 1900
+    kd: 22
+    funnel: MOF
+    links_to: /financial-education-center/find-good-stocks-to-invest-in-the-smart-way.aspx
+    priority: MED
+    words: 1600
+    target_profile: Failed Trader
+    status: needed
+
+  # --- PILLAR: OPTIONS / FUTURES / FOREX / CRYPTO ---
+  - title: "Options Trading for Beginners: A Plain-English Guide"
+    keyword: options trading for beginners
+    volume: 18100
+    kd: 55
+    funnel: TOF
+    links_to: /education/options-trading.aspx
+    priority: HIGH
+    words: 2500
+    target_profile: Career Changer
+    status: needed
+    notes: "Course companion content. Funnel to Options Trading course page."
+
+  - title: "How to Trade Futures: A Beginner's Guide to Futures Contracts"
+    keyword: how to trade futures
+    volume: 9900
+    kd: 50
+    funnel: TOF
+    links_to: /education/futures-trading.aspx
+    priority: HIGH
+    words: 2200
+    target_profile: Career Changer
+    status: needed
+    notes: "Course companion content. Funnel to Futures Trading course page."
+
+  - title: "Forex Trading for Beginners: How the Currency Market Works"
+    keyword: forex trading for beginners
+    volume: 14800
+    kd: 58
+    funnel: TOF
+    links_to: /education/forex-trading.aspx
+    priority: HIGH
+    words: 2200
+    target_profile: Side Income Seeker
+    status: needed
+    notes: "Course companion content. Funnel to Forex Trading course page."
+
+  - title: "Is Cryptocurrency a Good Investment? What 25 Years of Market Data Tells Us"
+    keyword: is cryptocurrency a good investment
+    volume: 8100
+    kd: 45
+    funnel: MOF
+    links_to: /education/cryptocurrency.aspx
+    priority: HIGH
+    words: 2000
+    target_profile: Passive Investor
+    status: needed
+    notes: "First-party data angle. Links to Crypto course and Free Crypto Class."
+
+  - title: "Covered Calls Explained: Generate Income from Stocks You Own"
+    keyword: covered calls
+    volume: 18100
+    kd: 48
+    funnel: MOF
+    links_to: /financial-education-center/options-trading-strategies.aspx
+    priority: MED
+    words: 1800
+    target_profile: Wealth Builder
+    status: needed
+
+  - title: "Put Options Explained: How to Profit When Stocks Fall"
+    keyword: put options explained
+    volume: 6600
+    kd: 40
+    funnel: MOF
+    links_to: /financial-education-center/options-trading-strategies.aspx
+    priority: MED
+    words: 1800
+    target_profile: Failed Trader
+    status: needed
+
+  - title: "Futures vs Options: Which Is Right for Your Trading Style?"
+    keyword: futures vs options
+    volume: 4400
+    kd: 35
+    funnel: MOF
+    links_to: /education/
+    priority: MED
+    words: 1800
+    target_profile: Career Changer
+    status: needed
+
+  # --- PILLAR: TRADING STRATEGIES & TECHNICAL ANALYSIS ---
+  - title: "Day Trading vs Swing Trading: Which Strategy Fits Your Life?"
+    keyword: day trading vs swing trading
+    volume: 6600
+    kd: 40
+    funnel: MOF
+    links_to: /financial-education-center/trading-strategies.aspx
+    priority: HIGH
+    words: 2000
+    target_profile: Career Changer
+    status: needed
+
+  - title: "Moving Averages Explained: SMA vs EMA for Trading Decisions"
+    keyword: moving averages trading
+    volume: 4400
+    kd: 38
+    funnel: MOF
+    links_to: /financial-education-center/technical-analysis-indicators.aspx
+    priority: MED
+    words: 1800
+    target_profile: Failed Trader
+    status: needed
+
+  - title: "RSI Indicator: How to Use Relative Strength Index in Trading"
+    keyword: RSI indicator
+    volume: 12100
+    kd: 45
+    funnel: MOF
+    links_to: /financial-education-center/technical-analysis-indicators.aspx
+    priority: MED
+    words: 1800
+    target_profile: Failed Trader
+    status: needed
+
+  - title: "MACD Indicator: The Complete Guide to Reading MACD Signals"
+    keyword: MACD indicator
+    volume: 14800
+    kd: 48
+    funnel: MOF
+    links_to: /financial-education-center/technical-analysis-indicators.aspx
+    priority: MED
+    words: 1800
+    target_profile: Failed Trader
+    status: needed
+
+  - title: "Supply and Demand Zones: The Strategy Professional Traders Use"
+    keyword: supply and demand zones trading
+    volume: 3600
+    kd: 35
+    funnel: MOF
+    links_to: /financial-education-center/supply-and-demand-trading.aspx
+    priority: HIGH
+    words: 2000
+    target_profile: Failed Trader
+    status: needed
+    notes: "Core OTA methodology. Differentiator content. Links to Core Strategy course."
+
+  # --- PILLAR: RISK MANAGEMENT ---
+  - title: "Risk Management in Trading: The Rules That Keep Professionals Alive"
+    keyword: risk management trading
+    volume: 4400
+    kd: 38
+    funnel: MOF
+    links_to: /financial-education-center/risk-management.aspx
+    priority: HIGH
+    words: 2000
+    target_profile: Failed Trader
+    status: needed
+    notes: "Target Failed Trader who lost money from poor risk management. High conversion."
+
+  - title: "Position Sizing: How to Determine the Right Trade Size Every Time"
+    keyword: position sizing
+    volume: 4400
+    kd: 32
+    funnel: MOF
+    links_to: /resources/calculators/position-size-calculator.aspx
+    priority: MED
+    words: 1800
+    target_profile: Failed Trader
+    status: needed
+    notes: "Links to Position Size Calculator. Cross-content reinforcement."
+
+  - title: "How to Set Stop Losses: Protecting Your Capital Like a Pro"
+    keyword: how to set stop loss
+    volume: 6600
+    kd: 35
+    funnel: MOF
+    links_to: /financial-education-center/risk-management.aspx
+    priority: MED
+    words: 1600
+    target_profile: Failed Trader
+    status: needed
+
+  # --- PILLAR: WEALTH MANAGEMENT ---
+  - title: "How to Build Wealth on a $75K Salary (Real Numbers, Real Strategy)"
+    keyword: how to build wealth
+    volume: 9900
+    kd: 48
+    funnel: TOF
+    links_to: /financial-education-center/investing-strategies.aspx
+    priority: HIGH
+    words: 2200
+    target_profile: Wealth Builder
+    status: needed
+    notes: "Target Wealth Builder profile directly. Gateway to Wealth Management course."
+
+  - title: "Dividend Growth Investing: Building a Portfolio That Pays You Monthly"
+    keyword: dividend growth investing
+    volume: 3600
+    kd: 38
+    funnel: MOF
+    links_to: /financial-education-center/dividend-investing.aspx
+    priority: MED
+    words: 2000
+    target_profile: Passive Investor
+    status: needed
+
+  - title: "Compound Interest: The Math Behind Turning $10K into $1M"
+    keyword: compound interest investing
+    volume: 4400
+    kd: 35
+    funnel: TOF
+    links_to: /resources/calculators/compound-interest-calculator.aspx
+    priority: MED
+    words: 1600
+    target_profile: Side Income Seeker
+    status: needed
+
+  # --- PILLAR: CAREER IN TRADING ---
+  - title: "Can You Make a Living Day Trading? What the Data Actually Shows"
+    keyword: can you make a living day trading
+    volume: 6600
+    kd: 40
+    funnel: MOF
+    links_to: /financial-education-center/successful-trader-data.aspx
+    priority: HIGH
+    words: 2200
+    target_profile: Career Changer
+    status: needed
+    notes: "First-party data play. 85K student outcomes. No competitor has this data."
+
+  - title: "How to Become a Day Trader: The Complete Career Roadmap"
+    keyword: how to become a day trader
+    volume: 9900
+    kd: 50
+    funnel: TOF
+    links_to: /education/core-strategy.aspx
+    priority: HIGH
+    words: 2500
+    target_profile: Career Changer
+    status: needed
+    notes: "Course companion. Funnels to Core Strategy enrollment."
+
+  - title: "Trading as a Side Hustle: How to Trade Around a 9-to-5 Job"
+    keyword: trading as a side hustle
+    volume: 1900
+    kd: 18
+    funnel: MOF
+    links_to: /financial-education-center/swing-trading.aspx
+    priority: MED
+    words: 1800
+    target_profile: Side Income Seeker
+    status: needed
+    notes: "Low competition, high conversion. Links to swing trading (fits 9-5 schedule)."
+
+  # --- BOF: COMPARISON / DECISION CONTENT ---
+  - title: "Is Trading Academy Worth It? Cost, Results, and What to Expect"
+    keyword: is trading academy worth it
+    volume: 1600
+    kd: 15
+    funnel: BOF
+    links_to: /reviews/default2.aspx
+    priority: HIGH
+    words: 2000
+    target_profile: All
+    status: needed
+    notes: "Critical BOF page. Branded search capture. Links to reviews and course pages."
+
+  - title: "Trading Academy vs Warrior Trading: Which Trading Education Is Better?"
+    keyword: online trading academy vs warrior trading
+    volume: 720
+    kd: 12
+    funnel: BOF
+    links_to: /financial-education-center/trading-academy-reviews-comparison.aspx
+    priority: MED
+    words: 2000
+    target_profile: All
+    status: needed
+
+  - title: "How Much Does Trading Education Cost? Complete Price Breakdown"
+    keyword: trading education cost
+    volume: 1300
+    kd: 20
+    funnel: BOF
+    links_to: /education/
+    priority: HIGH
+    words: 1800
+    target_profile: All
+    status: needed
+    notes: "Price transparency builds trust. Address cost objection head-on."
+
+  - title: "Free Trading Resources vs Paid Courses: What's Actually Worth Your Money?"
+    keyword: free trading courses vs paid
+    volume: 880
+    kd: 15
+    funnel: BOF
+    links_to: /education/core-strategy.aspx
+    priority: MED
+    words: 1800
+    target_profile: Side Income Seeker
+    status: needed
