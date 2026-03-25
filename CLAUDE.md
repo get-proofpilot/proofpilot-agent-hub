@@ -59,6 +59,18 @@ ProofPilot Agent Hub exists to **remove Matthew from the fulfillment bottleneck*
 - [ ] Domain format validation on workflow launch
 - [ ] TTL cleanup for `temp_docs/`
 
+**Phase 3 (SEO Operations System): COMPLETE**
+- [x] SEO Playbook split into two sidebar views: SOP & Templates + Operations
+- [x] SOP & Templates: Framework (monthly rhythm), Month Calendar, SOP Reference (20 tasks with steps), My Clients
+- [x] Operations Command Center: 5 commands (audit, monthly-plan, weekly-plan, wrap-up, workload)
+- [x] Execution engine (`seo_executor.py`) — Anthropic API with vault data context, async streaming
+- [x] Deep roadmap parsing — extracts specific page URLs, keywords, priorities from roadmap.yaml
+- [x] 5-layer strategy framework for clients without roadmaps (service pages, sub-services, locations, blogs)
+- [x] ClickUp two-way sync (`clickup_sync.py`) — push monthly plans as tasks, pull completion progress
+- [x] Result persistence on Railway volume — saved results, history feed, retrieval by ID
+- [x] Missing roadmap warnings in dashboard with strategy framework fallback
+- [x] 9 clients with vault data (recurring.yaml, roadmap.yaml, context.md)
+
 **What's NOT built yet (high priority per growth plan):**
 - GBP Post workflow (Month 1 priority — highest client visibility)
 - Google Drive integration (Phase 3 — zero-friction content handoff to Jo Paula)
@@ -101,7 +113,7 @@ cp .env.example .env   # ANTHROPIC_API_KEY, SEARCHATLAS_API_KEY, DATAFORSEO_LOGI
 
 ### Code Patterns
 - **Python:** Python 3.11, FastAPI, async generators for SSE streaming
-- **Frontend:** Pure HTML/CSS/JS SPA — no frameworks, no build step. All in `backend/static/`
+- **Frontend:** Pure HTML/CSS/JS SPA — no frameworks, no build step. All in `backend/web/`
 - **Claude API:** Always use `claude-opus-4-6`, `thinking: {"type": "adaptive"}`, `max_tokens: 8000`. No prefills — Opus 4.6 returns 400 on assistant turn prefills
 - **Streaming:** `client.messages.stream()` → `async for text in stream.text_stream` → `yield text`
 - **New features:** Prefer editing existing files over creating new ones. The frontend is a single SPA — add views/modals to the existing `index.html`, `script.js`, `style.css`
@@ -200,37 +212,28 @@ This CLAUDE.md is the project's memory. Update it when:
 ### Key Files
 ```
 backend/
-  server.py                     — FastAPI app, routes, SSE streaming, workflow dispatch (20 workflows)
+  server.py                     — FastAPI app, routes, SSE streaming, workflow dispatch, SEO operations API
+  seo_executor.py               — SEO command execution engine (audit, monthly-plan, weekly-plan, wrap-up, workload)
+  clickup_sync.py               — ClickUp REST API integration (push tasks, pull progress)
+  vault_data/                   — Client data synced from Obsidian vault
+    _clients-index.yaml         — All 9 clients: tier, MRR, manager, services, cadence
+    clickup_config.json          — Client → ClickUp space/folder ID mapping
+    clients/{slug}/
+      recurring.yaml             — Monthly task template (content, GBP, off-page, technical, reporting)
+      roadmap.yaml               — Pages pipeline with URLs, keywords, priorities (8 of 9 clients)
+      context.md                 — Client identity, services, contacts, key wins
   utils/
-    dataforseo.py               — DataForSEO API client (30+ functions: SERP, Labs, Keywords, Backlinks, On-Page, Trends)
+    dataforseo.py               — DataForSEO API client (30+ functions)
     searchatlas.py               — Search Atlas MCP wrapper
     docx_generator.py            — Branded Word document output
     db.py                        — SQLite schema, CRUD operations, seed data
-  workflows/
-    website_seo_audit.py         — Full site SEO audit (SA + DFS + Labs)
-    prospect_audit.py            — Sales-focused market analysis (SA + DFS + Keywords + GBP)
-    keyword_gap.py               — Competitor keyword gap (DFS Labs + SA)
-    ai_search_report.py          — AI Search Visibility Report (AI Overviews + SERP features)
-    backlink_audit.py            — Backlink health audit with competitor comparison
-    onpage_audit.py              — Single-page technical audit (60+ metrics)
-    seo_research_agent.py        — SEO Research & Content Strategy ("the brain")
-    competitor_intel.py          — Deep competitor intelligence teardown
-    monthly_report.py            — Monthly client performance report
-    proposals.py                 — Data-backed client proposals with ROI projections
-    google_ads_copy.py           — Google Ads copy with keyword data
-    schema_generator.py          — JSON-LD structured data generator
-    content_strategy.py          — Content ecosystem mapping
-    pnl_statement.py             — P&L statement generator
-    property_mgmt_strategy.py    — Property management marketing strategy
-    programmatic_content.py      — Bulk generation (6 types: location/service/blog/comparison/cost/best-in-city)
-    seo_blog_post.py             — Blog post (Claude only)
-    service_page.py              — Service page (Claude only)
-    location_page.py             — Location page (Claude only)
-    home_service_content.py      — Home service article (Claude only)
-  static/
-    index.html                   — Full SPA markup (all views, modals)
-    script.js                    — WORKFLOWS array, view routing, SSE streaming, workflow launch
-    style.css                    — Dark theme with ProofPilot brand system
+  workflows/                    — 25 workflow modules (see Live Workflows section)
+  web/
+    index.html                   — Full SPA markup (all views including SEO Playbook)
+    script.js                    — View routing, SSE streaming, workflow launch
+    style.css                    — Light theme with ProofPilot brand system
+    seo-playbook.js              — SEO Playbook + Operations frontend (5 tab views, Command Center)
+    seo-playbook.css             — Playbook styles (light theme, matches parent brand)
 ```
 
 ---
@@ -458,6 +461,80 @@ type: "error" → { type, message }
 
 ---
 
+## SEO Operations System
+
+The SEO Playbook is split into two sidebar views in the Agent Hub:
+
+### SOP & Templates (reference for the team)
+| Tab | Purpose |
+|-----|---------|
+| Framework | Monthly rhythm (weeks 1-4), priority matrix, decision tree, time allocation |
+| Month Calendar | Visual calendar with task distribution across working days |
+| SOP Reference | 20 task types with step-by-step processes, time estimates, category filters |
+| My Clients | Client cards with tier badges, MRR, manager filter, workload summary |
+
+### Operations (command execution)
+| Command | Scope | What It Does |
+|---------|-------|-------------|
+| `audit` | Per client | Compares planned vs actual deliverables with severity scorecard |
+| `monthly-plan` | Per client | Generates month plan from roadmap (specific pages) or strategy framework (gap analysis) |
+| `weekly-plan` | All clients | Prioritized checklist by manager with page URLs across portfolio |
+| `wrap-up` | Per client | Month-end summary + client email draft + next month preview |
+| `workload` | All clients | Team capacity analysis, hours per manager, rebalancing suggestions |
+
+### How Commands Execute
+1. Frontend sends `POST /api/seo/execute` with command + client slug
+2. `seo_executor.py` reads vault data (recurring.yaml, roadmap.yaml, context.md)
+3. Builds purpose-specific prompt with client context injected
+4. Calls Anthropic AsyncAnthropic Messages API with streaming
+5. Results stream via SSE to the Command Center UI
+6. Output saved to Railway volume (`/app/data/seo-results/`)
+
+### 5-Layer Strategy Framework (No-Roadmap Fallback)
+When a client has no `roadmap.yaml`, monthly-plan uses gap analysis:
+1. **Service Pages** — from context.md "Services They Offer" section
+2. **Sub-Service Pages** — specializations for top services
+3. **Location Pages** — cities in their market area
+4. **Location + Service Combos** — high-intent paired pages
+5. **Blog Content** — AEO-optimized, cost guides, how-to posts
+
+Tasks get named `Service Page 1 | [Name]` and flagged for SEO manager review.
+
+### ClickUp Integration
+- **Push**: `POST /api/seo/clickup/sync-plan` creates monthly list + tasks from recurring.yaml
+- **Pull**: `GET /api/seo/clickup/progress` returns completion rates per client
+- Config: `vault_data/clickup_config.json` maps client folders to ClickUp space/folder IDs
+- API key: `CLICKUP_API_KEY` env var on Railway
+
+### Vault Data Sync
+Client data comes from the Obsidian vault via `scripts/sync-vault-data.sh`:
+```bash
+./scripts/sync-vault-data.sh  # copies YAML/MD files to vault_data/
+git add vault_data/ && git commit && git push  # triggers Railway deploy
+```
+
+### SEO Operations API
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/seo/playbook-data` | GET | All client data for dashboard rendering |
+| `/api/seo/clients` | GET | Raw clients-index.yaml as JSON |
+| `/api/seo/execute` | POST | Execute command → SSE stream |
+| `/api/seo/results` | GET | List past operation results |
+| `/api/seo/results/{id}` | GET | Retrieve specific result |
+| `/api/seo/clickup/sync-plan` | POST | Push monthly plan to ClickUp |
+| `/api/seo/clickup/progress` | GET | Pull ClickUp completion per client |
+| `/api/seo/clickup/progress/{slug}` | GET | Detailed ClickUp tasks for one client |
+| `/api/seo/refresh-data` | POST | Re-read vault data |
+
+### Environment Variables (SEO Operations)
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `CLICKUP_API_KEY` | Yes | ClickUp personal API token |
+| `CLICKUP_WORKSPACE_ID` | Yes | ClickUp workspace ID (9006070686) |
+| `DOCS_DIR` | No | Path for result persistence (default: `/app/data` on Railway) |
+
+---
+
 ## DataForSEO Integration
 
 **Auth:** Basic auth (`DATAFORSEO_LOGIN:DATAFORSEO_PASSWORD`, base64)
@@ -525,6 +602,8 @@ Configured in Claude Code global config. Key: `SEARCHATLAS_API_KEY`.
 | AI Skills | 8 workflow cards organized by category (SEO, Content, Business, Dev) |
 | Clients | Client list with add/edit, active/inactive toggle |
 | Agent Tasks | Job history with status, client links |
+| **SOP & Templates** | SEO Playbook reference: Framework, Month Calendar, SOP Reference, My Clients |
+| **Operations** | SEO Command Center: audit/plan/wrap-up execution, ClickUp sync, results feed |
 | Content | Content Library — grouped by client, searchable, filterable |
 | Reports | Report cards (placeholder) |
 | Activity Log | Terminal-style log stream |
@@ -536,11 +615,14 @@ Configured in Claude Code global config. Key: `SEARCHATLAS_API_KEY`.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `ANTHROPIC_API_KEY` | Yes | Claude API key (Opus 4.6) |
+| `ANTHROPIC_API_KEY` | Yes | Claude API key (Opus 4.6 for workflows, Sonnet 4.6 for SEO operations) |
 | `SEARCHATLAS_API_KEY` | Yes | Search Atlas MCP API key |
 | `DATAFORSEO_LOGIN` | Yes | DataForSEO account email |
 | `DATAFORSEO_PASSWORD` | Yes | DataForSEO account password |
+| `CLICKUP_API_KEY` | Yes | ClickUp personal API token for task sync |
+| `CLICKUP_WORKSPACE_ID` | Yes | ClickUp workspace ID |
 | `DATABASE_PATH` | No | SQLite path (default: `./data/jobs.db`) |
+| `DOCS_DIR` | No | Persistent storage path (default: `/app/data` on Railway) |
 
 ---
 
