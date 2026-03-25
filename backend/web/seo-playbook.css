@@ -181,7 +181,8 @@ body.pb-active #view-job-monitor { display:none !important; }
 .pb-clients-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:12px; }
 .pb-client-card { background:var(--bg2,#fff); border:1px solid var(--border,rgba(0,0,0,0.07)); border-radius:12px; padding:16px; transition:box-shadow 0.15s; }
 .pb-client-card:hover { box-shadow:0 2px 12px rgba(0,0,0,0.06); }
-.pb-cc-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.pb-cc-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+.pb-cc-warning { font-size:12px; color:#d97706; background:#fffbeb; border:1px solid #fde68a; border-radius:6px; padding:4px 10px; margin-bottom:8px; }
 .pb-cc-name { font-size:17px; font-weight:600; color:var(--text,#111827); }
 .pb-cc-meta { display:flex; gap:12px; margin-bottom:12px; font-size:13px; color:var(--text3,#9CA3AF); flex-wrap:wrap; }
 .pb-cc-tasks { border-top:1px solid var(--border,rgba(0,0,0,0.07)); padding-top:10px; }

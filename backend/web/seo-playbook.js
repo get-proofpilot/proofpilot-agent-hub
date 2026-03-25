@@ -646,6 +646,13 @@ function renderMyClients(container){
       var hrs=Math.round(getTotalHours(c)*10)/10;
       var card=el('div','pb-client-card');
       var hdr=el('div','pb-cc-hdr');hdr.appendChild(el('span','pb-cc-name',c.name));hdr.appendChild(el('span','pb-tier '+tc(c.tier),'Tier '+c.tier));card.appendChild(hdr);
+      // Warnings for missing roadmap/recurring
+      if(c.warnings&&c.warnings.length){
+        c.warnings.forEach(function(w){
+          var warn=el('div','pb-cc-warning','\u26A0\uFE0F '+w);
+          card.appendChild(warn);
+        });
+      }
       var meta=el('div','pb-cc-meta');
       ['$'+c.mrr.toLocaleString()+'/mo',c.cadence,c.location,'~'+hrs+' hrs'].forEach(function(txt){meta.appendChild(el('span','',txt));});
       card.appendChild(meta);
@@ -719,8 +726,14 @@ function renderCommandCenter(c){
       var runBtn=el('button','pb-cmd-run-btn','\u25B6 Run');
       runBtn.addEventListener('click',function(){
         var slug=select.value;
+        // Warn if running monthly-plan for client without roadmap
+        if(cmd.cmd==='monthly-plan'&&slug!=='__all__'){
+          var client=DATA.clients.find(function(cl){return cl.folder===slug;});
+          if(client&&!client.hasRoadmap){
+            if(!confirm(client.name+' has no roadmap.yaml — the plan will use recurring tasks only (no specific page suggestions). Continue?'))return;
+          }
+        }
         if(slug==='__all__'){
-          // Run for all clients sequentially
           runAllClients(cmd.cmd);
         } else {
           runCommand(cmd.cmd,slug);

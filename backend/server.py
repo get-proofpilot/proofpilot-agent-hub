@@ -1134,12 +1134,22 @@ def _build_playbook_data():
         services = c.get('services', [])
         if isinstance(services, str):
             services = [s.strip() for s in services.split(',')]
+        has_roadmap = roadmap is not None and isinstance(roadmap, dict) and 'pages_pipeline' in roadmap
+        has_recurring = bool(recurring)
+        warnings = []
+        if not has_roadmap:
+            warnings.append('No roadmap — monthly plans will use recurring template only')
+        if not has_recurring:
+            warnings.append('No recurring.yaml — task templates missing')
+
         clients.append({
             'name': c.get('client', ''), 'folder': folder, 'tier': c.get('tier', 3),
             'mrr': c.get('mrr', 0), 'manager': c.get('manager', ''),
             'cadence': c.get('cadence', 'monthly'), 'contact': c.get('contact', ''),
             'location': c.get('location', ''), 'services': services,
-            'tasks': tasks, 'nextPages': next_pages
+            'tasks': tasks, 'nextPages': next_pages,
+            'hasRoadmap': has_roadmap, 'hasRecurring': has_recurring,
+            'warnings': warnings
         })
     return {'generated': _dt.utcnow().strftime('%Y-%m-%d'), 'month': month_label, 'clients': clients}
 
