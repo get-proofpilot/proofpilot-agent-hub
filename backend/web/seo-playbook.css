@@ -1,12 +1,9 @@
 /* ProofPilot SEO Playbook — Light Theme matching Agency Hub brand */
 /* Uses parent app CSS variables: --bg, --bg2, --border, --text, --text2, --text3, --accent, --elec-blue */
 
-#seo-playbook-root { padding:0; max-width:100%; }
+#seo-sop-root, #seo-ops-root { padding:0; max-width:100%; }
 
-/* Hide job monitor terminal when SEO Playbook is active */
-#view-seo-playbook.active ~ #view-job-monitor,
-#view-seo-playbook.active ~ .view#view-job-monitor { display:none !important; }
-/* Also hide via JS-managed class */
+/* Hide job monitor terminal when either SEO view is active */
 body.pb-active #view-job-monitor { display:none !important; }
 
 .pb-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
