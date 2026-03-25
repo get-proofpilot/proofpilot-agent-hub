@@ -157,6 +157,42 @@ async def crawl_site(website: str) -> list[str]:
         if _is_page_url(path):
             paths.add(path)
 
+    # If we found a /blog/ index but very few blog posts, do a second
+    # crawl specifically on the blog section to discover sub-pages
+    blog_paths = [p for p in paths if p.startswith('/blog/') and p != '/blog/']
+    has_blog_index = '/blog/' in paths
+    if has_blog_index and len(blog_paths) < 3:
+        logger.info("Blog index found but few posts — crawling /blog/ section...")
+        try:
+            async with httpx.AsyncClient(timeout=FIRECRAWL_TIMEOUT) as client:
+                resp = await client.post(
+                    f"{FIRECRAWL_BASE}/map",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={"url": f"{url}/blog/", "limit": 200},
+                )
+                resp.raise_for_status()
+                blog_data = resp.json()
+                blog_links = blog_data.get('links', [])
+                logger.info(f"Blog crawl returned {len(blog_links)} links")
+                for link in blog_links:
+                    try:
+                        parsed = urlparse(link)
+                        link_domain = parsed.netloc.lower()
+                        if link_domain and link_domain != base_domain and link_domain != f"www.{base_domain}" and f"www.{link_domain}" != base_domain:
+                            continue
+                        path = parsed.path or '/'
+                        if not path.endswith('/') and '.' not in path.split('/')[-1]:
+                            path = path + '/'
+                        if _is_page_url(path):
+                            paths.add(path)
+                    except Exception:
+                        continue
+        except Exception as e:
+            logger.warning(f"Blog sub-crawl failed: {e}")
+
     result = sorted(paths)
     logger.info(f"Found {len(result)} unique page paths after filtering")
     return result
@@ -178,10 +214,25 @@ def categorize_url(url_path: str) -> str:
     if path in _CORE_PATHS:
         return 'core'
 
-    # Blog detection
+    # Blog detection — check prefix first
     if path.startswith('/blog/') or '/blog/' in path or path == '/blog/':
         return 'blog'
-    if path.startswith('/news/') or path.startswith('/articles/'):
+    if path.startswith('/news/') or path.startswith('/articles/') or path.startswith('/resources/'):
+        return 'blog'
+
+    # Category/tag pages → other (not real content)
+    if path.startswith('/category/') or path.startswith('/tag/') or path.startswith('/author/'):
+        return 'other'
+
+    # Blog detection — informational content patterns (guides, how-to, lists)
+    slug = path.strip('/')
+    blog_indicators = [
+        'how-to-', 'what-is-', 'why-', 'when-to-', 'guide', 'tips',
+        'cost-of-', 'signs-', 'best-', 'top-', 'common-', 'benefits-of-',
+        '-vs-', 'checklist', 'mistakes', 'questions', 'explained',
+        'things-to-know', 'homeowner', 'complete-guide',
+    ]
+    if any(indicator in slug for indicator in blog_indicators):
         return 'blog'
 
     # Location detection — look for city + state abbreviation patterns
