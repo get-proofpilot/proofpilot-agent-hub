@@ -169,25 +169,12 @@ function tc(tier){return 'pb-tier-'+tier;}
 function ac(m){return m==='Matthew'?'pb-av-m':m==='Marcos'?'pb-av-marcos':'pb-av-jo';}
 function ini(m){return m.split(' ').map(function(w){return w[0];}).join('');}
 
-var pbInitialized=false, canRunCommands=false;
+var canRunCommands=false;
 
-// ── INIT (lazy — only loads when view becomes active) ──
+// ── INIT ──
 document.addEventListener('DOMContentLoaded',function(){
   var now=new Date();calYear=now.getFullYear();calMonth=now.getMonth();
-  // Watch for the SEO Playbook view becoming active
-  var observer=new MutationObserver(function(){
-    var view=document.getElementById('view-seo-playbook');
-    if(view&&view.classList.contains('active')&&!pbInitialized){
-      pbInitialized=true;
-      initPlaybook();
-      observer.disconnect();
-    }
-  });
-  var main=document.getElementById('main');
-  if(main)observer.observe(main,{attributes:true,subtree:true,attributeFilter:['class']});
-  // Also handle direct nav click
-  var navItem=document.getElementById('nav-seo-playbook');
-  if(navItem){navItem.addEventListener('click',function(){if(!pbInitialized){pbInitialized=true;initPlaybook();}});}
+  initPlaybook();
 });
 
 function initPlaybook(){
