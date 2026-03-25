@@ -160,9 +160,9 @@ def _format_targets_text(targets: dict | None) -> str:
     if not targets:
         return "No targets available"
 
-    baseline = targets.get('baseline_mar_2026', {})
-    eoy = targets.get('eoy_2026', {})
-    goal = targets.get('strategic_goal', '')
+    baseline = targets.get('baseline_mar_2026') or {}
+    eoy = targets.get('eoy_2026') or {}
+    goal = targets.get('strategic_goal') or ''
 
     lines = []
 
@@ -230,17 +230,13 @@ def read_client_context(slug: str, vault_dir: Path) -> dict:
 
     client_dir = vault_dir / 'clients' / slug
 
-    recurring_text = (
-        (client_dir / 'recurring.yaml').read_text()
-        if (client_dir / 'recurring.yaml').exists()
-        else "No recurring tasks available"
-    )
+    recurring_text = _safe_read_text(client_dir / 'recurring.yaml')
+    if recurring_text == "Not available":
+        recurring_text = "No recurring tasks available"
 
-    roadmap_text = (
-        (client_dir / 'roadmap.yaml').read_text()
-        if (client_dir / 'roadmap.yaml').exists()
-        else "No roadmap available"
-    )
+    roadmap_text = _safe_read_text(client_dir / 'roadmap.yaml')
+    if roadmap_text == "Not available":
+        roadmap_text = "No roadmap available"
 
     context_text = _safe_read_text(client_dir / 'context.md')
 
@@ -562,12 +558,21 @@ def build_prompt(command: str, client_data_or_list) -> str:
     """
     if command in ('weekly-plan', 'workload'):
         clients_block = _build_all_clients_block(client_data_or_list)
-        return _GLOBAL_PROMPTS[command].format(clients_block=clients_block)
+        # Escape braces in data to prevent format string crashes
+        safe_block = clients_block.replace('{', '{{').replace('}', '}}')
+        return _GLOBAL_PROMPTS[command].format(clients_block=safe_block)
 
     if command not in _PROMPTS:
         raise ValueError(f"Unknown command: {command}")
 
     format_dict = _prepare_client_format_dict(client_data_or_list)
+    # Escape braces in user data fields to prevent KeyError/ValueError
+    # when context.md or YAML files contain { or } characters
+    text_fields = ('recurring', 'context', 'roadmap', 'next_pages_text',
+                   'next_blogs_text', 'targets_text')
+    for key in text_fields:
+        if key in format_dict and isinstance(format_dict[key], str):
+            format_dict[key] = format_dict[key].replace('{', '{{').replace('}', '}}')
     return _PROMPTS[command].format(**format_dict)
 
 
@@ -592,11 +597,14 @@ async def execute(
 
     prompt = build_prompt(command, data)
 
+    # Use higher token limits for commands that produce longer output
+    token_limit = 16000 if command in ('weekly-plan', 'workload', 'monthly-plan') else 8192
+
     client = anthropic.AsyncAnthropic()
 
     async with client.messages.stream(
         model="claude-sonnet-4-20250514",
-        max_tokens=8192,
+        max_tokens=token_limit,
         messages=[{"role": "user", "content": prompt}],
     ) as stream:
         async for text in stream.text_stream:

@@ -1172,6 +1172,7 @@ try:
 except OSError:
     SEO_RESULTS_DIR = Path(__file__).parent / 'seo-results'
     SEO_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+print(f"[SEO] Results directory: {SEO_RESULTS_DIR.resolve()}")
 
 
 @app.post("/api/seo/execute")
@@ -1188,24 +1189,30 @@ async def execute_seo_command(body: SeoExecuteRequest):
 
     async def stream():
         full_output = []
+        status = 'complete'
         try:
             async for chunk in seo_execute(body.command, body.client, VAULT_DATA_DIR):
                 full_output.append(chunk)
                 yield f"data: {json.dumps({'type': 'output', 'text': chunk})}\n\n"
         except Exception as e:
+            status = 'error'
             yield f"data: {json.dumps({'type': 'error', 'text': str(e)})}\n\n"
-            return
-        # Save result to persistent storage
-        result_data = {
-            'id': result_id,
-            'command': body.command,
-            'client': body.client,
-            'timestamp': _dt.utcnow().isoformat(),
-            'output': ''.join(full_output)
-        }
-        result_path = SEO_RESULTS_DIR / f"{result_id}.json"
-        result_path.write_text(json.dumps(result_data, indent=2))
-        yield f"data: {json.dumps({'type': 'complete', 'result_id': result_id})}\n\n"
+        # Save result (even partial) to persistent storage
+        try:
+            result_data = {
+                'id': result_id,
+                'command': body.command,
+                'client': body.client,
+                'timestamp': _dt.utcnow().isoformat(),
+                'status': status,
+                'output': ''.join(full_output)
+            }
+            result_path = SEO_RESULTS_DIR / f"{result_id}.json"
+            result_path.write_text(json.dumps(result_data, indent=2))
+        except Exception:
+            pass  # Don't fail the SSE stream if result save fails
+        if status == 'complete':
+            yield f"data: {json.dumps({'type': 'complete', 'result_id': result_id})}\n\n"
 
     return StreamingResponse(stream(), media_type='text/event-stream')
 
