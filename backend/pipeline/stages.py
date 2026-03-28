@@ -32,6 +32,66 @@ from pipeline.skill_loader import build_stage_prompt
 logger = logging.getLogger(__name__)
 
 
+# ── Helper: parse QA revision directives ─────────────────────────────────────
+
+def _parse_revision_directives(review_text: str) -> list[dict]:
+    """Parse the ---REVISION_DIRECTIVES--- block from QA review output.
+
+    Returns a list of dicts: [{stage, action, instruction, selector?, property?, value?}]
+    """
+    directives = []
+
+    # Extract the block between markers
+    match = re.search(
+        r'---REVISION_DIRECTIVES---\s*\n(.*?)\n---END_DIRECTIVES---',
+        review_text, re.DOTALL
+    )
+    if not match:
+        # Fallback: try to parse [COPYWRITE] and [DESIGN] lines anywhere in the text
+        lines = review_text.split("\n")
+        for line in lines:
+            line = line.strip()
+            parsed = _parse_directive_line(line)
+            if parsed:
+                directives.append(parsed)
+        return directives
+
+    block = match.group(1)
+    for line in block.strip().split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        parsed = _parse_directive_line(line)
+        if parsed:
+            directives.append(parsed)
+
+    return directives
+
+
+def _parse_directive_line(line: str) -> dict:
+    """Parse a single directive line like '[COPYWRITE] Fix: do something'."""
+    # Match [STAGE] Action: instruction
+    m = re.match(r'\[(\w+)\]\s*(Fix|Patch):\s*(.+)', line, re.IGNORECASE)
+    if not m:
+        return {}
+
+    stage = m.group(1).lower()
+    action = m.group(2).lower()
+    instruction = m.group(3).strip()
+
+    result = {"stage": stage, "action": action, "instruction": instruction}
+
+    # For Patch directives, parse "selector | property | value"
+    if action == "patch" and "|" in instruction:
+        parts = [p.strip() for p in instruction.split("|")]
+        if len(parts) >= 3:
+            result["selector"] = parts[0]
+            result["property"] = parts[1]
+            result["value"] = parts[2]
+
+    return result
+
+
 # ── Helper: stream Claude and collect full text ─────────────────────────────
 
 async def _stream_claude(
@@ -402,6 +462,12 @@ async def run_copywrite(
         extra_context="\n\n".join(context_parts),
     )
 
+    # Check if this is a revision pass
+    is_revision = run.revision_round > 0 and run.revision_notes
+    previous_content = ""
+    if is_revision and content_artifact:
+        previous_content = content_artifact.as_prompt_context()
+
     user_prompt = (
         f"Write the full content for a **{run.page_type}** for **{run.client_name}**.\n"
         f"Follow the content brief above precisely.\n"
@@ -415,6 +481,21 @@ async def run_copywrite(
     price_range = run.inputs.get("price_range", "")
     if price_range:
         user_prompt += f"Price range: {price_range}\n"
+
+    # Inject revision feedback if this is a revision pass
+    if is_revision:
+        user_prompt += (
+            f"\n## REVISION PASS (Round {run.revision_round})\n"
+            f"This is a REVISION of previously generated content. The QA agent found these issues:\n\n"
+            f"{run.revision_notes}\n\n"
+            f"Fix ALL of the issues listed above. Keep everything else the same — "
+            f"only change what the QA feedback specifically calls out.\n"
+        )
+        if previous_content:
+            user_prompt += (
+                f"\n## Previous Content (revise this, don't start from scratch)\n"
+                f"{previous_content}\n"
+            )
 
     full_text = []
     async for chunk in _stream_claude(client, system_prompt, user_prompt, max_tokens=12000):
@@ -468,92 +549,309 @@ async def run_copywrite(
 
 # ── DESIGN Stage ────────────────────────────────────────────────────────────
 
-DESIGN_BASE_PROMPT = """You are an elite web page designer. You take markdown content and transform it into production-ready HTML/CSS pages that match the client's existing website design system exactly.
+DESIGN_BASE_PROMPT = """You are an elite web page designer at a top agency. You take markdown content and transform it into production-ready HTML/CSS pages that match the client's existing website design system exactly. Every page you build looks like it cost $5,000 to design — polished, layered, and intentional.
 
 You are the FOURTH stage in a multi-agent pipeline. You receive written content from the Copywriter Agent and produce a complete, polished HTML page.
 
 ## CRITICAL: Use the Client's Brand, NOT a Default Palette
 
-The client's design system is provided in the "Client Context (from memory)" section below. You MUST use their exact colors, fonts, spacing, and component patterns. If no client design system is provided, use a clean, professional default.
+The "CRITICAL BUILD DIRECTIVES" section in the client context below contains the EXACT logo URL, Google Fonts link, phone number, and nav links you MUST use. Copy them into your HTML exactly as provided.
 
-Look for these memory entries:
-- `design_system_css` — CSS custom properties with exact hex colors
-- `typography` — font families, sizes, weights for each heading level
-- `section_patterns` — how sections alternate (dark/light/gold backgrounds)
-- `component_styles` — button styles, card styles, icon treatments
-- `page_layout` — the order and structure of page sections
+The "Client Design System" section contains CSS custom properties, colors, typography, and component styles extracted from the client's actual website. Use these values — do NOT invent your own color palette or include generic framework variables (no --bs-*, --wp-*, --elementor-* variables).
 
-## Design Excellence Requirements
+## MANDATORY PAGE STRUCTURE
 
-### Layout & Spacing
-- Generous section padding (60-80px vertical on desktop, 40-60px mobile)
-- Container max-width matching client site
-- Clear visual hierarchy with ample whitespace between sections
-- Alternating section backgrounds that create visual rhythm
-- 2-column layouts for content+image sections on desktop, stacking on mobile
+Every page MUST include these structural elements in order:
 
-### Visual Treatments
-- Full-width hero with background image overlay (dark gradient) and white text
-- Trust badge bar spanning full width in the client's accent color
-- Service/feature cards with consistent shadows or borders
-- Icon treatments: use SVG icons from a CDN (Lucide, Heroicons, or FontAwesome) — NOT emoji
-- Process steps with numbered circles or timeline connectors
-- FAQ accordion with clean borders and +/- indicators
-- CTA sections with strong contrast (client's accent color)
+### 1. Sticky Header (REQUIRED)
+```
+<header> with:
+  - Client's LOGO (from the directives — use their actual logo image URL)
+  - Navigation links (from the directives)
+  - Phone number + primary CTA button (right side)
+  - Sticky on scroll (position: sticky; top: 0; z-index: 1000)
+  - Mobile: hamburger menu toggle
+```
+
+### 2. Hero Section
+- Full-width background image with dark gradient overlay
+- **Sizing: `min-height: 600px; padding: 100px 0 80px;`** on desktop — do NOT squish it
+- Hero H1 should be large: `font-size: 3.5rem` on desktop, `2.5rem` on mobile
+- The hero content area should be full container width (not max-width: 600px) for breathing room
+- White/light text with H1 + subheading + CTA buttons
+- Phone number as a prominent clickable link
+- Use an actual image from the client's site (hero_images in assets) or a data-prompt placeholder
+
+### 3. Content Sections — TWO-COLUMN IMAGE+TEXT LAYOUT
+**This is the most important design pattern.** Most home service websites use a two-column split as their primary section layout: text/content on one side, a large image on the other, alternating left/right across the page. DO THIS instead of single-column card grids for most sections.
+
+Layout pattern — alternate text/image sides across the page:
+```
+Section 1: [TEXT LEFT     |  IMAGE RIGHT]    — white bg
+Section 2: [IMAGE LEFT    |  TEXT RIGHT ]    — alt bg (use .reversed class)
+Section 3: [TEXT LEFT     |  IMAGE RIGHT]    — white bg
+```
+
+**Implementation (match real home service sites):**
+```css
+.container { max-width: 1350px; margin: 0 auto; padding: 0 2rem; }
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  align-items: center;
+}
+.two-col.reversed { direction: rtl; }
+.two-col.reversed > * { direction: ltr; }
+.two-col__image {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+}
+.two-col__image img {
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+  aspect-ratio: 4/3;
+  display: block;
+}
+@media (max-width: 768px) {
+  .two-col { grid-template-columns: 1fr; }
+  .two-col.reversed { direction: ltr; }
+}
+```
+
+**Section header labels (`.micro` pattern):**
+Above every H2, add a small uppercase label in the heading font:
+```css
+.micro {
+  font-family: var(--font-heading);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  margin-bottom: 0.5rem;
+  display: block;
+  /* IMPORTANT: inherit text-align from parent — don't hardcode left or center */
+}
+```
+**Alignment rule:** The `.micro` label and its H2 must have the SAME alignment. If the section header is centered, the micro is centered. If it's left-aligned (e.g., in a two-col text block), the micro is left-aligned. Never mix alignments within the same header group.
+
+Example: `<span class="micro">Our Process</span><h2>How We Work</h2>`
+
+**Button styling:**
+Buttons should use the heading font, uppercase, with the client's exact button styles:
+```css
+.btn {
+  font-family: var(--font-heading);
+  text-transform: uppercase;
+  font-size: 0.875rem;
+  font-weight: 700;
+  padding: 14px 24px;
+  border-radius: 5px;
+  text-decoration: none;
+  display: inline-block;
+  transition: all 0.3s ease;
+  letter-spacing: 0.02em;
+}
+.btn-primary { background: var(--primary); color: #fff; border: 2px solid var(--primary); }
+.btn-primary:hover { background: var(--accent); border-color: var(--accent); color: var(--text); }
+.btn-secondary { background: transparent; color: var(--text); border: 2px solid var(--primary); }
+.btn-secondary:hover { background: var(--primary); color: #fff; }
+```
+
+**When to use card grids vs two-column:**
+- **Two-column** (default): narrative sections — "why choose us", "about our process", "our expertise", "about [location]", any section with 1-3 paragraphs of text
+- **Card grid**: ONLY for 4+ equal items — trust badges, service types, material comparisons
+- **Process steps**: large decorative numbers (4-5rem, 0.3-0.5 opacity) + step title + description, with optional background image on one side
+- **Service areas**: pill-style location tags in a flex-wrap grid, NOT long lists:
+```css
+.location-tags { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.location-tag {
+  background: var(--primary); color: #fff;
+  padding: 8px 16px; border-radius: 20px;
+  font-size: 0.875rem; text-decoration: none;
+  transition: background 0.2s;
+}
+.location-tag:hover { background: var(--accent); }
+```
+
+### 4. IMAGE REQUIREMENTS (CRITICAL)
+Every content section MUST have imagery. The page should feel photo-heavy like a real agency site.
+
+For each section, add an image using `data-prompt` for AI generation:
+```html
+<img src="placeholder.jpg"
+     data-prompt="Professional photo of [specific scene], natural lighting, no text, no words, no labels, no watermark"
+     alt="[descriptive alt text]"
+     loading="lazy">
+```
+
+Image prompt guidelines:
+- Be SPECIFIC: "licensed electrician installing a Generac generator on a concrete pad next to a beige stucco home" not "person working"
+- Include the trade: roofer, electrician, plumber in proper gear
+- Include the setting: residential home exterior, attic, crawlspace, rooftop
+- Include the materials: shingles, tiles, copper pipe, electrical panel
+- ALWAYS end with: "no text, no words, no labels, no watermark"
+- Use the client's photography style from the brand data
+
+**Minimum images per page: 4** (hero background + at least 3 content images in two-col sections)
+
+### 5. Footer
+- Client's darkest brand color background
+- Multi-column: Services | Service Areas | Contact | Hours
+- Social media icon links (from assets)
+- Phone, email, address from business info
+- White logo variant if available (check assets for alt/white logo)
+- Copyright line
+
+## VISUAL POLISH — What Separates 8/10 from 10/10
+
+This is where most AI-generated pages fail. They get the structure right but look flat and generic. Apply these treatments to EVERY section:
+
+### Card Containers (REQUIRED on all grid items)
+Every grid item (trust badges, features, process steps, benefits, materials) MUST be in a styled card:
+```css
+.card {
+  background: var(--background);
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  border: 1px solid rgba(0,0,0,0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+```
+On dark backgrounds, use `background: rgba(255,255,255,0.08)` with `border: 1px solid rgba(255,255,255,0.12)`.
+
+### Background Treatments (alternate across sections)
+Don't just swap between white and gray. Use these patterns:
+- **Subtle gradient**: `background: linear-gradient(180deg, var(--background) 0%, var(--background-alt) 100%)`
+- **Accent strip**: A 4px accent-colored border-top on the section
+- **Dark feature section**: Use the client's darkest brand color as background with white/light text
+- **Accent-tinted section**: The client's accent color at 8-12% opacity as background
+- **Textured pattern**: Use a CSS repeating subtle dot or line pattern on at least one section
+
+### Section Heading Accents (REQUIRED)
+Every H2 section heading should have a visual accent — pick one per section:
+- Colored underline bar: `border-bottom: 3px solid var(--accent); padding-bottom: 0.5rem; display: inline-block;`
+- Small label above: `<span class="section-label">OUR PROCESS</span>` in accent color, uppercase, letter-spacing: 0.15em, font-size: 0.75rem
+- Icon beside heading: relevant Lucide icon inline with the H2
+
+### Visual Rhythm Between Sections
+Add at least 2 of these across the page:
+- Diagonal divider: `clip-path: polygon(0 0, 100% 4%, 100% 100%, 0 100%)` on a section
+- Accent-colored strip: `<div style="height: 4px; background: var(--accent);"></div>` between sections
+- Overlapping element: A trust stat bar that overlaps the hero bottom by 40px using negative margin
 
 ### Icon Integration (REQUIRED — never use emoji)
-Include one of these icon CDNs in <head>:
+Include Lucide icons via CDN:
 ```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide-static@latest/font/lucide.min.css">
+<script src="https://unpkg.com/lucide@latest"></script>
 ```
-Or use inline SVGs from Lucide/Heroicons. Every feature card, trust badge, and bullet point should have a relevant icon.
+Use: `<i data-lucide="shield-check"></i>` and call `lucide.createIcons()` at page end.
 
-### Typography
-- Load the client's Google Fonts via <link> tag
-- Proper heading hierarchy (H1 > H2 > H3) with distinct sizes
-- Body text: comfortable line-height (1.6-1.7), readable font-size (16-18px)
-- Bold strategic elements, not entire paragraphs
+Size icons: 20-24px inline, 32-40px for cards, 48-64px for hero badges.
+On dark backgrounds: white icons. On light backgrounds: accent color icons.
+Wrap card icons in a tinted circle: `background: rgba(accent, 0.1); border-radius: 50%; padding: 12px;`
 
-### Mobile Responsiveness
-- At least 2 breakpoints: tablet (768px) and mobile (480px)
-- Touch-friendly tap targets (min 44px)
-- Readable font sizes on mobile (min 16px body)
-- Cards stack to single column
-- Hero text scales down appropriately
-
-## Output Format
-Output a COMPLETE HTML document — no markdown wrappers, no code fences:
-
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>...</title>
-    <meta name="description" content="...">
-    <meta property="og:title" content="...">
-    <meta property="og:description" content="...">
-    <meta property="og:type" content="website">
-    <link rel="canonical" href="...">
-    <!-- Google Fonts -->
-    <!-- Icon CDN -->
-    <!-- Schema JSON-LD -->
-    <style>/* ALL CSS HERE — no external stylesheets */</style>
-</head>
-<body>...</body>
-</html>
+### Process/Timeline Steps
+Use large decorative numbers (like real agency sites — not small circles):
+```css
+.process-step { position: relative; padding-left: 100px; margin-bottom: 2.5rem; }
+.process-number {
+  position: absolute; left: 0; top: -10px;
+  font-family: var(--font-heading);
+  font-size: 4.5rem; font-weight: 600;
+  color: var(--primary); opacity: 0.15;
+  line-height: 1;
+}
+.process-step .micro { color: var(--accent); margin-bottom: 0.25rem; }
+.process-step h3 { font-size: 1.25rem; margin-bottom: 0.5rem; }
 ```
+Layout: steps on the LEFT column, large background image on the RIGHT column (two-col pattern).
+This matches how real roofing/home service sites display their process.
 
-### Required in every page:
+### CTA Sections
+- Use the client's accent color as background
+- Large heading, short paragraph, 2 buttons (primary + phone)
+- Add a subtle background pattern or radial gradient for depth
+
+### FAQ Accordion (two-column layout)
+Use a two-column layout: FAQ questions on the LEFT, section header + "See All FAQs" link on the RIGHT (or header on top if only a few questions).
+```css
+.faq-item {
+  background: var(--background);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.faq-question {
+  width: 100%; padding: 1.25rem 1.5rem;
+  background: none; border: none; cursor: pointer;
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: var(--font-body); font-weight: 600; font-size: 1rem;
+  text-align: left; color: var(--text);
+}
+.faq-answer {
+  max-height: 0; overflow: hidden; padding: 0 1.5rem;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+}
+.faq-item.active .faq-answer { max-height: 500px; padding: 0 1.5rem 1.5rem; }
+.faq-item.active { border-left: 3px solid var(--accent); }
+.faq-icon { transition: transform 0.3s ease; color: var(--accent); }
+.faq-item.active .faq-icon { transform: rotate(180deg); }
+```
+Use Lucide chevron-down icon for the toggle, NOT +/- text.
+
+## ANTI-PATTERNS — DO NOT:
+- Include Bootstrap, Tailwind, or any framework CSS variables in your :root
+- Use emoji as icons anywhere
+- Leave grid items without card containers (no floating text on backgrounds)
+- Use the same flat background color on 3+ consecutive sections
+- Generate maps as images (use Google Maps iframe)
+- Output markdown code fences — output raw HTML only
+- Skip the <header> with logo and navigation
+- Use display:none for FAQ answers (use max-height transition)
+- Include placeholder text like "Lorem ipsum" or "[Your text here]"
+
+## OUTPUT FORMAT
+Output ONLY the complete HTML document. Start with `<!DOCTYPE html>`, end with `</html>`.
+
+Include in <head>:
+- Google Fonts <link> (from the CRITICAL DIRECTIVES above)
+- Lucide icons script
 - Schema.org JSON-LD (LocalBusiness + Service + FAQPage)
 - Open Graph meta tags
 - Canonical URL
-- All CSS inline in <style> (no external sheets except fonts/icons)
-- Image placeholders: `<img src="placeholder.jpg" data-prompt="[AI image generation prompt]" alt="[descriptive alt]" loading="lazy">`
-- Vanilla JS only for FAQ accordion and mobile menu toggle
+- All CSS in a single <style> block — no external stylesheets
 
-Do NOT use emoji as icons. Do NOT output markdown — output raw HTML only."""
+At the end of <body>:
+```html
+<script>
+  lucide.createIcons();
+  // FAQ accordion
+  document.querySelectorAll('.faq-question').forEach(q => {
+    q.addEventListener('click', () => {
+      const item = q.closest('.faq-item');
+      item.classList.toggle('active');
+    });
+  });
+  // Mobile menu toggle
+  const menuBtn = document.querySelector('.menu-toggle');
+  const nav = document.querySelector('.nav-links');
+  if (menuBtn && nav) {
+    menuBtn.addEventListener('click', () => nav.classList.toggle('open'));
+  }
+</script>
+```
+
+Image placeholders: `<img src="placeholder.jpg" data-prompt="[detailed AI image prompt, include 'no text, no words']" alt="[descriptive]" loading="lazy">`
+For service area maps: use Google Maps iframe embed, NOT a generated image."""
 
 
 async def run_design(
@@ -611,11 +909,34 @@ async def run_design(
         extra_context="\n\n".join(context_parts),
     )
 
+    # Check if this is a revision pass
+    is_revision = run.revision_round > 0 and run.revision_notes
+    design_revision_notes = ""
+    if is_revision:
+        # Extract design-specific directives from revision notes
+        design_lines = []
+        for line in (run.revision_notes or "").split("\n"):
+            line = line.strip()
+            if line.startswith("[DESIGN]") or line.startswith("[design]"):
+                design_lines.append(line)
+        if design_lines:
+            design_revision_notes = "\n".join(design_lines)
+
     user_prompt = (
         f"Design a complete HTML/CSS page for this **{run.page_type}** for **{run.client_name}**.\n"
         f"Transform the markdown content above into a production-ready HTML page.\n"
-        f"Include all Schema.org JSON-LD, Open Graph tags, and responsive design.\n"
+        f"MUST INCLUDE: sticky header with the client's logo + nav, polished card containers on all grid items, "
+        f"varied background treatments across sections, heading accent elements, and a full footer.\n"
+        f"Use the EXACT logo URL, Google Fonts link, and phone number from the CRITICAL BUILD DIRECTIVES.\n"
     )
+
+    if design_revision_notes:
+        user_prompt += (
+            f"\n## DESIGN REVISION (Round {run.revision_round})\n"
+            f"The QA agent found these design issues to fix:\n\n"
+            f"{design_revision_notes}\n\n"
+            f"Address ALL of these issues in your output.\n"
+        )
 
     full_text = []
     async for chunk in _stream_claude(client, system_prompt, user_prompt, max_tokens=16000):
@@ -639,7 +960,7 @@ async def run_design(
 
 QA_BASE_PROMPT = """You are ProofPilot's QA Review Agent. You evaluate the complete page output (content + design + SEO) and produce a quality score with actionable feedback.
 
-You are the FINAL stage in a multi-agent pipeline. You review everything produced by previous agents.
+You are the FINAL stage in a multi-agent pipeline. You review everything produced by previous agents. Your output will be used by a REVISION LOOP that automatically fixes issues — so your feedback must be specific and actionable.
 
 ## Scoring System (100 points total)
 Score each category 0-20:
@@ -651,6 +972,8 @@ Score each category 0-20:
 5. **AEO Readiness (20)**: AI citability, FAQ structure, passage-level answers, entity clarity
 
 ## Output Format
+
+### Part 1: Human-Readable Review
 ```
 ## Quality Score: [TOTAL]/100
 
@@ -679,6 +1002,29 @@ Score each category 0-20:
 ## Recommendations
 [Ordered list of improvements, most impactful first]
 ```
+
+### Part 2: Machine-Readable Revision Directives (REQUIRED)
+
+After the human-readable review, output a `REVISION_DIRECTIVES` block. This tells the automated revision system EXACTLY what to fix and which stage should fix it.
+
+```
+---REVISION_DIRECTIVES---
+[COPYWRITE] Fix: <specific instruction for the copywriter to fix>
+[COPYWRITE] Fix: <another copywrite fix>
+[DESIGN] Fix: <specific instruction for the designer to fix>
+[DESIGN] Patch: <CSS selector> | <property> | <new value>
+---END_DIRECTIVES---
+```
+
+Rules for directives:
+- Prefix each line with `[COPYWRITE]` or `[DESIGN]` to route to the right stage
+- `[COPYWRITE] Fix:` — a content/SEO/E-E-A-T/AEO issue the copywriter should address
+- `[DESIGN] Fix:` — a structural/layout issue requiring design regeneration
+- `[DESIGN] Patch:` — a targeted CSS/HTML fix: `selector | property | value` (for simple fixes like colors, spacing, font-size)
+- List CRITICAL issues first, then HIGH, then MEDIUM
+- Maximum 10 directives (focus on highest impact)
+- Be specific: "Add Schema.org FAQPage JSON-LD with all 5 FAQ questions" not "improve schema"
+- For geographic errors: specify exactly what text to replace and with what
 
 Score honestly. Pages scoring below 70 should be marked NEEDS_REVISION."""
 
@@ -729,10 +1075,28 @@ async def run_qa(
     if not score_match:
         approved = False
 
+    # Parse category scores
+    cat_scores = {}
+    for cat_name, field_name in [
+        ("Content Quality", "content_quality_score"),
+        ("SEO Optimization", "seo_score"),
+        ("E-E-A-T Signals", "eeat_score"),
+        ("Technical Quality", "technical_score"),
+        ("AEO Readiness", "aeo_score"),
+    ]:
+        cat_match = re.search(rf'{cat_name}:\s*(\d+)/20', review)
+        if cat_match:
+            cat_scores[field_name] = int(cat_match.group(1))
+
+    # Parse revision directives
+    directives = _parse_revision_directives(review)
+
     artifact = QAArtifact(
         overall_score=score,
         approved=approved,
         review_text=review,
+        revision_directives=directives,
+        **cat_scores,
     )
     run.artifacts["qa"] = artifact.to_json()
 
@@ -770,7 +1134,7 @@ async def run_images(
         style_label = slot["style"].replace("_", " ").title()
         yield f">   [{i+1}] {style_label}: {slot['prompt'][:80]}...\n"
 
-    yield f"\n> Generating {min(len(slots), 6)} images via Recraft API...\n\n"
+    yield f"\n> Generating {min(len(slots), 6)} images via Recraft + OpenRouter...\n\n"
 
     # Load brand context for image generation
     brand_context = None

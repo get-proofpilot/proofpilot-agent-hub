@@ -27,6 +27,7 @@ import json
 import logging
 import os
 import re
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -36,7 +37,48 @@ logger = logging.getLogger(__name__)
 
 RECRAFT_API_URL = "https://external.api.recraft.ai/v1/images/generations"
 RECRAFT_API_KEY = os.environ.get("RECRAFT_API_KEY", "")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/images/generations"
+
+# Default model for image generation via OpenRouter
+# google/imagen-4 is strong for text-in-image and composited visuals
+OPENROUTER_IMAGE_MODEL = os.environ.get("OPENROUTER_IMAGE_MODEL", "google/imagen-4")
+
+
+# ── Rate Limiter ──────────────────────────────────────────────────────────────
+# Token-bucket rate limiter: prevents runaway credit spend on OpenRouter.
+# Defaults: 10 requests per 60-second window (safe for pipeline batches of 6-8 images).
+
+class _RateLimiter:
+    """Simple token-bucket rate limiter for API calls."""
+
+    def __init__(self, max_calls: int = 10, window_seconds: float = 60.0):
+        self._max = max_calls
+        self._window = window_seconds
+        self._timestamps: list[float] = []
+
+    def _prune(self):
+        cutoff = time.monotonic() - self._window
+        self._timestamps = [t for t in self._timestamps if t > cutoff]
+
+    async def acquire(self) -> bool:
+        """Wait until a slot is available. Returns True when ready."""
+        while True:
+            self._prune()
+            if len(self._timestamps) < self._max:
+                self._timestamps.append(time.monotonic())
+                return True
+            # Wait until oldest token expires
+            wait = self._timestamps[0] + self._window - time.monotonic()
+            if wait > 0:
+                logger.info("OpenRouter rate limiter: waiting %.1fs", wait)
+                await asyncio.sleep(min(wait + 0.1, 10.0))
+
+
+_openrouter_limiter = _RateLimiter(
+    max_calls=int(os.environ.get("OPENROUTER_RATE_LIMIT", "10")),
+    window_seconds=float(os.environ.get("OPENROUTER_RATE_WINDOW", "60")),
+)
 
 # ── Image Type Classification ──────────────────────────────────────────────
 #
@@ -297,50 +339,68 @@ async def generate_image_nano_banana(
     prompt: str,
     api_key: str = "",
 ) -> Optional[str]:
-    """Generate an image via Nano Banana Pro (Google Gemini API).
+    """Generate an image via OpenRouter (Nano Banana / Imagen models).
 
-    Returns a local file path to the saved image, or None on failure.
-    Nano Banana excels at: infographics, comparisons, anything with readable text,
-    composited/edited looks, styled backgrounds.
+    Returns the image URL, or None on failure.
+    Uses OpenRouter's OpenAI-compatible image generation endpoint.
+    Best for: infographics, comparisons, anything with readable text,
+    composited/edited looks, styled backgrounds, branded product shots.
     """
-    key = api_key or GEMINI_API_KEY
+    key = api_key or OPENROUTER_API_KEY
     if not key:
-        logger.warning("No GEMINI_API_KEY — skipping Nano Banana generation")
+        logger.warning("No OPENROUTER_API_KEY — skipping Nano Banana generation")
         return None
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/nano-banana-pro-preview:generateContent?key={key}"
+    # Rate limit before calling
+    await _openrouter_limiter.acquire()
+
     payload = {
-        "contents": [{"parts": [{"text": f"Generate an image: {prompt}"}]}],
-        "generationConfig": {
-            "responseModalities": ["IMAGE", "TEXT"],
-            "temperature": 0.7,
-        },
+        "model": OPENROUTER_IMAGE_MODEL,
+        "prompt": prompt[:4000],
+        "n": 1,
+        "size": "1024x1024",
+    }
+
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://proofpilot-agents.up.railway.app",
+        "X-Title": "ProofPilot Agent Hub",
     }
 
     try:
-        async with httpx.AsyncClient(timeout=90.0) as client:
-            resp = await client.post(url, json=payload)
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(OPENROUTER_API_URL, json=payload, headers=headers)
             resp.raise_for_status()
             data = resp.json()
-            for candidate in data.get("candidates", []):
-                for part in candidate.get("content", {}).get("parts", []):
-                    if "inlineData" in part:
-                        import base64
-                        import tempfile
-                        img = part["inlineData"]
-                        raw = base64.b64decode(img["data"])
-                        ext = "png" if "png" in img.get("mimeType", "") else "jpg"
-                        # Save to temp file and return path
-                        fd, path = tempfile.mkstemp(suffix=f".{ext}", prefix="nb_")
-                        os.close(fd)
-                        with open(path, "wb") as f:
-                            f.write(raw)
-                        logger.info("Nano Banana generated: %s (%d KB)", path, len(raw) // 1024)
-                        return path
+
+            # OpenRouter returns OpenAI-compatible format: {"data": [{"url": "..."}]}
+            images = data.get("data", [])
+            if images:
+                url = images[0].get("url")
+                if url:
+                    logger.info("OpenRouter (%s) generated image: %s", OPENROUTER_IMAGE_MODEL, url[:80])
+                    return url
+
+                # Some models return base64 instead of URL
+                b64 = images[0].get("b64_json")
+                if b64:
+                    import base64
+                    import tempfile
+                    raw = base64.b64decode(b64)
+                    fd, path = tempfile.mkstemp(suffix=".png", prefix="or_")
+                    os.close(fd)
+                    with open(path, "wb") as f:
+                        f.write(raw)
+                    logger.info("OpenRouter (%s) generated: %s (%d KB)",
+                                OPENROUTER_IMAGE_MODEL, path, len(raw) // 1024)
+                    return f"file://{path}"
+
+            logger.warning("OpenRouter returned no image data: %s", json.dumps(data)[:300])
     except httpx.HTTPStatusError as e:
-        logger.error("Nano Banana API error %s: %s", e.response.status_code, e.response.text[:200])
+        logger.error("OpenRouter API error %s: %s", e.response.status_code, e.response.text[:300])
     except Exception as e:
-        logger.error("Nano Banana generation failed: %s", e)
+        logger.error("OpenRouter generation failed: %s", e)
 
     return None
 
@@ -474,13 +534,11 @@ async def generate_images_for_page(
         tool_used = tool_type
 
         if tool_type == "nano_banana":
-            # Use Nano Banana for text-heavy / infographic / composited images
-            logger.info("Generating image %d via Nano Banana: %s...", slot["index"], enhanced_prompt[:80])
-            local_path = await generate_image_nano_banana(prompt=enhanced_prompt)
-            if local_path:
-                # For local files, we use a file:// URL (for local testing)
-                # In production, upload to S3/R2 and use the public URL
-                url = f"file://{local_path}"
+            # Use OpenRouter for text-heavy / infographic / composited images
+            logger.info("Generating image %d via OpenRouter (Nano Banana): %s...", slot["index"], enhanced_prompt[:80])
+            result_url = await generate_image_nano_banana(prompt=enhanced_prompt)
+            if result_url:
+                url = result_url
                 tool_used = "nano_banana"
 
         if tool_type in ("recraft_realistic", "recraft_vector") or (tool_type == "nano_banana" and not url):
