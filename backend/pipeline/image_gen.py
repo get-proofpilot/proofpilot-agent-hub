@@ -38,11 +38,10 @@ logger = logging.getLogger(__name__)
 RECRAFT_API_URL = "https://external.api.recraft.ai/v1/images/generations"
 RECRAFT_API_KEY = os.environ.get("RECRAFT_API_KEY", "")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
-OPENROUTER_API_URL = "https://openrouter.ai/api/v1/images/generations"
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-# Default model for image generation via OpenRouter
-# google/imagen-4 is strong for text-in-image and composited visuals
-OPENROUTER_IMAGE_MODEL = os.environ.get("OPENROUTER_IMAGE_MODEL", "google/imagen-4")
+# Default model: Nano Banana 2 (newest, cheapest, good text-in-image)
+OPENROUTER_IMAGE_MODEL = os.environ.get("OPENROUTER_IMAGE_MODEL", "google/gemini-3.1-flash-image-preview")
 
 
 # ── Rate Limiter ──────────────────────────────────────────────────────────────
@@ -339,13 +338,17 @@ async def generate_image_nano_banana(
     prompt: str,
     api_key: str = "",
 ) -> Optional[str]:
-    """Generate an image via OpenRouter (Nano Banana / Imagen models).
+    """Generate an image via OpenRouter using Nano Banana 2 (Gemini multimodal).
 
-    Returns the image URL, or None on failure.
-    Uses OpenRouter's OpenAI-compatible image generation endpoint.
+    Returns a local file path to the saved image, or None on failure.
+    Uses OpenRouter's chat/completions endpoint — Nano Banana models are
+    Gemini-based multimodal models that return images as base64 inline data.
     Best for: infographics, comparisons, anything with readable text,
     composited/edited looks, styled backgrounds, branded product shots.
     """
+    import base64
+    import tempfile
+
     key = api_key or OPENROUTER_API_KEY
     if not key:
         logger.warning("No OPENROUTER_API_KEY — skipping Nano Banana generation")
@@ -356,9 +359,12 @@ async def generate_image_nano_banana(
 
     payload = {
         "model": OPENROUTER_IMAGE_MODEL,
-        "prompt": prompt[:4000],
-        "n": 1,
-        "size": "1024x1024",
+        "messages": [
+            {
+                "role": "user",
+                "content": f"Generate an image: {prompt[:4000]}",
+            }
+        ],
     }
 
     headers = {
@@ -374,33 +380,61 @@ async def generate_image_nano_banana(
             resp.raise_for_status()
             data = resp.json()
 
-            # OpenRouter returns OpenAI-compatible format: {"data": [{"url": "..."}]}
-            images = data.get("data", [])
-            if images:
-                url = images[0].get("url")
-                if url:
-                    logger.info("OpenRouter (%s) generated image: %s", OPENROUTER_IMAGE_MODEL, url[:80])
-                    return url
+            # Nano Banana via OpenRouter returns images in the message content
+            # as multipart content blocks with type "image_url" containing
+            # base64 data URIs, or as inline_data parts.
+            choices = data.get("choices", [])
+            for choice in choices:
+                message = choice.get("message", {})
+                content = message.get("content", "")
 
-                # Some models return base64 instead of URL
-                b64 = images[0].get("b64_json")
-                if b64:
-                    import base64
-                    import tempfile
-                    raw = base64.b64decode(b64)
-                    fd, path = tempfile.mkstemp(suffix=".png", prefix="or_")
-                    os.close(fd)
-                    with open(path, "wb") as f:
-                        f.write(raw)
-                    logger.info("OpenRouter (%s) generated: %s (%d KB)",
-                                OPENROUTER_IMAGE_MODEL, path, len(raw) // 1024)
-                    return f"file://{path}"
+                # Case 1: content is a list of parts (multimodal response)
+                if isinstance(content, list):
+                    for part in content:
+                        if part.get("type") == "image_url":
+                            img_url = part.get("image_url", {}).get("url", "")
+                            # data:image/png;base64,... format
+                            if img_url.startswith("data:image"):
+                                b64_data = img_url.split(",", 1)[1] if "," in img_url else ""
+                                if b64_data:
+                                    raw = base64.b64decode(b64_data)
+                                    ext = "png" if "png" in img_url else "jpg"
+                                    fd, path = tempfile.mkstemp(suffix=f".{ext}", prefix="nb_")
+                                    os.close(fd)
+                                    with open(path, "wb") as f:
+                                        f.write(raw)
+                                    logger.info("Nano Banana 2 generated: %s (%d KB)", path, len(raw) // 1024)
+                                    return path
+                            # Regular URL
+                            elif img_url.startswith("http"):
+                                logger.info("Nano Banana 2 generated URL: %s", img_url[:80])
+                                return img_url
 
-            logger.warning("OpenRouter returned no image data: %s", json.dumps(data)[:300])
+                # Case 2: content is a string — check for inline base64 image
+                elif isinstance(content, str):
+                    # Some OpenRouter responses embed base64 in markdown: ![](data:image/...)
+                    img_match = re.search(r'data:image/(\w+);base64,([A-Za-z0-9+/=]+)', content)
+                    if img_match:
+                        ext = img_match.group(1)
+                        raw = base64.b64decode(img_match.group(2))
+                        fd, path = tempfile.mkstemp(suffix=f".{ext}", prefix="nb_")
+                        os.close(fd)
+                        with open(path, "wb") as f:
+                            f.write(raw)
+                        logger.info("Nano Banana 2 generated (inline): %s (%d KB)", path, len(raw) // 1024)
+                        return path
+
+            logger.warning("Nano Banana 2 returned no image data. Response keys: %s",
+                           list(data.keys()))
+            if choices:
+                msg = choices[0].get("message", {})
+                content_preview = str(msg.get("content", ""))[:300]
+                logger.warning("Response content preview: %s", content_preview)
+
     except httpx.HTTPStatusError as e:
         logger.error("OpenRouter API error %s: %s", e.response.status_code, e.response.text[:300])
     except Exception as e:
-        logger.error("OpenRouter generation failed: %s", e)
+        logger.error("OpenRouter/Nano Banana generation failed: %s", e)
 
     return None
 
