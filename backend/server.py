@@ -9,11 +9,9 @@ import json
 import uuid
 import asyncio
 from pathlib import Path
-from datetime import datetime as _dt
 
-import yaml
 import anthropic
-from fastapi import FastAPI, HTTPException, UploadFile, Request
+from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse, HTMLResponse
 from pydantic import BaseModel
@@ -64,7 +62,27 @@ from utils.meta_ads_sync import sync_meta_ads_data, sync_meta_ads_campaigns
 from utils.sheets_sync import sync_sheets_data
 from utils.content_db import get_content_roadmap, get_content_stats, bulk_insert_content, clear_content_roadmap
 from utils.tasks_db import get_client_tasks, create_client_task, update_task_status, sync_tasks_from_jobs
-from clickup_sync import sync_monthly_plan, get_progress, get_client_progress
+from utils.db import _connect as db_connect
+from pipeline.engine import PipelineEngine
+from pipeline.stages import STAGE_RUNNERS
+from pipeline.page_types.service_page import PAGE_CONFIG as SERVICE_PAGE_CONFIG
+from pipeline.page_types.location_page import PAGE_CONFIG as LOCATION_PAGE_CONFIG
+from pipeline.page_types.blog_post import PAGE_CONFIG as BLOG_POST_CONFIG
+from memory.store import ClientMemoryStore
+from utils.content_db import (
+    get_assignable_items, get_roadmap_item, assign_to_pipeline,
+    update_roadmap_status, mark_roadmap_approved,
+)
+try:
+    from scheduler.scheduler import PipelineScheduler
+    from scheduler.jobs import (
+        create_scheduled_job, get_scheduled_job, list_scheduled_jobs,
+        update_scheduled_job, delete_scheduled_job,
+    )
+    SCHEDULER_AVAILABLE = True
+except ImportError:
+    SCHEDULER_AVAILABLE = False
+    PipelineScheduler = None
 
 # ── App setup ─────────────────────────────────────────────
 app = FastAPI(title="ProofPilot Agency Hub API", version="1.0.0")
@@ -79,6 +97,32 @@ app.add_middleware(
 
 # ── Initialise SQLite on startup ───────────────────────────
 init_db()
+
+# ── Pipeline engine setup ─────────────────────────────────
+_anthropic_client = anthropic.AsyncAnthropic()
+_memory_store = ClientMemoryStore(db_connect)
+_pipeline_engine = PipelineEngine(_anthropic_client, db_connect, _memory_store)
+
+PAGE_TYPE_CONFIGS = {
+    "service-page": SERVICE_PAGE_CONFIG,
+    "location-page": LOCATION_PAGE_CONFIG,
+    "blog-post": BLOG_POST_CONFIG,
+}
+
+# ── Scheduler setup ───────────────────────────────────────
+_scheduler = PipelineScheduler(_pipeline_engine, db_connect, STAGE_RUNNERS) if SCHEDULER_AVAILABLE else None
+
+
+@app.on_event("startup")
+async def _start_scheduler():
+    if _scheduler:
+        _scheduler.start()
+
+
+@app.on_event("shutdown")
+async def _stop_scheduler():
+    if _scheduler:
+        _scheduler.stop()
 
 WORKFLOW_TITLES = {
     "home-service-content":      "Home Service SEO Content",
@@ -164,6 +208,11 @@ class DashboardTokenRequest(BaseModel):
     expires_days: Optional[int] = None
 
 
+class InterviewRequest(BaseModel):
+    answer: Optional[str] = None
+    session_state: Optional[dict] = None
+
+
 # ── Client routes ──────────────────────────────────────────
 
 @app.get("/api/clients")
@@ -205,6 +254,202 @@ async def remove_client(client_id: int):
     ok = await asyncio.to_thread(delete_client, client_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Client not found")
+
+
+# ── Brand Onboarding routes ────────────────────────────────
+
+class OnboardRequest(BaseModel):
+    domain: Optional[str] = None
+    force: bool = False
+
+
+@app.post("/api/clients/{client_id}/onboard")
+async def onboard_client_brand(client_id: int, body: OnboardRequest):
+    """Extract brand data from client website and save to memory."""
+    client_row = await asyncio.to_thread(db_get_client, client_id)
+    if not client_row:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    domain = (body.domain or client_row.get("domain", "")).strip()
+    if not domain:
+        raise HTTPException(status_code=400, detail="No domain provided and none on client record")
+
+    from pipeline.brand_extractor import extract_brand
+    from pipeline.brand_memory import save_brand_to_memory
+
+    brand_data = await extract_brand(domain, anthropic.AsyncAnthropic())
+    if not brand_data.get("color_palette"):
+        raise HTTPException(status_code=422, detail="Brand extraction returned no color data")
+
+    count = save_brand_to_memory(_memory_store, client_id, brand_data)
+
+    return {
+        "client_id": client_id,
+        "domain": domain,
+        "entries_saved": count,
+        "color_palette": brand_data.get("color_palette", {}),
+        "typography": brand_data.get("typography", {}),
+        "photography_style": brand_data.get("photography_style", ""),
+        "brand_voice": brand_data.get("brand_voice", ""),
+        "value_propositions": brand_data.get("value_propositions", []),
+        "logos_found": len(brand_data.get("assets", {}).get("images", {}).get("logos", [])),
+        "images_found": len(brand_data.get("assets", {}).get("images", {}).get("all", [])),
+    }
+
+
+@app.get("/api/clients/{client_id}/brand")
+async def get_client_brand(client_id: int):
+    """Get current brand data from memory."""
+    ds_entries = _memory_store.load_by_type(client_id, "design_system")
+    asset_entries = _memory_store.load_by_type(client_id, "asset_catalog")
+    voice_entries = _memory_store.load_by_type(client_id, "brand_voice")
+
+    if not ds_entries and not asset_entries and not voice_entries:
+        return {"client_id": client_id, "has_brand": False, "message": "No brand data. Run POST /api/clients/{id}/onboard first."}
+
+    return {
+        "client_id": client_id,
+        "has_brand": True,
+        "design_system": {e["key"]: e["value"] for e in ds_entries},
+        "asset_catalog": {e["key"]: e["value"] for e in asset_entries},
+        "brand_voice": {e["key"]: e["value"] for e in voice_entries},
+    }
+
+
+# ── Client Brain Research routes ──────────────────────────
+
+class ResearchRequest(BaseModel):
+    force: bool = False
+
+
+@app.post("/api/clients/{client_id}/research")
+async def research_client(client_id: int, body: ResearchRequest = ResearchRequest()):
+    """Build the full client brain: brand + voice + business intelligence.
+    Returns SSE stream with progress updates."""
+    client_row = await asyncio.to_thread(db_get_client, client_id)
+    if not client_row:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    domain = (client_row.get("domain", "")).strip()
+    if not domain:
+        raise HTTPException(status_code=400, detail="Client has no domain set")
+
+    location = (client_row.get("location", "")).strip()
+    service = (client_row.get("service", "")).strip()
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured")
+
+    anthropic_client = anthropic.AsyncAnthropic(api_key=api_key)
+
+    async def research_stream():
+        from pipeline.client_research_agent import build_client_brain_streaming
+        async for chunk in build_client_brain_streaming(
+            client_id=client_id,
+            domain=domain,
+            location=location,
+            anthropic_client=anthropic_client,
+            memory_store=_memory_store,
+            service=service,
+            force=body.force,
+        ):
+            yield f"data: {json.dumps({'type': 'token', 'text': chunk})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'client_id': client_id})}\n\n"
+
+    return StreamingResponse(research_stream(), media_type="text/event-stream")
+
+
+@app.get("/api/clients/{client_id}/brain")
+async def get_client_brain(client_id: int):
+    """Get the full client brain — all memory entries grouped by section."""
+    from memory.store import (
+        BRAND_VOICE, DESIGN_SYSTEM, ASSET_CATALOG,
+        BUSINESS_INTEL, PAST_CONTENT, LEARNINGS,
+    )
+
+    sections = {}
+    for memory_type in [DESIGN_SYSTEM, ASSET_CATALOG, BRAND_VOICE, BUSINESS_INTEL, PAST_CONTENT, LEARNINGS]:
+        entries = _memory_store.load_by_type(client_id, memory_type)
+        sections[memory_type] = {e["key"]: e["value"] for e in entries}
+
+    has_brain = any(bool(v) for v in sections.values())
+    return {
+        "client_id": client_id,
+        "has_brain": has_brain,
+        "sections": sections,
+        "entry_count": sum(len(v) for v in sections.values()),
+    }
+
+
+# ── Interview & Test Voice routes ─────────────────────────
+
+@app.post("/api/clients/{client_id}/interview")
+async def client_interview(client_id: int, body: InterviewRequest = InterviewRequest()):
+    """Run one step of the client brain interview.
+    Body: { answer: str | null, session_state: dict | null }
+    Returns SSE stream with the next question + updated session_state.
+    """
+    client_row = await asyncio.to_thread(db_get_client, client_id)
+    if not client_row:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    async def interview_stream():
+        from pipeline.interview_agent import run_interview
+        async for event in run_interview(
+            client_id=client_id,
+            memory_store=_memory_store,
+            anthropic_client=_anthropic_client,
+            user_answer=body.answer,
+            session_state=body.session_state,
+        ):
+            yield f"data: {json.dumps(event)}\n\n"
+
+    return StreamingResponse(interview_stream(), media_type="text/event-stream")
+
+
+@app.post("/api/clients/{client_id}/test-voice")
+async def test_client_voice(client_id: int):
+    """Generate a sample paragraph using the client's brain to validate voice quality.
+    Returns SSE stream with a sample service intro paragraph + the brain context used.
+    """
+    client_row = await asyncio.to_thread(db_get_client, client_id)
+    if not client_row:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    client_name = client_row.get("name", "this business")
+
+    from pipeline.brain_formatter import format_brain_for_workflow
+    brain_ctx = format_brain_for_workflow(_memory_store, client_id, "service-page")
+    if not brain_ctx:
+        raise HTTPException(
+            status_code=400,
+            detail="Client has no brain data yet. Run research or the interview first.",
+        )
+
+    async def voice_stream():
+        # Send brain context first so the UI can show what informed the output
+        yield f"data: {json.dumps({'type': 'brain_context', 'text': brain_ctx})}\n\n"
+
+        prompt = (
+            f"Write a 3-4 sentence intro paragraph for a service page for {client_name}. "
+            "Use the brand voice and business context provided in the system prompt. "
+            "Write as if this is the opening of a real service page on their website -- "
+            "warm, confident, and specific to their business. Do NOT use placeholder text. "
+            "Include a natural call-to-action."
+        )
+
+        async with _anthropic_client.messages.stream(
+            model="claude-sonnet-4-20250514",
+            max_tokens=1024,
+            system=f"You are a marketing copywriter. Use this client brain to write in the client's authentic voice:\n\n{brain_ctx}",
+            messages=[{"role": "user", "content": prompt}],
+        ) as stream:
+            async for text in stream.text_stream:
+                yield f"data: {json.dumps({'type': 'token', 'text': text})}\n\n"
+
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+    return StreamingResponse(voice_stream(), media_type="text/event-stream")
 
 
 # ── Job approval routes ────────────────────────────────────
@@ -283,13 +528,26 @@ async def run_workflow(req: WorkflowRequest):
     async def event_stream():
         full_content: list[str] = []
 
+        # ── Inject client brain context if available ──
+        strategy_ctx = req.strategy_context or ""
+        if req.client_id:
+            try:
+                from pipeline.brain_formatter import format_brain_for_workflow
+                from memory.store import ClientMemoryStore
+                _mem = ClientMemoryStore(db_connect)
+                brain_ctx = format_brain_for_workflow(_mem, req.client_id, req.workflow_id)
+                if brain_ctx:
+                    strategy_ctx = brain_ctx + "\n\n" + strategy_ctx
+            except Exception:
+                pass  # Brain not available yet — use manual strategy_context
+
         try:
             # ── Route to the correct workflow ──
             if req.workflow_id == "home-service-content":
                 generator = run_home_service_content(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "website-seo-audit":
@@ -300,7 +558,7 @@ async def run_workflow(req: WorkflowRequest):
                 generator = run_website_seo_audit(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "prospect-audit":
@@ -311,168 +569,168 @@ async def run_workflow(req: WorkflowRequest):
                 generator = run_prospect_audit(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "keyword-gap":
                 generator = run_keyword_gap(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "seo-blog-post":
                 generator = run_seo_blog_post(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "service-page":
                 generator = run_service_page(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "location-page":
                 generator = run_location_page(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "programmatic-content":
                 generator = run_programmatic_content(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "ai-search-report":
                 generator = run_ai_search_report(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "backlink-audit":
                 generator = run_backlink_audit(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "onpage-audit":
                 generator = run_onpage_audit(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "seo-research":
                 generator = run_seo_research_agent(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "competitor-intel":
                 generator = run_competitor_intel(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "monthly-report":
                 generator = run_monthly_report(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "proposals":
                 generator = run_proposals(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "google-ads-copy":
                 generator = run_google_ads_copy(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "schema-generator":
                 generator = run_schema_generator(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "content-strategy":
                 generator = run_content_strategy(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "pnl-statement":
                 generator = run_pnl_statement(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "property-mgmt-strategy":
                 generator = run_property_mgmt_strategy(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "page-design":
                 generator = run_page_design(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "geo-content-audit":
                 generator = run_geo_content_audit(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "seo-content-audit":
                 generator = run_seo_content_audit(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "technical-seo-review":
                 generator = run_technical_seo_review(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "programmatic-seo-strategy":
                 generator = run_programmatic_seo_strategy(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             elif req.workflow_id == "competitor-seo-analysis":
                 generator = run_competitor_seo_analysis(
                     client=client,
                     inputs=req.inputs,
-                    strategy_context=req.strategy_context or "",
+                    strategy_context=strategy_ctx,
                     client_name=req.client_name,
                 )
             else:
@@ -1051,10 +1309,478 @@ async def update_task(client_id: int, task_id: int, body: UpdateTaskRequest):
     return {"id": task_id, "status": body.status}
 
 
+# ── Pipeline API ──────────────────────────────────────────────────
+
+class PipelineRunRequest(BaseModel):
+    page_type: str              # "service-page", "location-page", "blog-post"
+    client_id: int
+    client_name: str = ""
+    inputs: dict = {}
+    approval_mode: str = "autopilot"  # "autopilot", "milestone", "output_only"
+
+
+class PipelineApproveRequest(BaseModel):
+    feedback: str = ""
+
+
+@app.get("/api/pipeline/templates")
+async def get_pipeline_templates():
+    """Return available page type configurations for the pipeline builder UI."""
+    return {"templates": list(PAGE_TYPE_CONFIGS.values())}
+
+
+@app.post("/api/pipeline/run")
+async def run_pipeline(body: PipelineRunRequest):
+    """Start a pipeline run, returning SSE stream of progress + tokens."""
+    config = PAGE_TYPE_CONFIGS.get(body.page_type)
+    if not config:
+        raise HTTPException(status_code=400, detail=f"Unknown page type: {body.page_type}")
+
+    # Resolve client name if not provided
+    client_name = body.client_name
+    if not client_name and body.client_id:
+        client_row = await asyncio.to_thread(db_get_client, body.client_id)
+        if client_row:
+            client_name = client_row.get("name", "")
+
+    run = _pipeline_engine.create_run(
+        page_type=body.page_type,
+        client_id=body.client_id,
+        client_name=client_name,
+        inputs=body.inputs,
+        stages=config["stages"],
+        approval_mode=body.approval_mode,
+    )
+
+    async def event_stream():
+        try:
+            async for chunk in _pipeline_engine.execute(run, STAGE_RUNNERS):
+                yield f"data: {chunk}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@app.get("/api/pipeline/{pipeline_id}")
+async def get_pipeline_status(pipeline_id: str):
+    """Get current status and artifacts for a pipeline run."""
+    run = _pipeline_engine.get_run(pipeline_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Pipeline not found")
+    result = run.to_dict()
+    # Include stage outputs for completed stages
+    result["stage_outputs"] = {
+        k: v[:500] + "..." if len(v) > 500 else v
+        for k, v in run.stage_outputs.items()
+    }
+    return result
+
+
+@app.get("/api/pipeline/{pipeline_id}/artifact/{stage}")
+async def get_pipeline_artifact(pipeline_id: str, stage: str):
+    """Get the full artifact for a specific stage."""
+    run = _pipeline_engine.get_run(pipeline_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Pipeline not found")
+    artifact_json = run.artifacts.get(stage)
+    if not artifact_json:
+        raise HTTPException(status_code=404, detail=f"No artifact for stage: {stage}")
+    return {"stage": stage, "artifact": json.loads(artifact_json)}
+
+
+@app.get("/api/pipeline/{pipeline_id}/output/{stage}")
+async def get_pipeline_stage_output(pipeline_id: str, stage: str):
+    """Get the full text output for a specific stage."""
+    run = _pipeline_engine.get_run(pipeline_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Pipeline not found")
+    output = run.stage_outputs.get(stage)
+    if output is None:
+        raise HTTPException(status_code=404, detail=f"No output for stage: {stage}")
+    return {"stage": stage, "output": output}
+
+
+@app.post("/api/pipeline/{pipeline_id}/approve")
+async def approve_pipeline_stage(pipeline_id: str, body: PipelineApproveRequest):
+    """Approve the current stage and continue the pipeline. Returns SSE stream."""
+    run = _pipeline_engine.get_run(pipeline_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Pipeline not found")
+
+    async def event_stream():
+        try:
+            async for chunk in _pipeline_engine.approve_and_continue(
+                pipeline_id, STAGE_RUNNERS, body.feedback
+            ):
+                yield f"data: {chunk}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@app.post("/api/pipeline/{pipeline_id}/reject")
+async def reject_pipeline_stage(pipeline_id: str, body: PipelineApproveRequest):
+    """Reject the current stage with feedback. Stores feedback as a learning."""
+    run = _pipeline_engine.get_run(pipeline_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Pipeline not found")
+    if body.feedback and _memory_store:
+        stage = run.current_stage or "unknown"
+        _memory_store.save_learning(
+            run.client_id,
+            f"rejection-{stage}-{run.pipeline_id[:8]}",
+            f"Stage '{stage}' rejected: {body.feedback}",
+        )
+    return {"pipeline_id": pipeline_id, "status": "rejected", "feedback": body.feedback}
+
+
+class BatchPipelineRequest(BaseModel):
+    page_type: str
+    client_id: int
+    client_name: str = ""
+    items: list[dict]  # list of input dicts, one per page
+    approval_mode: str = "autopilot"
+
+
+@app.post("/api/pipeline/batch")
+async def batch_pipeline(body: BatchPipelineRequest):
+    """Queue a batch of pipelines (e.g., 12 location pages for 12 cities).
+    Returns the list of created pipeline IDs. Each runs sequentially to avoid
+    overwhelming the Claude API.
+    """
+    config = PAGE_TYPE_CONFIGS.get(body.page_type)
+    if not config:
+        raise HTTPException(status_code=400, detail=f"Unknown page type: {body.page_type}")
+    if not body.items:
+        raise HTTPException(status_code=400, detail="No items in batch")
+
+    client_name = body.client_name
+    if not client_name and body.client_id:
+        client_row = await asyncio.to_thread(db_get_client, body.client_id)
+        if client_row:
+            client_name = client_row.get("name", "")
+
+    pipeline_ids = []
+    for item_inputs in body.items:
+        run = _pipeline_engine.create_run(
+            page_type=body.page_type,
+            client_id=body.client_id,
+            client_name=client_name,
+            inputs=item_inputs,
+            stages=config["stages"],
+            approval_mode=body.approval_mode,
+        )
+        pipeline_ids.append(run.pipeline_id)
+
+    return {"batch_size": len(pipeline_ids), "pipeline_ids": pipeline_ids}
+
+
+@app.post("/api/pipeline/batch/{pipeline_id}/start")
+async def start_batch_pipeline(pipeline_id: str):
+    """Start a specific pipeline from a batch. Returns SSE stream."""
+    run = _pipeline_engine.get_run(pipeline_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Pipeline not found")
+
+    async def event_stream():
+        try:
+            async for chunk in _pipeline_engine.execute(run, STAGE_RUNNERS):
+                yield f"data: {chunk}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@app.get("/api/pipeline/{pipeline_id}/download/html")
+async def download_pipeline_html(pipeline_id: str):
+    """Download the design stage output as an HTML file."""
+    run = _pipeline_engine.get_run(pipeline_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Pipeline not found")
+    design_json = run.artifacts.get("design")
+    if not design_json:
+        raise HTTPException(status_code=404, detail="No design artifact — pipeline may not have reached the design stage")
+
+    import json as _json
+    design = _json.loads(design_json)
+    html_content = design.get("full_page", "")
+    if not html_content:
+        html_content = run.stage_outputs.get("design", "")
+
+    # Build a descriptive filename
+    inputs = run.inputs
+    service = inputs.get("service", inputs.get("primary_service", inputs.get("keyword", "page")))
+    location = inputs.get("location", inputs.get("target_location", ""))
+    slug = f"{service}-{location}".lower().replace(" ", "-").replace(",", "").replace(".", "")[:50]
+    filename = f"{run.page_type}-{slug}.html"
+
+    from fastapi.responses import Response
+    return Response(
+        content=html_content,
+        media_type="text/html",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get("/api/pipeline/{pipeline_id}/preview")
+async def preview_pipeline_html(pipeline_id: str):
+    """Preview the design stage output as rendered HTML (no download)."""
+    run = _pipeline_engine.get_run(pipeline_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Pipeline not found")
+    design_json = run.artifacts.get("design")
+    if not design_json:
+        raise HTTPException(status_code=404, detail="No design artifact")
+    design = json.loads(design_json)
+    html_content = design.get("full_page", "")
+    if not html_content:
+        html_content = run.stage_outputs.get("design", "")
+    return HTMLResponse(content=html_content)
+
+
+# ── Client Memory API ────────────────────────────────────────────
+
+@app.get("/api/memory/{client_id_param}")
+async def get_client_memory(client_id_param: int):
+    """Get all memory entries for a client."""
+    entries = await asyncio.to_thread(_memory_store.load_all, client_id_param)
+    return {"client_id": client_id_param, "entries": entries}
+
+
+class MemoryEntryRequest(BaseModel):
+    memory_type: str  # brand_voice, style_preferences, past_content, learnings
+    key: str
+    value: str
+
+
+@app.post("/api/memory/{client_id_param}")
+async def save_client_memory(client_id_param: int, body: MemoryEntryRequest):
+    """Save or update a client memory entry."""
+    await asyncio.to_thread(
+        _memory_store.save, client_id_param, body.memory_type, body.key, body.value
+    )
+    return {"client_id": client_id_param, "memory_type": body.memory_type, "key": body.key, "saved": True}
+
+
+@app.delete("/api/memory/{client_id_param}/{memory_type}/{key}")
+async def delete_client_memory(client_id_param: int, memory_type: str, key: str):
+    """Delete a specific memory entry."""
+    deleted = await asyncio.to_thread(_memory_store.delete, client_id_param, memory_type, key)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Memory entry not found")
+    return {"deleted": True}
+
+
+# ── Roadmap Assignment API ────────────────────────────────────────
+
+@app.get("/api/roadmap/{client_id_param}/assignable")
+async def get_assignable_roadmap_items(client_id_param: int, month: Optional[str] = None):
+    """Get roadmap items that can be assigned to the pipeline agent (status=planned)."""
+    items = await asyncio.to_thread(get_assignable_items, client_id_param, month)
+    return {"items": items, "count": len(items)}
+
+
+class RoadmapAssignRequest(BaseModel):
+    roadmap_ids: list[int]  # IDs from content_roadmap table
+    approval_mode: str = "autopilot"
+
+
+@app.post("/api/pipeline/from-roadmap")
+async def create_pipelines_from_roadmap(body: RoadmapAssignRequest):
+    """Assign roadmap items to the pipeline agent. Creates one pipeline per item.
+
+    This is the main way to tell the agent: 'go build these pages from the monthly plan.'
+    Each roadmap item becomes a pipeline run. Status auto-updates as stages complete.
+    """
+    created = []
+    for roadmap_id in body.roadmap_ids:
+        item = await asyncio.to_thread(get_roadmap_item, roadmap_id)
+        if not item:
+            continue
+        if item.get("status") not in ("planned", "assigned"):
+            continue  # Skip items already in progress
+
+        # Map roadmap page_type to pipeline page_type
+        page_type_map = {
+            "service-page": "service-page",
+            "service_page": "service-page",
+            "location-page": "location-page",
+            "location_page": "location-page",
+            "blog-post": "blog-post",
+            "blog_post": "blog-post",
+            "blog": "blog-post",
+        }
+        pipeline_type = page_type_map.get(item.get("page_type", "").lower(), "service-page")
+        config = PAGE_TYPE_CONFIGS.get(pipeline_type)
+        if not config:
+            continue
+
+        # Resolve client info
+        client = await asyncio.to_thread(db_get_client, item["client_id"])
+        client_name = client.get("name", "") if client else ""
+        domain = client.get("domain", "") if client else ""
+        service = client.get("service", "") if client else ""
+        location = client.get("location", "") if client else ""
+
+        # Build pipeline inputs from roadmap item + client record
+        inputs = {
+            "domain": domain,
+            "service": service or item.get("content_silo", ""),
+            "location": location,
+            "keyword": item.get("keyword", ""),
+            "notes": f"From content roadmap: {item.get('title', '')}. Target keyword: {item.get('keyword', '')}.",
+        }
+
+        run = _pipeline_engine.create_run(
+            page_type=pipeline_type,
+            client_id=item["client_id"],
+            client_name=client_name,
+            inputs=inputs,
+            stages=config["stages"],
+            approval_mode=body.approval_mode,
+        )
+
+        # Link roadmap item to pipeline run
+        await asyncio.to_thread(assign_to_pipeline, roadmap_id, run.pipeline_id)
+
+        created.append({
+            "roadmap_id": roadmap_id,
+            "pipeline_id": run.pipeline_id,
+            "title": item.get("title", ""),
+            "page_type": pipeline_type,
+            "keyword": item.get("keyword", ""),
+        })
+
+    return {"assigned": len(created), "pipelines": created}
+
+
+class RoadmapBulkStartRequest(BaseModel):
+    pipeline_ids: list[str]
+
+
+@app.post("/api/pipeline/start-assigned")
+async def start_assigned_pipelines(body: RoadmapBulkStartRequest):
+    """Start multiple assigned pipelines. Returns SSE stream for the first one.
+
+    Remaining pipelines are queued — call this endpoint again for each,
+    or use the scheduler to run them sequentially.
+    """
+    if not body.pipeline_ids:
+        raise HTTPException(status_code=400, detail="No pipeline IDs provided")
+
+    pipeline_id = body.pipeline_ids[0]
+    run = _pipeline_engine.get_run(pipeline_id)
+    if not run:
+        raise HTTPException(status_code=404, detail=f"Pipeline {pipeline_id} not found")
+
+    async def event_stream():
+        try:
+            async for chunk in _pipeline_engine.execute(run, STAGE_RUNNERS):
+                yield f"data: {chunk}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@app.post("/api/roadmap/{roadmap_id}/approve")
+async def approve_roadmap_item(roadmap_id: int):
+    """Mark a roadmap item as approved (after reviewing pipeline output)."""
+    await asyncio.to_thread(mark_roadmap_approved, "")  # need pipeline_id
+    item = await asyncio.to_thread(get_roadmap_item, roadmap_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Roadmap item not found")
+    await asyncio.to_thread(update_roadmap_status, roadmap_id, "approved")
+    return {"roadmap_id": roadmap_id, "status": "approved"}
+
+
+# ── Schedule API ──────────────────────────────────────────────────
+
+class ScheduleCreateRequest(BaseModel):
+    name: str = ""
+    client_id: int
+    pipeline_type: str
+    inputs: dict = {}
+    approval_mode: str = "autopilot"
+    schedule: str  # "every 7d", "0 9 * * 1", etc.
+
+
+class ScheduleUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    inputs: Optional[dict] = None
+    schedule: Optional[str] = None
+    approval_mode: Optional[str] = None
+    enabled: Optional[bool] = None
+
+
+@app.get("/api/schedule")
+async def list_schedules(client_id: Optional[int] = None):
+    """List all scheduled pipeline jobs."""
+    if not SCHEDULER_AVAILABLE:
+        return {"schedules": [], "warning": "Scheduler not available (apscheduler not installed)"}
+    with db_connect() as conn:
+        jobs = list_scheduled_jobs(conn, client_id)
+    return {"schedules": jobs}
+
+
+@app.post("/api/schedule")
+async def create_schedule(body: ScheduleCreateRequest):
+    """Create a new scheduled pipeline job."""
+    if not SCHEDULER_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Scheduler not available")
+    if body.pipeline_type not in PAGE_TYPE_CONFIGS:
+        raise HTTPException(status_code=400, detail=f"Unknown pipeline type: {body.pipeline_type}")
+    with db_connect() as conn:
+        job = create_scheduled_job(conn, body.dict())
+    _scheduler.add_job_from_db(job["id"])
+    return job
+
+
+@app.get("/api/schedule/{job_id}")
+async def get_schedule(job_id: str):
+    """Get a specific scheduled job."""
+    if not SCHEDULER_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Scheduler not available")
+    with db_connect() as conn:
+        job = get_scheduled_job(conn, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Scheduled job not found")
+    return job
+
+
+@app.patch("/api/schedule/{job_id}")
+async def update_schedule(job_id: str, body: ScheduleUpdateRequest):
+    """Update a scheduled job."""
+    if not SCHEDULER_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Scheduler not available")
+    with db_connect() as conn:
+        job = update_scheduled_job(conn, job_id, {k: v for k, v in body.dict().items() if v is not None})
+    if not job:
+        raise HTTPException(status_code=404, detail="Scheduled job not found")
+    _scheduler.add_job_from_db(job_id)  # Re-sync with APScheduler
+    return job
+
+
+@app.delete("/api/schedule/{job_id}")
+async def delete_schedule(job_id: str):
+    """Delete a scheduled job."""
+    if not SCHEDULER_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Scheduler not available")
+    _scheduler.remove_job(job_id)
+    with db_connect() as conn:
+        deleted = delete_scheduled_job(conn, job_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Scheduled job not found")
+    return {"deleted": True}
+
+
 # ── Serve frontend ────────────────────────────────────────────────
 # Explicit routes instead of StaticFiles mount — prevents the mount from
 # intercepting /api/* routes (known FastAPI/Starlette issue with root mounts).
-static_dir = Path(__file__).parent / "web"
+static_dir = Path(__file__).parent / "static"
 
 @app.get("/")
 async def serve_index():
@@ -1071,390 +1797,10 @@ async def serve_script():
 async def serve_style():
     return FileResponse(static_dir / "style.css", media_type="text/css")
 
-@app.get("/seo-playbook.css")
-async def serve_seo_css():
-    return FileResponse(static_dir / "seo-playbook.css", media_type="text/css")
-
-@app.get("/seo-playbook.js")
-async def serve_seo_js():
-    return FileResponse(static_dir / "seo-playbook.js", media_type="application/javascript")
-
-# ── SEO Playbook API ──────────────────────────────────────────────────────────
-
-VAULT_DATA_DIR = Path(__file__).parent / 'vault_data'
-
-
-def _parse_yaml(filepath: Path):
-    if not filepath.exists():
-        return None
-    try:
-        return yaml.safe_load(filepath.read_text())
-    except Exception:
-        return None
-
-
-def _build_playbook_data():
-    index_data = _parse_yaml(VAULT_DATA_DIR / '_clients-index.yaml')
-    if not index_data or 'clients' not in index_data:
-        return {'generated': _dt.utcnow().strftime('%Y-%m-%d'), 'month': '', 'clients': [], 'vault_synced': False}
-    now = _dt.utcnow()
-    mn = ['January','February','March','April','May','June',
-          'July','August','September','October','November','December']
-    tm = now.month + 1 if now.day > 15 else now.month
-    ty = now.year + 1 if tm > 12 else now.year
-    if tm > 12:
-        tm = 1
-    month_label = f"{mn[tm - 1]} {ty}"
-    clients = []
-    for c in index_data['clients']:
-        if c.get('status') != 'active':
-            continue
-        folder = c.get('folder', '')
-        recurring = _parse_yaml(VAULT_DATA_DIR / 'clients' / folder / 'recurring.yaml')
-        roadmap = _parse_yaml(VAULT_DATA_DIR / 'clients' / folder / 'roadmap.yaml')
-        tasks = {'content': [], 'gbp': [], 'offpage': [], 'technical': [], 'reporting': []}
-        if recurring:
-            for item in recurring.get('content', []):
-                tasks['content'].append({'task': item.get('task', ''), 'time': str(item.get('time', 'varies'))})
-            for item in recurring.get('gbp', []):
-                tasks['gbp'].append({'task': item.get('task', ''), 'time': str(item.get('time', 'varies'))})
-            for item in recurring.get('off_page', []):
-                tv = 'outsource' if item.get('owner') == 'outsource' else str(item.get('time', 'varies'))
-                tasks['offpage'].append({'task': item.get('task', ''), 'time': tv})
-            for item in recurring.get('technical', []):
-                tasks['technical'].append({'task': item.get('task', ''), 'time': str(item.get('time', 'varies'))})
-            for item in recurring.get('reporting', []):
-                tasks['reporting'].append({'task': item.get('task', ''), 'time': str(item.get('time', 'varies'))})
-        next_pages = []
-        if roadmap and isinstance(roadmap, dict) and 'pages_pipeline' in roadmap:
-            high = [p for p in roadmap['pages_pipeline']
-                    if isinstance(p, dict) and p.get('priority') == 'HIGH' and p.get('status') != 'done']
-            for p in high[:3]:
-                next_pages.append({'url': p.get('url', ''), 'keyword': p.get('keyword', '')})
-        services = c.get('services', [])
-        if isinstance(services, str):
-            services = [s.strip() for s in services.split(',')]
-        has_roadmap = roadmap is not None and isinstance(roadmap, dict) and 'pages_pipeline' in roadmap
-        has_recurring = bool(recurring)
-        warnings = []
-        if not has_roadmap:
-            warnings.append('No roadmap — monthly plans will use recurring template only')
-        if not has_recurring:
-            warnings.append('No recurring.yaml — task templates missing')
-
-        clients.append({
-            'name': c.get('client', ''), 'folder': folder, 'tier': c.get('tier', 3),
-            'mrr': c.get('mrr', 0), 'manager': c.get('manager', ''),
-            'cadence': c.get('cadence', 'monthly'), 'contact': c.get('contact', ''),
-            'location': c.get('location', ''), 'services': services,
-            'tasks': tasks, 'nextPages': next_pages,
-            'hasRoadmap': has_roadmap, 'hasRecurring': has_recurring,
-            'warnings': warnings
-        })
-    return {'generated': _dt.utcnow().strftime('%Y-%m-%d'), 'month': month_label, 'clients': clients}
-
-
-@app.get("/api/seo/playbook-data")
-async def seo_playbook_data():
-    return _build_playbook_data()
-
-
-@app.get("/api/seo/clients")
-async def seo_clients():
-    data = _parse_yaml(VAULT_DATA_DIR / '_clients-index.yaml')
-    return data if data else {'clients': []}
-
-
-# ── SEO Executor API ─────────────────────────────────────────────────────────
-
-from seo_executor import execute as seo_execute, read_client_context, read_all_clients
-from seo_memory import update_after_plan, update_after_audit, update_after_wrapup, add_strategic_note, read_memory, get_recent_history, mark_page_complete
-
-
-class SeoExecuteRequest(BaseModel):
-    command: str  # audit, monthly-plan, weekly-plan, wrap-up, workload
-    client: str = None  # client slug, required for per-client commands
-
-
-_results_base = Path(os.environ.get('DOCS_DIR', Path(__file__).parent / 'data'))
-SEO_RESULTS_DIR = _results_base / 'seo-results'
-try:
-    SEO_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-except OSError:
-    SEO_RESULTS_DIR = Path(__file__).parent / 'seo-results'
-    SEO_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-print(f"[SEO] Results directory: {SEO_RESULTS_DIR.resolve()}")
-
-
-@app.post("/api/seo/execute")
-async def execute_seo_command(body: SeoExecuteRequest):
-    allowed = ['audit', 'monthly-plan', 'weekly-plan', 'wrap-up', 'workload']
-    if body.command not in allowed:
-        raise HTTPException(400, f'Unknown command: {body.command}')
-    if body.command not in ('weekly-plan', 'workload') and not body.client:
-        raise HTTPException(400, 'Client slug required for this command')
-
-    # Sanitize client slug for filesystem safety
-    safe_client = ''.join(c for c in (body.client or 'all') if c.isalnum() or c in '-_')
-    result_id = f"{body.command}-{safe_client}-{_dt.utcnow().strftime('%Y%m%d-%H%M%S')}"
-
-    async def stream():
-        full_output = []
-        status = 'complete'
-        try:
-            async for chunk in seo_execute(body.command, body.client, VAULT_DATA_DIR):
-                full_output.append(chunk)
-                yield f"data: {json.dumps({'type': 'output', 'text': chunk})}\n\n"
-        except Exception as e:
-            status = 'error'
-            yield f"data: {json.dumps({'type': 'error', 'text': str(e)})}\n\n"
-        # Save result (even partial) to persistent storage
-        try:
-            result_data = {
-                'id': result_id,
-                'command': body.command,
-                'client': body.client,
-                'timestamp': _dt.utcnow().isoformat(),
-                'status': status,
-                'output': ''.join(full_output)
-            }
-            result_path = SEO_RESULTS_DIR / f"{result_id}.json"
-            result_path.write_text(json.dumps(result_data, indent=2))
-        except Exception:
-            pass  # Don't fail the SSE stream if result save fails
-        # Update per-client memory after successful operations
-        if status == 'complete' and body.client:
-            try:
-                output_text = ''.join(full_output)
-                if body.command == 'monthly-plan':
-                    update_after_plan(body.client, output_text, result_id)
-                elif body.command == 'audit':
-                    update_after_audit(body.client, output_text)
-                elif body.command == 'wrap-up':
-                    update_after_wrapup(body.client, output_text)
-            except Exception:
-                pass  # Memory update failure should never break the stream
-        if status == 'complete':
-            yield f"data: {json.dumps({'type': 'complete', 'result_id': result_id})}\n\n"
-
-    return StreamingResponse(stream(), media_type='text/event-stream')
-
-
-@app.get("/api/seo/results")
-async def list_seo_results(client: str = None):
-    """List all saved SEO operation results, most recent first."""
-    results = []
-    for f in sorted(SEO_RESULTS_DIR.glob('*.json'), reverse=True):
-        try:
-            data = json.loads(f.read_text())
-            if client and data.get('client') != client:
-                continue
-            results.append({
-                'id': data.get('id', f.stem),
-                'command': data.get('command', ''),
-                'client': data.get('client', ''),
-                'timestamp': data.get('timestamp', ''),
-            })
-        except Exception:
-            continue
-    return {'results': results[:50]}
-
-
-@app.get("/api/seo/results/{result_id}")
-async def get_seo_result(result_id: str):
-    """Get a specific SEO operation result by ID."""
-    safe_id = ''.join(c for c in Path(result_id).name if c.isalnum() or c in '-_')
-    if not safe_id:
-        raise HTTPException(400, 'Invalid result ID')
-    result_path = SEO_RESULTS_DIR / f"{safe_id}.json"
-    if not result_path.exists() or not result_path.resolve().is_relative_to(SEO_RESULTS_DIR.resolve()):
-        raise HTTPException(404, 'Result not found')
-    return json.loads(result_path.read_text())
-
-
-# ── ClickUp Sync API ─────────────────────────────────────────────────────────
-
-class ClickUpSyncRequest(BaseModel):
-    client: str
-    month: str  # e.g. "April 2026"
-
-
-@app.post("/api/seo/clickup/sync-plan")
-async def clickup_sync_plan(body: ClickUpSyncRequest):
-    result = await sync_monthly_plan(body.client, body.month, VAULT_DATA_DIR)
-    return result
-
-
-@app.get("/api/seo/clickup/progress")
-async def clickup_progress():
-    result = await get_progress(VAULT_DATA_DIR)
-    return {"clients": result}
-
-
-@app.get("/api/seo/clickup/progress/{client_slug}")
-async def clickup_client_progress(client_slug: str):
-    result = await get_client_progress(client_slug)
-    return result
-
-
-# ── Site Crawler / Setup Tracking ──────────────────────────────────────────
-
-from site_crawler import setup_tracking
-
-
-class SetupTrackingRequest(BaseModel):
-    client: str
-
-
-@app.post("/api/seo/setup-tracking")
-async def run_setup_tracking(body: SetupTrackingRequest):
-    """Crawl a client's website via Firecrawl and generate/update their tracker.yaml."""
-    result = await setup_tracking(body.client, VAULT_DATA_DIR)
-    return result
-
-
-# ── Client Hub summary ─────────────────────────────────────────────────────
-
-@app.get("/api/seo/client/{client_slug}/summary")
-async def get_client_summary(client_slug: str):
-    """Get complete summary for a client's operations page."""
-    safe_slug = ''.join(c for c in client_slug if c.isalnum() or c in '-_')
-
-    # Get client from playbook data
-    playbook = _build_playbook_data()
-    client = None
-    for c in playbook.get('clients', []):
-        if c.get('folder') == safe_slug:
-            client = c
-            break
-    if not client:
-        raise HTTPException(404, 'Client not found')
-
-    # Get memory
-    memory = read_memory(safe_slug)
-    history_text = get_recent_history(safe_slug)
-
-    # Get results for this client
-    results = []
-    for f in sorted(SEO_RESULTS_DIR.glob('*.json'), reverse=True):
-        try:
-            data = json.loads(f.read_text())
-            if data.get('client') == safe_slug:
-                results.append({
-                    'id': data.get('id', f.stem),
-                    'command': data.get('command', ''),
-                    'timestamp': data.get('timestamp', ''),
-                    'status': data.get('status', 'complete'),
-                    'output_preview': data.get('output', '')[:300],
-                })
-        except Exception:
-            continue
-
-    # Get content inventory
-    tracker_data = None
-    inventory_text = "Run Setup Tracking to generate content inventory"
-    try:
-        from site_crawler import build_content_inventory, categorize_url_deep, format_inventory_text
-        tracker_data = _parse_yaml(VAULT_DATA_DIR / 'clients' / safe_slug / 'tracker.yaml')
-        if tracker_data and 'pages' in tracker_data:
-            industry = client.get('industry', 'electrical') if isinstance(client, dict) else 'electrical'
-            pages = tracker_data['pages']
-            for page in pages:
-                if 'service_category' not in page:
-                    deep = categorize_url_deep(page.get('url', '/'), industry)
-                    page.update(deep)
-            inventory = build_content_inventory(pages, industry)
-            inventory_text = format_inventory_text(inventory)
-    except Exception:
-        pass
-
-    # Get ClickUp progress
-    clickup_progress = None
-    try:
-        clickup_progress = await get_client_progress(safe_slug)
-    except Exception:
-        pass
-
-    # Determine status
-    has_tracker = (VAULT_DATA_DIR / 'clients' / safe_slug / 'tracker.yaml').exists()
-    has_roadmap = client.get('hasRoadmap', False)
-    latest_plan = None
-    latest_audit = None
-    for r in results:
-        if r['command'] == 'monthly-plan' and not latest_plan:
-            latest_plan = r['timestamp']
-        if r['command'] == 'audit' and not latest_audit:
-            latest_audit = r['timestamp']
-
-    return {
-        'client': client,
-        'status': {
-            'has_tracker': has_tracker,
-            'has_roadmap': has_roadmap,
-            'latest_plan': latest_plan,
-            'latest_audit': latest_audit,
-            'total_pages': tracker_data.get('total_pages', 0) if tracker_data else 0,
-        },
-        'memory': memory,
-        'history_text': history_text,
-        'results': results[:20],
-        'inventory_text': inventory_text,
-        'clickup': clickup_progress,
-    }
-
-
-# ── Vault data refresh ─────────────────────────────────────────────────────
-
-@app.post("/api/seo/refresh-data")
-async def refresh_seo_data():
-    """Re-read vault data and return fresh playbook data. Equivalent to /seo-calendar."""
-    return _build_playbook_data()
-
-
-# ── Memory API ─────────────────────────────────────────────────────────────
-
-class MemoryNoteRequest(BaseModel):
-    client: str
-    note: str
-
-class MarkPageRequest(BaseModel):
-    client: str
-    url: str
-
-
-@app.post("/api/seo/memory/note")
-async def add_memory_note(body: MemoryNoteRequest):
-    """Add a strategic note to a client's memory."""
-    add_strategic_note(body.client, body.note)
-    return {"status": "saved", "client": body.client}
-
-
-@app.post("/api/seo/memory/page-complete")
-async def mark_memory_page_complete(body: MarkPageRequest):
-    """Mark a roadmap page as live in memory."""
-    mark_page_complete(body.client, body.url)
-    return {"status": "updated", "client": body.client, "url": body.url}
-
-
-@app.get("/api/seo/memory/{client_slug}")
-async def get_client_memory(client_slug: str):
-    """Get a client's full memory."""
-    safe_slug = ''.join(c for c in client_slug if c.isalnum() or c in '-_')
-    return read_memory(safe_slug)
-
-
-@app.get("/api/seo/memory/{client_slug}/history")
-async def get_client_history(client_slug: str):
-    """Get formatted recent history for a client (what gets injected into prompts)."""
-    safe_slug = ''.join(c for c in client_slug if c.isalnum() or c in '-_')
-    return {"history": get_recent_history(safe_slug)}
-
-
-# ── SPA fallback (must be last) ──────────────────────────────────────────────
-
 @app.get("/{spa_path:path}")
 async def serve_spa(spa_path: str):
     """Serve standalone agent pages if they exist, otherwise fall back to SPA."""
+    # Check for standalone agent pages (e.g. /page-design → page-design.html)
     if spa_path and not spa_path.startswith("api/"):
         candidate = static_dir / f"{spa_path}.html"
         if candidate.exists():

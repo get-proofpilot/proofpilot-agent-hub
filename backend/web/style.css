@@ -722,6 +722,7 @@ body {
 .tl-w   { color: #fbbf24; }
 .tl-d   { color: #3A5A7A; }
 .tl-err { color: #f87171; }
+.tl-status { color: var(--elec-blue, #0051FF); font-weight: 600; padding: 4px 0; font-family: var(--ff-mono, 'Martian Mono', monospace); font-size: 0.85rem; }
 
 .t-cursor {
   display: inline-block;

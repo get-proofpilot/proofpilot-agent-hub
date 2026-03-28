@@ -187,6 +187,73 @@ def init_db() -> None:
         """)
         conn.commit()
 
+        # ── Scheduled jobs table ───────────────────────────────────────
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS scheduled_jobs (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                client_id INTEGER NOT NULL,
+                pipeline_type TEXT NOT NULL,
+                inputs_json TEXT NOT NULL DEFAULT '{}',
+                approval_mode TEXT NOT NULL DEFAULT 'autopilot',
+                schedule TEXT NOT NULL,
+                next_run_at TEXT,
+                last_run_at TEXT,
+                last_status TEXT,
+                last_pipeline_id TEXT,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_scheduled_jobs_next
+            ON scheduled_jobs(enabled, next_run_at)
+        """)
+        conn.commit()
+
+        # ── Pipeline tables ───────────────────────────────────────────
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS pipeline_runs (
+                pipeline_id        TEXT PRIMARY KEY,
+                page_type          TEXT NOT NULL,
+                client_id          INTEGER NOT NULL,
+                client_name        TEXT NOT NULL DEFAULT '',
+                inputs_json        TEXT NOT NULL DEFAULT '{}',
+                stages_json        TEXT NOT NULL DEFAULT '[]',
+                approval_mode      TEXT NOT NULL DEFAULT 'autopilot',
+                status             TEXT NOT NULL DEFAULT 'pending',
+                current_stage_index INTEGER NOT NULL DEFAULT 0,
+                artifacts_json     TEXT NOT NULL DEFAULT '{}',
+                stage_outputs_json TEXT NOT NULL DEFAULT '{}',
+                error              TEXT,
+                created_at         TEXT NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_pipeline_runs_client
+            ON pipeline_runs(client_id, status)
+        """)
+
+        # ── Client memory table ───────────────────────────────────────
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS client_memory (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                client_id INTEGER NOT NULL,
+                memory_type TEXT NOT NULL,
+                key TEXT NOT NULL,
+                value TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(client_id, memory_type, key)
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_client_memory_client
+            ON client_memory(client_id, memory_type)
+        """)
+        conn.commit()
+
         # ── Seed clients if table is empty ──────────────────────────
         count = conn.execute("SELECT COUNT(*) FROM clients").fetchone()[0]
         if count == 0:

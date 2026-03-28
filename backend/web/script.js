@@ -154,6 +154,19 @@ const WORKFLOWS = [
     desc: 'Website and SEO strategy for property management companies — owner acquisition, tenant funnels, and local SEO.',
     time: '~6 min', status: 'active', skill: 'property-mgmt-strategy', category: 'business',
     preview: '# Property Management Marketing Strategy: ABC Properties — Phoenix, AZ\n\n## Market Assessment\n- Currently ranking for 12 keywords (vs competitor avg of 89)\n- Missing 47 high-value keywords\n\n## Website Strategy\n- Owner Portal: ROI calculator, management fee transparency, case studies\n- Tenant Portal: Online payments, maintenance requests, community info\n\n## SEO Strategy by Property Type\n- Residential: 24 target keywords, 8 location pages\n- Commercial: 12 target keywords, 4 service pages\n- HOA: 8 target keywords, 3 authority posts\n\n## 90-Day Roadmap\nWeek 1-2: Foundation pages...' },
+  /* ── PAGE BUILDER PIPELINES ── */
+  { id: 'pipeline-service-page', icon: '🏗️', title: 'Page Builder: Service Page',
+    desc: 'Full pipeline — research, strategy, copywriting, HTML/CSS design, and QA review. Produces a production-ready service page.',
+    time: '~15 min', status: 'active', skill: 'pipeline-service-page', category: 'pipeline',
+    preview: 'Stage 1: RESEARCH — Keyword volumes, competitor analysis, SERP features, content gaps\nStage 2: STRATEGY — Content brief, heading hierarchy, internal links, schema plan\nStage 3: COPYWRITE — Full page copy with anti-AI style, brand voice, E-E-A-T\nStage 4: DESIGN — Production HTML/CSS with responsive layout, schema, OG tags\nStage 5: QA — 100-point quality score, SEO check, AEO readiness, E-E-A-T audit\n\nOutput: Download-ready HTML page + branded .docx' },
+  { id: 'pipeline-location-page', icon: '📍', title: 'Page Builder: Location Page',
+    desc: 'Full pipeline — research, strategy, copywriting, HTML/CSS design, and QA review. Produces a production-ready location page.',
+    time: '~15 min', status: 'active', skill: 'pipeline-location-page', category: 'pipeline',
+    preview: 'Stage 1: RESEARCH — Local keyword data, competitor presence, service area analysis\nStage 2: STRATEGY — Location-specific brief, local context requirements, nearby areas\nStage 3: COPYWRITE — City-specific copy with 30-50% unique content, local proof\nStage 4: DESIGN — Production HTML/CSS with service grid, area map, local schema\nStage 5: QA — Quality score, local specificity check, cannibalization review' },
+  { id: 'pipeline-blog-post', icon: '📝', title: 'Page Builder: Blog Post',
+    desc: 'Full pipeline — research, strategy, copywriting, HTML/CSS design, and QA review. Produces a production-ready blog post.',
+    time: '~15 min', status: 'active', skill: 'pipeline-blog-post', category: 'pipeline',
+    preview: 'Stage 1: RESEARCH — Informational keyword data, PAA questions, competitor content\nStage 2: STRATEGY — Content brief with outline, snippet targets, internal link plan\nStage 3: COPYWRITE — Long-form content with AEO optimization, featured snippet format\nStage 4: DESIGN — Production HTML/CSS with TOC, author bio, article schema\nStage 5: QA — Quality score, fact-check, AI citation readiness (CITE framework)' },
 ];
 
 const JOBS = [];
@@ -187,6 +200,11 @@ let activeTerminalEl = null;
 let monitorJobId = null;
 const activeSSEJobs = new Set();
 
+/* ── CLIENT BRAIN STATE ── */
+let clientBrainData = null;
+let clientHubTab = 'activity';
+let brainBuildAbort = null;
+
 /* ── DOCUMENT VIEWER STATE ── */
 let markdownBuffer = '';          // Accumulates raw markdown during streaming
 let docViewMode = 'terminal';     // 'terminal' or 'document'
@@ -206,8 +224,8 @@ function showView(viewId) {
   const titles = {
     dashboard: 'Dashboard', workflows: 'Run Workflows', clients: 'Clients',
     jobs: 'Agent Tasks', reporting: 'Reporting', reports: 'Reports', content: 'Content',
-    logs: 'Activity Log', ads: 'Ad Studio', campaigns: 'Campaigns',
-    training: 'Training', 'client-hub': 'Client Hub', 'seo-client-hub': 'Client Hub', 'seo-sop': 'SOP & Templates', 'seo-ops': 'Operations'
+    logs: 'Activity Log', ads: 'Ad Studio', campaigns: 'Campaigns', schedules: 'Schedules',
+    training: 'Training', 'client-hub': 'Client Hub'
   };
   if (title) title.textContent = titles[viewId] || viewId;
 
@@ -223,6 +241,7 @@ function showView(viewId) {
   if (viewId === 'logs') renderLogs();
   if (viewId === 'ads') renderAds();
   if (viewId === 'client-hub') renderClientHub();
+  if (viewId === 'schedules') renderSchedules();
 }
 
 function showJobMonitor(jobId) {
@@ -814,6 +833,7 @@ function renderWorkflowCards() {
   if (!el) return;
 
   const categories = [
+    { key: 'pipeline', label: 'Page Builders',      desc: 'Full pipeline: research → strategy → copy → design → QA' },
     { key: 'seo',      label: 'SEO Analysis',      desc: 'Audits, gap reports, and competitive intelligence' },
     { key: 'content',  label: 'Content Creation',   desc: 'Blog posts, service pages, and location pages' },
     { key: 'business', label: 'Business Tools',     desc: 'Reports, proposals, and agency operations' },
@@ -909,6 +929,7 @@ function selectWorkflow(id) {
     'modalInputsTechSEO':         id === 'technical-seo-review',
     'modalInputsProgSEOStrategy': id === 'programmatic-seo-strategy',
     'modalInputsCompSEOAnalysis': id === 'competitor-seo-analysis',
+    'modalInputsPipeline':          id.startsWith('pipeline-'),
   };
   Object.entries(panels).forEach(([panelId, show]) => {
     const panel = document.getElementById(panelId);
@@ -949,7 +970,8 @@ function selectWorkflow(id) {
    'wfSCAContent','wfSCAKeyword','wfSCATitleTag','wfSCAMetaDesc','wfSCAUrl','wfSCABizType','wfSCANotes',
    'wfTSRDomain','wfTSRPlatform','wfTSRBizType','wfTSRLocation','wfTSRPageTypes','wfTSRKnownIssues','wfTSRNotes',
    'wfPSSBizType','wfPSSService','wfPSSLocation','wfPSSPageType','wfPSSScale','wfPSSCompetitors','wfPSSDataAssets','wfPSSNotes',
-   'wfCSADomain','wfCSACompetitors','wfCSAService','wfCSALocation','wfCSAKeywords','wfCSANotes'].forEach(fid => {
+   'wfCSADomain','wfCSACompetitors','wfCSAService','wfCSALocation','wfCSAKeywords','wfCSANotes',
+   'wfPipeDomain','wfPipeService','wfPipeLocation','wfPipeKeyword','wfPipeDifferentiators','wfPipePriceRange','wfPipeCompetitors','wfPipeNotes'].forEach(fid => {
     const el = document.getElementById(fid);
     if (el) el.value = '';
   });
@@ -1181,6 +1203,26 @@ function checkRunReady() {
       const location    = document.getElementById('wfCSALocation')?.value.trim();
       ready = !!(domain && competitors && service && location);
     }
+
+    // Pipeline workflows
+    if (selectedWorkflow === 'pipeline-service-page' && ready) {
+      const domain   = document.getElementById('wfPipeDomain')?.value.trim();
+      const service  = document.getElementById('wfPipeService')?.value.trim();
+      const location = document.getElementById('wfPipeLocation')?.value.trim();
+      ready = !!(domain && service && location);
+    }
+    if (selectedWorkflow === 'pipeline-location-page' && ready) {
+      const domain   = document.getElementById('wfPipeDomain')?.value.trim();
+      const service  = document.getElementById('wfPipeService')?.value.trim();
+      const location = document.getElementById('wfPipeLocation')?.value.trim();
+      ready = !!(domain && service && location);
+    }
+    if (selectedWorkflow === 'pipeline-blog-post' && ready) {
+      const domain   = document.getElementById('wfPipeDomain')?.value.trim();
+      const keyword  = document.getElementById('wfPipeKeyword')?.value.trim();
+      const location = document.getElementById('wfPipeLocation')?.value.trim();
+      ready = !!(domain && keyword && location);
+    }
   }
 
   btn.disabled = !ready;
@@ -1276,6 +1318,14 @@ function onAuditClientChange() {
   } else if (selectedWorkflow === 'property-mgmt-strategy') {
     if (client.domain) document.getElementById('wfPMDomain').value = client.domain;
     if (client.location) document.getElementById('wfPMLocation').value = client.location;
+  } else if (selectedWorkflow && selectedWorkflow.startsWith('pipeline-')) {
+    // Auto-fill pipeline inputs from client record
+    const domainEl = document.getElementById('wfPipeDomain');
+    const serviceEl = document.getElementById('wfPipeService');
+    const locationEl = document.getElementById('wfPipeLocation');
+    if (domainEl && client.domain) domainEl.value = client.domain;
+    if (serviceEl && client.service) serviceEl.value = client.service;
+    if (locationEl && client.location) locationEl.value = client.location;
   }
   checkRunReady();
 }
@@ -1714,6 +1764,70 @@ async function launchWorkflow() {
       keywords:     document.getElementById('wfCSAKeywords')?.value.trim() || '',
       notes:        document.getElementById('wfCSANotes')?.value.trim() || '',
     };
+  } else if (selectedWorkflow.startsWith('pipeline-')) {
+    inputs = {
+      domain:          document.getElementById('wfPipeDomain')?.value.trim() || '',
+      service:         document.getElementById('wfPipeService')?.value.trim() || '',
+      location:        document.getElementById('wfPipeLocation')?.value.trim() || '',
+      keyword:         document.getElementById('wfPipeKeyword')?.value.trim() || '',
+      differentiators: document.getElementById('wfPipeDifferentiators')?.value.trim() || '',
+      price_range:     document.getElementById('wfPipePriceRange')?.value.trim() || '',
+      competitors:     document.getElementById('wfPipeCompetitors')?.value.trim() || '',
+      notes:           document.getElementById('wfPipeNotes')?.value.trim() || '',
+      // Map pipeline-specific fields
+      primary_service:  document.getElementById('wfPipeService')?.value.trim() || '',
+      target_location:  document.getElementById('wfPipeLocation')?.value.trim() || '',
+      business_type:    document.getElementById('wfPipeService')?.value.trim() || '',
+    };
+  }
+
+  // Pipeline workflows use a different API endpoint
+  const pipelineTypes = {
+    'pipeline-service-page': 'service-page',
+    'pipeline-location-page': 'location-page',
+    'pipeline-blog-post': 'blog-post',
+  };
+
+  if (pipelineTypes[selectedWorkflow]) {
+    const pipePayload = {
+      page_type: pipelineTypes[selectedWorkflow],
+      client_id: parseInt(clientVal),
+      client_name: clientName,
+      inputs,
+      approval_mode: 'autopilot',
+    };
+
+    try {
+      const response = await fetch(`${API_BASE}/api/pipeline/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(pipePayload),
+      });
+      if (!response.ok) throw new Error(`Server returned ${response.status}`);
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      sseBuffer = '';
+
+      activeSSEJobs.add(newJob.id);
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          processSSEChunk(decoder.decode(value, { stream: true }), newJob);
+        }
+      } finally {
+        activeSSEJobs.delete(newJob.id);
+      }
+    } catch (err) {
+      activeSSEJobs.delete(newJob.id);
+      appendErrorLineToTerminal(`Connection error: ${err.message}`);
+      newJob.status = 'failed';
+      newJob.output = err.message;
+      terminalStreaming = false;
+      streamDiv = null;
+    }
+    return;
   }
 
   const liveWorkflows = ['home-service-content', 'website-seo-audit', 'prospect-audit', 'keyword-gap', 'seo-blog-post', 'service-page', 'location-page', 'programmatic-content', 'ai-search-report', 'backlink-audit', 'onpage-audit', 'seo-research', 'competitor-intel', 'monthly-report', 'proposals', 'google-ads-copy', 'schema-generator', 'content-strategy', 'pnl-statement', 'property-mgmt-strategy', 'page-design', 'geo-content-audit', 'seo-content-audit', 'technical-seo-review', 'programmatic-seo-strategy', 'competitor-seo-analysis'];
@@ -1859,6 +1973,17 @@ function appendErrorLineToTerminal(msg) {
   tb.scrollTop = tb.scrollHeight;
 }
 
+function appendStatusLineToTerminal(msg) {
+  const tb = activeTerminalEl || document.getElementById('terminal');
+  if (!tb) return;
+  streamDiv = null; // force new div for stage markers
+  const statusDiv = document.createElement('div');
+  statusDiv.className = 'tl-status';
+  statusDiv.textContent = msg;
+  tb.appendChild(statusDiv);
+  tb.scrollTop = tb.scrollHeight;
+}
+
 function processSSEChunk(chunk, job) {
   sseBuffer += chunk;
   const lines = sseBuffer.split('\n');
@@ -1871,6 +1996,26 @@ function processSSEChunk(chunk, job) {
       if (data.type === 'token') {
         appendTokenToTerminal(data.text);
         if (job) jobProgresses[job.id] = Math.min(95, (jobProgresses[job.id] || 0) + 0.25);
+
+      } else if (data.type === 'stage_start') {
+        const stageLabel = (data.stage || '').toUpperCase();
+        const stageNum = (data.stage_index || 0) + 1;
+        const total = data.total_stages || 5;
+        appendStatusLineToTerminal(`\n▸ Stage ${stageNum}/${total}: ${stageLabel}`);
+        if (job) jobProgresses[job.id] = Math.min(90, (stageNum / total) * 80);
+
+      } else if (data.type === 'stage_complete') {
+        const stageLabel = (data.stage || '').toUpperCase();
+        appendStatusLineToTerminal(`  ✓ ${stageLabel} complete`);
+
+      } else if (data.type === 'awaiting_approval') {
+        appendStatusLineToTerminal(`\n⏸ Paused — awaiting approval for "${data.stage}"`);
+        if (job) { job.status = 'paused'; job.pipelineId = data.pipeline_id; }
+
+      } else if (data.type === 'pipeline_complete') {
+        appendStatusLineToTerminal(`\n✅ Pipeline complete — ${data.stages_completed} stages finished`);
+        if (data.pipeline_id && job) job.pipelineId = data.pipeline_id;
+        // Fall through to done-like handling below
 
       } else if (data.type === 'done') {
         currentJobId = data.job_id;
@@ -2207,74 +2352,95 @@ function renderClientHub() {
       </div>
     </div>
 
-    <!-- Four Status Columns -->
-    <div class="ch-columns">
+    <!-- Tab Bar -->
+    <div class="ch-tab-bar">
+      <button class="ch-tab ${clientHubTab === 'activity' ? 'active' : ''}" onclick="switchClientHubTab('activity')">Activity</button>
+      <button class="ch-tab ${clientHubTab === 'brain' ? 'active' : ''}" onclick="switchClientHubTab('brain')">Brain</button>
+      <button class="ch-tab" onclick="showView('content')">Content</button>
+    </div>
 
-      <!-- In Progress -->
+    <!-- Tab Content Container -->
+    <div id="chTabContent"></div>
+  `;
+
+  // Render the active tab content
+  renderClientHubTabContent(client, {
+    runningJobs, completedJobs, attentionTasks,
+    inProgressHTML, completedHTML, attentionHTML, stripHTML
+  });
+}
+
+/* ══════════════════════════════════════════════════════════
+   CLIENT HUB — TAB ROUTING + BRAIN VIEW (US-008, US-009)
+   ══════════════════════════════════════════════════════════ */
+
+function switchClientHubTab(tab) {
+  clientHubTab = tab;
+  // Update tab bar active state without full re-render
+  document.querySelectorAll('.ch-tab-bar .ch-tab').forEach(t => t.classList.remove('active'));
+  const tabs = document.querySelectorAll('.ch-tab-bar .ch-tab');
+  if (tab === 'activity' && tabs[0]) tabs[0].classList.add('active');
+  if (tab === 'brain' && tabs[1]) tabs[1].classList.add('active');
+
+  if (tab === 'brain') {
+    loadAndRenderBrain();
+  } else {
+    renderClientHub();
+  }
+}
+
+function renderClientHubTabContent(client, data) {
+  const container = document.getElementById('chTabContent');
+  if (!container) return;
+
+  if (clientHubTab === 'brain') {
+    loadAndRenderBrain();
+    return;
+  }
+
+  // Activity tab — original four-column layout + content strip
+  const activityHtml = buildActivityTabHtml(data);
+  container.innerHTML = activityHtml;
+}
+
+function buildActivityTabHtml(data) {
+  return `
+    <div class="ch-columns">
       <div class="ch-col ch-col-inprogress">
         <div class="ch-col-header">
-          <div class="ch-col-title">
-            <span class="ch-col-dot"></span>
-            In Progress
-          </div>
-          <span class="ch-col-count">${runningJobs.length}</span>
+          <div class="ch-col-title"><span class="ch-col-dot"></span> In Progress</div>
+          <span class="ch-col-count">${data.runningJobs.length}</span>
         </div>
-        <div class="ch-col-body">
-          ${inProgressHTML}
-        </div>
+        <div class="ch-col-body">${data.inProgressHTML}</div>
       </div>
-
-      <!-- Recently Completed -->
       <div class="ch-col ch-col-completed">
         <div class="ch-col-header">
-          <div class="ch-col-title">
-            <span class="ch-col-dot"></span>
-            Recently Completed
-          </div>
-          <span class="ch-col-count">${completedJobs.length}</span>
+          <div class="ch-col-title"><span class="ch-col-dot"></span> Recently Completed</div>
+          <span class="ch-col-count">${data.completedJobs.length}</span>
         </div>
-        <div class="ch-col-body">
-          ${completedHTML}
-        </div>
+        <div class="ch-col-body">${data.completedHTML}</div>
       </div>
-
-      <!-- Needs Attention -->
       <div class="ch-col ch-col-attention">
         <div class="ch-col-header">
-          <div class="ch-col-title">
-            <span class="ch-col-dot"></span>
-            Needs Attention
-          </div>
-          <span class="ch-col-count">${attentionTasks.length}</span>
+          <div class="ch-col-title"><span class="ch-col-dot"></span> Needs Attention</div>
+          <span class="ch-col-count">${data.attentionTasks.length}</span>
         </div>
-        <div class="ch-col-body">
-          ${attentionHTML}
-        </div>
+        <div class="ch-col-body">${data.attentionHTML}</div>
       </div>
-
-      <!-- Upcoming Automations -->
       <div class="ch-col ch-col-upcoming">
         <div class="ch-col-header">
-          <div class="ch-col-title">
-            <span class="ch-col-dot"></span>
-            Upcoming Automations
-          </div>
+          <div class="ch-col-title"><span class="ch-col-dot"></span> Upcoming Automations</div>
           <span class="ch-col-count">0</span>
         </div>
         <div class="ch-col-body">
           <div class="ch-upcoming-empty">
             <div class="ch-upcoming-icon">🗓</div>
             <div class="ch-upcoming-text">No automations scheduled yet.<br>Schedule recurring workflows to run automatically.</div>
-            <button class="ch-schedule-btn" onclick="showToast('Coming soon — scheduling is on the roadmap')">
-              + Schedule Automation
-            </button>
+            <button class="ch-schedule-btn" onclick="showToast('Coming soon — scheduling is on the roadmap')">+ Schedule Automation</button>
           </div>
         </div>
       </div>
-
     </div>
-
-    <!-- Content Library Strip -->
     <div class="ch-content-strip">
       <div class="ch-strip-header">
         <div class="ch-strip-title">
@@ -2284,14 +2450,408 @@ function renderClientHub() {
           </svg>
           Content Library
         </div>
-        <button class="ch-view-all-link" onclick="showView('content')">View All →</button>
+        <button class="ch-view-all-link" onclick="showView('content')">View All &rarr;</button>
       </div>
-      <div class="ch-strip-scroll">
-        ${stripHTML}
-      </div>
+      <div class="ch-strip-scroll">${data.stripHTML}</div>
     </div>
   `;
 }
+
+/* ── Brain Data Loading ── */
+
+async function loadAndRenderBrain() {
+  const container = document.getElementById('chTabContent');
+  if (!container) return;
+
+  container.innerHTML = '<div class="ch-brain-loading">Loading brain data...</div>';
+
+  try {
+    const res = await fetch(`${API_BASE}/api/clients/${activeClientId}/brain`);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    clientBrainData = await res.json();
+    renderBrainView();
+  } catch (err) {
+    // Brain endpoint may not exist yet — show empty state gracefully
+    clientBrainData = { client_id: activeClientId, has_brain: false, sections: {}, entry_count: 0 };
+    renderBrainView();
+  }
+}
+
+/* ── Brain View Renderer ── */
+
+const BRAIN_SECTION_META = {
+  design_system:  { label: 'Brand Identity',         icon: '🎨' },
+  asset_catalog:  { label: 'Asset Catalog',           icon: '📁' },
+  brand_voice:    { label: 'Writing Voice',            icon: '✍️' },
+  business_intel: { label: 'Business Intelligence',    icon: '📊' },
+  past_content:   { label: 'Content History',          icon: '📄' },
+  learnings:      { label: 'Learnings',                icon: '🧠' },
+};
+
+function renderBrainView() {
+  const container = document.getElementById('chTabContent');
+  if (!container) return;
+
+  const data = clientBrainData || { has_brain: false, sections: {}, entry_count: 0 };
+  const hasBrain = data.has_brain && data.entry_count > 0;
+  const buildBtnLabel = hasBrain ? 'Rebuild Brain' : 'Build Brain';
+  const buildBtnClass = hasBrain ? 'ch-build-brain-btn rebuild' : 'ch-build-brain-btn';
+
+  const parts = [];
+
+  // Toolbar
+  parts.push('<div class="ch-brain-toolbar">');
+  parts.push('  <div class="ch-brain-toolbar-info">');
+  parts.push('    <span class="ch-brain-entry-count">' + (data.entry_count || 0) + ' entries</span>');
+  parts.push('  </div>');
+  parts.push('  <button class="' + buildBtnClass + '" onclick="startBuildBrain()">');
+  parts.push('    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">');
+  parts.push('      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>');
+  parts.push('    </svg>');
+  parts.push('    ' + buildBtnLabel);
+  parts.push('  </button>');
+  parts.push('</div>');
+
+  // Progress panel (hidden)
+  parts.push('<div id="chBrainProgress" class="ch-brain-progress" style="display:none;">');
+  parts.push('  <div class="ch-brain-progress-header">');
+  parts.push('    <span>Building client brain...</span>');
+  parts.push('    <button class="ch-brain-progress-close" onclick="closeBrainProgress()">x</button>');
+  parts.push('  </div>');
+  parts.push('  <div id="chBrainProgressLog" class="ch-brain-progress-log"></div>');
+  parts.push('</div>');
+
+  if (!hasBrain) {
+    // Full empty state
+    parts.push('<div class="ch-brain-empty-hero">');
+    parts.push('  <div class="ch-brain-empty-icon">🧠</div>');
+    parts.push('  <div class="ch-brain-empty-title">No Brain Data Yet</div>');
+    parts.push('  <div class="ch-brain-empty-desc">');
+    parts.push('    The client brain captures brand identity, writing voice, business intelligence,');
+    parts.push('    and content patterns. Click <strong>' + buildBtnLabel + '</strong> above to auto-populate');
+    parts.push('    by researching this client\'s website and online presence.');
+    parts.push('  </div>');
+    parts.push('</div>');
+  } else {
+    // Render each section
+    const sectionOrder = ['design_system', 'asset_catalog', 'brand_voice', 'business_intel', 'past_content', 'learnings'];
+    for (const sectionKey of sectionOrder) {
+      const meta = BRAIN_SECTION_META[sectionKey] || { label: formatBrainKey(sectionKey), icon: '📋' };
+      const entries = data.sections[sectionKey] || {};
+      const entryKeys = Object.keys(entries);
+
+      parts.push('<div class="ch-brain-section" data-section="' + sectionKey + '">');
+      parts.push('  <div class="ch-brain-section-header" onclick="toggleBrainSection(this)">');
+      parts.push('    <span class="ch-brain-section-icon">' + meta.icon + '</span>');
+      parts.push('    <span class="ch-brain-section-label">' + meta.label + '</span>');
+      parts.push('    <span class="ch-brain-section-count">' + entryKeys.length + '</span>');
+      parts.push('    <span class="ch-brain-section-chevron">&#9662;</span>');
+      parts.push('  </div>');
+      parts.push('  <div class="ch-brain-section-body">');
+
+      if (entryKeys.length === 0) {
+        parts.push('    <div class="ch-brain-empty-section">Not yet populated. Build the client brain to auto-populate.</div>');
+      } else {
+        for (const key of entryKeys) {
+          const val = entries[key];
+          const displayVal = formatBrainValue(val);
+          const rawVal = typeof val === 'string' ? val : JSON.stringify(val, null, 2);
+          const isTruncated = displayVal.length > 200;
+          const truncated = isTruncated ? displayVal.slice(0, 200) + '...' : displayVal;
+
+          parts.push('    <div class="ch-brain-entry" data-section="' + sectionKey + '" data-key="' + escapeAttr(key) + '">');
+          parts.push('      <div class="ch-brain-entry-display">');
+          parts.push('        <div class="ch-brain-entry-key">' + formatBrainKey(key) + '</div>');
+          parts.push('        <div class="ch-brain-entry-val">');
+          parts.push('          <span class="ch-brain-val-text">' + escapeHtml(truncated) + '</span>');
+          if (isTruncated) {
+            parts.push('          <button class="ch-brain-show-more" onclick="toggleBrainEntryFull(this)">Show more</button>');
+          }
+          parts.push('        </div>');
+          parts.push('        <button class="ch-brain-edit-btn" onclick="startEditBrainEntry(this)" title="Edit entry">');
+          parts.push('          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>');
+          parts.push('        </button>');
+          parts.push('      </div>');
+          parts.push('      <div class="ch-brain-entry-edit" style="display:none;">');
+          parts.push('        <textarea class="ch-brain-edit-textarea">' + escapeHtml(rawVal) + '</textarea>');
+          parts.push('        <div class="ch-brain-edit-actions">');
+          parts.push('          <button class="ch-brain-save-btn" onclick="saveBrainEntry(this, \'' + sectionKey + '\', \'' + escapeAttr(key) + '\')">Save</button>');
+          parts.push('          <button class="ch-brain-cancel-btn" onclick="cancelEditBrainEntry(this)">Cancel</button>');
+          parts.push('        </div>');
+          parts.push('      </div>');
+          parts.push('    </div>');
+        }
+      }
+
+      // Add Entry row
+      parts.push('    <div class="ch-brain-add-row" data-section="' + sectionKey + '">');
+      parts.push('      <button class="ch-brain-add-btn" onclick="showAddBrainEntry(this, \'' + sectionKey + '\')">+ Add Entry</button>');
+      parts.push('      <div class="ch-brain-add-form" style="display:none;">');
+      parts.push('        <input type="text" class="ch-brain-add-key" placeholder="Key (e.g. color_palette)">');
+      parts.push('        <textarea class="ch-brain-add-value" placeholder="Value"></textarea>');
+      parts.push('        <div class="ch-brain-edit-actions">');
+      parts.push('          <button class="ch-brain-save-btn" onclick="saveNewBrainEntry(this, \'' + sectionKey + '\')">Save</button>');
+      parts.push('          <button class="ch-brain-cancel-btn" onclick="cancelAddBrainEntry(this)">Cancel</button>');
+      parts.push('        </div>');
+      parts.push('      </div>');
+      parts.push('    </div>');
+
+      parts.push('  </div>');
+      parts.push('</div>');
+    }
+  }
+
+  container.innerHTML = parts.join('\n');
+
+  // Store full display values on entry elements for show more/less toggle
+  if (hasBrain) {
+    const sectionOrder = ['design_system', 'asset_catalog', 'brand_voice', 'business_intel', 'past_content', 'learnings'];
+    for (const sectionKey of sectionOrder) {
+      const entries = data.sections[sectionKey] || {};
+      for (const key of Object.keys(entries)) {
+        const fullVal = formatBrainValue(entries[key]);
+        if (fullVal.length > 200) {
+          const entryEl = container.querySelector('.ch-brain-entry[data-section="' + sectionKey + '"][data-key="' + escapeAttr(key) + '"]');
+          if (entryEl) entryEl.dataset.fullVal = fullVal;
+        }
+      }
+    }
+  }
+}
+
+/* ── Brain Helpers ── */
+
+function formatBrainKey(key) {
+  return key.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+}
+
+function formatBrainValue(val) {
+  if (val === null || val === undefined) return '';
+  if (typeof val === 'string') return val;
+  if (Array.isArray(val)) {
+    return val.map(function(item) {
+      if (typeof item === 'object') return JSON.stringify(item);
+      return String(item);
+    }).join(', ');
+  }
+  if (typeof val === 'object') {
+    return Object.entries(val).map(function(pair) {
+      return formatBrainKey(pair[0]) + ': ' + (typeof pair[1] === 'object' ? JSON.stringify(pair[1]) : pair[1]);
+    }).join('\n');
+  }
+  return String(val);
+}
+
+function escapeHtml(str) {
+  var d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function escapeAttr(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/* ── Brain Section Toggle ── */
+
+function toggleBrainSection(headerEl) {
+  var section = headerEl.closest('.ch-brain-section');
+  if (section) section.classList.toggle('collapsed');
+}
+
+/* ── Show More / Show Less ── */
+
+function toggleBrainEntryFull(btn) {
+  var entry = btn.closest('.ch-brain-entry');
+  var textEl = entry.querySelector('.ch-brain-val-text');
+  var fullVal = entry.dataset.fullVal || '';
+  if (btn.textContent === 'Show more') {
+    textEl.textContent = fullVal;
+    btn.textContent = 'Show less';
+  } else {
+    textEl.textContent = fullVal.slice(0, 200) + '...';
+    btn.textContent = 'Show more';
+  }
+}
+
+/* ── Inline Editing ── */
+
+function startEditBrainEntry(btn) {
+  var entry = btn.closest('.ch-brain-entry');
+  entry.querySelector('.ch-brain-entry-display').style.display = 'none';
+  entry.querySelector('.ch-brain-entry-edit').style.display = 'block';
+}
+
+function cancelEditBrainEntry(btn) {
+  var entry = btn.closest('.ch-brain-entry');
+  entry.querySelector('.ch-brain-entry-display').style.display = '';
+  entry.querySelector('.ch-brain-entry-edit').style.display = 'none';
+}
+
+async function saveBrainEntry(btn, memoryType, key) {
+  var entry = btn.closest('.ch-brain-entry');
+  var textarea = entry.querySelector('.ch-brain-edit-textarea');
+  var value = textarea.value;
+
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  try {
+    var res = await fetch(API_BASE + '/api/memory/' + activeClientId, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ memory_type: memoryType, key: key, value: value }),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    showToast('Entry saved');
+    loadAndRenderBrain();
+  } catch (err) {
+    showToast('Failed to save: ' + err.message);
+    btn.disabled = false;
+    btn.textContent = 'Save';
+  }
+}
+
+/* ── Add New Entry ── */
+
+function showAddBrainEntry(btn, sectionKey) {
+  var row = btn.closest('.ch-brain-add-row');
+  btn.style.display = 'none';
+  row.querySelector('.ch-brain-add-form').style.display = 'block';
+}
+
+function cancelAddBrainEntry(btn) {
+  var row = btn.closest('.ch-brain-add-row');
+  row.querySelector('.ch-brain-add-btn').style.display = '';
+  row.querySelector('.ch-brain-add-form').style.display = 'none';
+  row.querySelector('.ch-brain-add-key').value = '';
+  row.querySelector('.ch-brain-add-value').value = '';
+}
+
+async function saveNewBrainEntry(btn, sectionKey) {
+  var row = btn.closest('.ch-brain-add-row');
+  var key = row.querySelector('.ch-brain-add-key').value.trim();
+  var value = row.querySelector('.ch-brain-add-value').value;
+
+  if (!key) {
+    showToast('Key is required');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  try {
+    var res = await fetch(API_BASE + '/api/memory/' + activeClientId, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ memory_type: sectionKey, key: key, value: value }),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    showToast('Entry added');
+    loadAndRenderBrain();
+  } catch (err) {
+    showToast('Failed to save: ' + err.message);
+    btn.disabled = false;
+    btn.textContent = 'Save';
+  }
+}
+
+/* ── Build Brain (SSE Stream) ── */
+
+async function startBuildBrain() {
+  var data = clientBrainData || {};
+  var hasBrain = data.has_brain && data.entry_count > 0;
+
+  if (hasBrain) {
+    if (!confirm('This will rebuild the client brain from scratch. Existing entries will be replaced. Continue?')) return;
+  }
+
+  var progressPanel = document.getElementById('chBrainProgress');
+  var progressLog = document.getElementById('chBrainProgressLog');
+  if (!progressPanel || !progressLog) return;
+
+  progressPanel.style.display = 'block';
+  progressLog.textContent = '';
+
+  var buildBtn = document.querySelector('.ch-build-brain-btn');
+  if (buildBtn) {
+    buildBtn.disabled = true;
+    buildBtn.textContent = 'Building...';
+  }
+
+  try {
+    var res = await fetch(API_BASE + '/api/clients/' + activeClientId + '/research', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+
+    var reader = res.body.getReader();
+    var decoder = new TextDecoder();
+    var buffer = '';
+
+    while (true) {
+      var chunk = await reader.read();
+      if (chunk.done) break;
+
+      buffer += decoder.decode(chunk.value, { stream: true });
+      var lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        if (!line.startsWith('data: ')) continue;
+        var payload = line.slice(6).trim();
+        if (!payload) continue;
+
+        try {
+          var evt = JSON.parse(payload);
+          if (evt.type === 'token' && evt.text) {
+            var span = document.createElement('span');
+            span.textContent = evt.text;
+            progressLog.appendChild(span);
+            progressLog.scrollTop = progressLog.scrollHeight;
+          } else if (evt.type === 'done') {
+            var doneMsg = document.createElement('div');
+            doneMsg.className = 'ch-brain-progress-done';
+            doneMsg.textContent = 'Brain build complete.';
+            progressLog.appendChild(doneMsg);
+            progressLog.scrollTop = progressLog.scrollHeight;
+            loadAndRenderBrain();
+          } else if (evt.type === 'error') {
+            var errDiv = document.createElement('div');
+            errDiv.className = 'ch-brain-progress-error';
+            errDiv.textContent = 'Error: ' + (evt.message || 'Unknown error');
+            progressLog.appendChild(errDiv);
+          }
+        } catch (parseErr) {
+          var txt = document.createElement('span');
+          txt.textContent = payload;
+          progressLog.appendChild(txt);
+        }
+      }
+    }
+  } catch (err) {
+    var errMsg = document.createElement('div');
+    errMsg.className = 'ch-brain-progress-error';
+    errMsg.textContent = 'Build failed: ' + err.message;
+    if (progressLog) progressLog.appendChild(errMsg);
+  } finally {
+    if (buildBtn) {
+      buildBtn.disabled = false;
+      buildBtn.textContent = hasBrain ? 'Rebuild Brain' : 'Build Brain';
+    }
+  }
+}
+
+function closeBrainProgress() {
+  var panel = document.getElementById('chBrainProgress');
+  if (panel) panel.style.display = 'none';
+}
+
+/* ══════════════════════════════════════════════════════════ */
 
 function selectWorkflowForClient(clientId) {
   // Pre-select the client in the workflow modal and open the workflows view
@@ -2882,6 +3442,149 @@ function renderAds() {
   const el = document.getElementById('adsGrid');
   if (!el) return;
   el.innerHTML = '<div class="empty-state" style="grid-column:1/-1;">No ad creatives yet — Ad Studio coming soon</div>';
+}
+
+/* ── SCHEDULE MANAGER ── */
+
+let SCHEDULES = [];
+
+async function loadSchedules() {
+  try {
+    const res = await fetch(`${API_BASE}/api/schedule`);
+    if (!res.ok) return;
+    const data = await res.json();
+    SCHEDULES = data.schedules || [];
+  } catch (e) { /* server not available */ }
+}
+
+function renderSchedules() {
+  const el = document.getElementById('schedulesGrid');
+  if (!el) return;
+  // Clear existing content
+  while (el.firstChild) el.removeChild(el.firstChild);
+
+  if (!SCHEDULES.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.style.cssText = 'grid-column:1/-1; text-align:center; padding: 60px 20px;';
+    const title = document.createElement('div');
+    title.style.cssText = 'font-size:2rem; margin-bottom:12px;';
+    title.textContent = 'Automated Content Production';
+    const desc = document.createElement('p');
+    desc.style.cssText = 'color:var(--text-muted); max-width:500px; margin:0 auto 24px;';
+    desc.textContent = 'Schedule pipelines to run automatically \u2014 blog posts every Monday, location pages on the 1st of each month.';
+    const btn = document.createElement('button');
+    btn.className = 'btn-primary';
+    btn.textContent = 'Create Schedule';
+    btn.onclick = openCreateScheduleModal;
+    empty.appendChild(title);
+    empty.appendChild(desc);
+    empty.appendChild(btn);
+    el.appendChild(empty);
+    return;
+  }
+
+  // Header row
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; grid-column:1/-1;';
+  const h3 = document.createElement('h3');
+  h3.style.margin = '0';
+  h3.textContent = 'Scheduled Pipelines';
+  const addBtn = document.createElement('button');
+  addBtn.className = 'btn-primary';
+  addBtn.textContent = '+ New Schedule';
+  addBtn.onclick = openCreateScheduleModal;
+  header.appendChild(h3);
+  header.appendChild(addBtn);
+  el.appendChild(header);
+
+  const typeLabels = { 'service-page': 'Service Page', 'location-page': 'Location Page', 'blog-post': 'Blog Post' };
+
+  for (const s of SCHEDULES) {
+    const client = CLIENTS.find(c => c.id === s.client_id);
+    const clientName = client ? client.name : `Client #${s.client_id}`;
+    const typeLabel = typeLabels[s.pipeline_type] || s.pipeline_type;
+    const lastRun = s.last_run_at ? new Date(s.last_run_at).toLocaleDateString() : 'Never';
+
+    const card = document.createElement('div');
+    card.className = 'schedule-card';
+    card.style.cssText = 'grid-column:1/-1; background:var(--panel-bg,#fff); border:1px solid var(--border,#e5e7eb); border-radius:8px; padding:20px; display:flex; justify-content:space-between; align-items:center;';
+
+    const info = document.createElement('div');
+    const nameEl = document.createElement('div');
+    nameEl.style.cssText = 'font-weight:600; font-size:1.05rem;';
+    nameEl.textContent = s.name;
+    const meta = document.createElement('div');
+    meta.style.cssText = 'color:var(--text-muted); font-size:0.9rem; margin-top:4px;';
+    meta.textContent = `${typeLabel} for ${clientName} \u00B7 ${s.schedule}`;
+    const last = document.createElement('div');
+    last.style.cssText = 'color:var(--text-muted); font-size:0.85rem; margin-top:4px;';
+    last.textContent = `Last run: ${lastRun} \u00B7 Status: ${s.last_status || '\u2014'}`;
+    info.appendChild(nameEl);
+    info.appendChild(meta);
+    info.appendChild(last);
+
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex; gap:8px; align-items:center;';
+    const badge = document.createElement('span');
+    badge.className = s.enabled ? 'badge badge-active' : 'badge badge-inactive';
+    badge.style.cssText = 'font-size:0.8rem; padding:4px 10px; border-radius:99px;';
+    badge.textContent = s.enabled ? 'Active' : 'Paused';
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'btn-sm';
+    toggleBtn.textContent = s.enabled ? 'Pause' : 'Resume';
+    toggleBtn.onclick = () => toggleSchedule(s.id, !s.enabled);
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-sm btn-danger';
+    delBtn.textContent = 'Delete';
+    delBtn.onclick = () => deleteSchedule(s.id);
+    actions.appendChild(badge);
+    actions.appendChild(toggleBtn);
+    actions.appendChild(delBtn);
+
+    card.appendChild(info);
+    card.appendChild(actions);
+    el.appendChild(card);
+  }
+}
+
+async function toggleSchedule(jobId, enabled) {
+  await fetch(`${API_BASE}/api/schedule/${jobId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  });
+  await loadSchedules();
+  renderSchedules();
+}
+
+async function deleteSchedule(jobId) {
+  if (!confirm('Delete this scheduled pipeline?')) return;
+  await fetch(`${API_BASE}/api/schedule/${jobId}`, { method: 'DELETE' });
+  await loadSchedules();
+  renderSchedules();
+}
+
+function openCreateScheduleModal() {
+  const pipeType = prompt('Pipeline type (service-page, location-page, blog-post):');
+  if (!pipeType) return;
+  const clientId = prompt('Client ID:');
+  if (!clientId) return;
+  const schedule = prompt('Schedule (e.g. "every 7d", "0 9 * * 1"):');
+  if (!schedule) return;
+  const name = prompt('Schedule name:', `Scheduled ${pipeType}`);
+
+  fetch(`${API_BASE}/api/schedule`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: name || `Scheduled ${pipeType}`,
+      client_id: parseInt(clientId),
+      pipeline_type: pipeType,
+      schedule: schedule,
+      inputs: {},
+    }),
+  }).then(() => { loadSchedules().then(() => renderSchedules()); });
 }
 
 /* ── JOB MODAL ── */
@@ -4254,3 +4957,4 @@ if (dashboardMatch) {
   startTerminal();
 }
 loadClients();
+loadSchedules();
