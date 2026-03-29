@@ -254,6 +254,26 @@ def init_db() -> None:
         """)
         conn.commit()
 
+        # ── Sprint runs table ────────────────────────────────────────
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS sprint_runs (
+                sprint_id     TEXT PRIMARY KEY,
+                client_id     INTEGER NOT NULL,
+                name          TEXT NOT NULL DEFAULT '',
+                status        TEXT NOT NULL DEFAULT 'pending',
+                items_json    TEXT NOT NULL DEFAULT '[]',
+                pipeline_ids  TEXT NOT NULL DEFAULT '[]',
+                results_json  TEXT NOT NULL DEFAULT '{}',
+                created_at    TEXT NOT NULL,
+                completed_at  TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_sprint_runs_client
+            ON sprint_runs(client_id, created_at)
+        """)
+        conn.commit()
+
         # ── Seed clients if table is empty ──────────────────────────
         count = conn.execute("SELECT COUNT(*) FROM clients").fetchone()[0]
         if count == 0:
@@ -472,3 +492,60 @@ def delete_client(client_id: int) -> bool:
         )
         conn.commit()
         return cur.rowcount > 0
+
+
+# ── Sprint run functions ───────────────────────────────────────────────────
+
+def save_sprint(sprint_id: str, data: dict) -> None:
+    """Insert or replace a sprint run record."""
+    with _connect() as conn:
+        conn.execute(
+            """INSERT OR REPLACE INTO sprint_runs
+               (sprint_id, client_id, name, status, items_json,
+                pipeline_ids, results_json, created_at, completed_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                sprint_id,
+                data.get("client_id", 0),
+                data.get("name", ""),
+                data.get("status", "pending"),
+                json.dumps(data.get("items", [])),
+                json.dumps(data.get("pipeline_ids", [])),
+                json.dumps(data.get("results", {})),
+                data.get("created_at", datetime.now(timezone.utc).isoformat()),
+                data.get("completed_at"),
+            ),
+        )
+        conn.commit()
+
+
+def get_sprint(sprint_id: str) -> Optional[dict]:
+    """Return a single sprint run dict or None."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM sprint_runs WHERE sprint_id = ?", (sprint_id,)
+        ).fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        d["items"] = json.loads(d.pop("items_json"))
+        d["pipeline_ids"] = json.loads(d.pop("pipeline_ids"))
+        d["results"] = json.loads(d.pop("results_json"))
+        return d
+
+
+def get_client_sprints(client_id: int) -> list[dict]:
+    """Return all sprints for a client, newest first."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM sprint_runs WHERE client_id = ? ORDER BY created_at DESC",
+            (client_id,),
+        ).fetchall()
+        results = []
+        for row in rows:
+            d = dict(row)
+            d["items"] = json.loads(d.pop("items_json"))
+            d["pipeline_ids"] = json.loads(d.pop("pipeline_ids"))
+            d["results"] = json.loads(d.pop("results_json"))
+            results.append(d)
+        return results

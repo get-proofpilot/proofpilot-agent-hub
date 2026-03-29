@@ -205,6 +205,12 @@ let clientBrainData = null;
 let clientHubTab = 'activity';
 let brainBuildAbort = null;
 
+/* ── SPRINT STATE ── */
+let sprintItems = [];
+let sprintRunning = false;
+let sprintHistory = [];  // Module-level cache of past sprint results
+let sprintAbort = null;
+
 /* ── DOCUMENT VIEWER STATE ── */
 let markdownBuffer = '';          // Accumulates raw markdown during streaming
 let docViewMode = 'terminal';     // 'terminal' or 'document'
@@ -2149,6 +2155,13 @@ function renderClients(filter = '') {
 /* ── CLIENT HUB ── */
 
 function showClientHub(clientId) {
+  // Reset brain + sprint state when switching to a different client
+  if (activeClientId !== clientId) {
+    clientHubTab = 'activity';
+    clientBrainData = null;
+    sprintItems = [];
+    sprintRunning = false;
+  }
   activeClientId = clientId;
   // Keep the Clients nav item highlighted when viewing the hub
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -2356,6 +2369,7 @@ function renderClientHub() {
     <div class="ch-tab-bar">
       <button class="ch-tab ${clientHubTab === 'activity' ? 'active' : ''}" onclick="switchClientHubTab('activity')">Activity</button>
       <button class="ch-tab ${clientHubTab === 'brain' ? 'active' : ''}" onclick="switchClientHubTab('brain')">Brain</button>
+      <button class="ch-tab ${clientHubTab === 'sprint' ? 'active' : ''}" onclick="switchClientHubTab('sprint')">Sprint</button>
       <button class="ch-tab" onclick="showView('content')">Content</button>
     </div>
 
@@ -2379,11 +2393,13 @@ function switchClientHubTab(tab) {
   // Update tab bar active state without full re-render
   document.querySelectorAll('.ch-tab-bar .ch-tab').forEach(t => t.classList.remove('active'));
   const tabs = document.querySelectorAll('.ch-tab-bar .ch-tab');
-  if (tab === 'activity' && tabs[0]) tabs[0].classList.add('active');
-  if (tab === 'brain' && tabs[1]) tabs[1].classList.add('active');
+  const tabMap = { activity: 0, brain: 1, sprint: 2 };
+  if (tabMap[tab] !== undefined && tabs[tabMap[tab]]) tabs[tabMap[tab]].classList.add('active');
 
   if (tab === 'brain') {
     loadAndRenderBrain();
+  } else if (tab === 'sprint') {
+    renderSprintView();
   } else {
     renderClientHub();
   }
@@ -2398,7 +2414,13 @@ function renderClientHubTabContent(client, data) {
     return;
   }
 
+  if (clientHubTab === 'sprint') {
+    renderSprintView();
+    return;
+  }
+
   // Activity tab — original four-column layout + content strip
+  // Note: all values are escaped via escapeHtml() before insertion
   const activityHtml = buildActivityTabHtml(data);
   container.innerHTML = activityHtml;
 }
@@ -2849,6 +2871,375 @@ async function startBuildBrain() {
 function closeBrainProgress() {
   var panel = document.getElementById('chBrainProgress');
   if (panel) panel.style.display = 'none';
+}
+
+/* ══════════════════════════════════════════════════════════
+   CLIENT HUB — MONTHLY SPRINT VIEW (Phase 3)
+   ══════════════════════════════════════════════════════════ */
+
+const SPRINT_PAGE_TYPES = [
+  { value: 'service_page', label: 'Service Page' },
+  { value: 'location_page', label: 'Location Page' },
+  { value: 'blog_post', label: 'Blog Post' },
+];
+
+function sprintTypeLabel(val) {
+  const t = SPRINT_PAGE_TYPES.find(p => p.value === val);
+  return t ? t.label : val;
+}
+
+function renderSprintView() {
+  const container = document.getElementById('chTabContent');
+  if (!container) return;
+
+  const parts = [];
+
+  // Toolbar: Add Item + Run Sprint
+  parts.push('<div class="ch-sprint-toolbar">');
+  parts.push('  <button class="ch-sprint-add-btn" onclick="showSprintAddForm()" ' + (sprintRunning ? 'disabled' : '') + '>+ Add Item</button>');
+  parts.push('  <button class="ch-sprint-run-btn" onclick="runSprint()" ' + (sprintRunning || sprintItems.length === 0 ? 'disabled' : '') + '>');
+  parts.push('    Run Sprint &#9654;');
+  parts.push('  </button>');
+  parts.push('</div>');
+
+  // Inline add form (hidden by default)
+  parts.push('<div id="sprintAddForm" class="ch-sprint-add-form" style="display:none;">');
+  parts.push('  <div class="ch-sprint-add-row">');
+  parts.push('    <select id="sprintAddType" class="ch-sprint-input ch-sprint-select">');
+  for (const pt of SPRINT_PAGE_TYPES) {
+    parts.push('      <option value="' + pt.value + '">' + escapeHtml(pt.label) + '</option>');
+  }
+  parts.push('    </select>');
+  parts.push('    <input id="sprintAddTitle" class="ch-sprint-input ch-sprint-text" type="text" placeholder="Title (e.g. Panel Upgrade)" />');
+  parts.push('    <input id="sprintAddKeyword" class="ch-sprint-input ch-sprint-text" type="text" placeholder="Keyword (e.g. panel upgrade chandler az)" />');
+  parts.push('    <button class="ch-sprint-confirm-btn" onclick="addSprintItem()">Add</button>');
+  parts.push('    <button class="ch-sprint-cancel-btn" onclick="hideSprintAddForm()">Cancel</button>');
+  parts.push('  </div>');
+  parts.push('</div>');
+
+  // Items table
+  if (sprintItems.length > 0) {
+    parts.push('<div class="ch-sprint-table-wrap">');
+    parts.push('<table class="ch-sprint-table">');
+    parts.push('  <thead><tr>');
+    parts.push('    <th class="ch-sprint-th-num">#</th>');
+    parts.push('    <th>Type</th>');
+    parts.push('    <th>Title</th>');
+    parts.push('    <th>Keyword</th>');
+    parts.push('    <th class="ch-sprint-th-action"></th>');
+    parts.push('  </tr></thead>');
+    parts.push('  <tbody>');
+    for (let i = 0; i < sprintItems.length; i++) {
+      const item = sprintItems[i];
+      parts.push('  <tr>');
+      parts.push('    <td class="ch-sprint-num">' + (i + 1) + '</td>');
+      parts.push('    <td>' + escapeHtml(sprintTypeLabel(item.page_type)) + '</td>');
+      parts.push('    <td>' + escapeHtml(item.title) + '</td>');
+      parts.push('    <td class="ch-sprint-kw">' + escapeHtml(item.keyword) + '</td>');
+      parts.push('    <td class="ch-sprint-remove">');
+      if (!sprintRunning) {
+        parts.push('      <button class="ch-sprint-remove-btn" onclick="removeSprintItem(' + i + ')" title="Remove">&times;</button>');
+      }
+      parts.push('    </td>');
+      parts.push('  </tr>');
+    }
+    parts.push('  </tbody>');
+    parts.push('</table>');
+    parts.push('</div>');
+  } else {
+    parts.push('<div class="ch-sprint-empty">');
+    parts.push('  <div class="ch-sprint-empty-icon">&#128640;</div>');
+    parts.push('  <div class="ch-sprint-empty-title">No sprint items yet</div>');
+    parts.push('  <div class="ch-sprint-empty-desc">Click <strong>+ Add Item</strong> to add service pages, location pages, and blog posts for this month\'s sprint.</div>');
+    parts.push('</div>');
+  }
+
+  // Approval mode selector
+  if (sprintItems.length > 0) {
+    parts.push('<div class="ch-sprint-options">');
+    parts.push('  <label class="ch-sprint-label">Approval Mode:</label>');
+    parts.push('  <select id="sprintApprovalMode" class="ch-sprint-input ch-sprint-select">');
+    parts.push('    <option value="autopilot">Autopilot</option>');
+    parts.push('    <option value="review_each">Review Each</option>');
+    parts.push('    <option value="review_final">Review Final</option>');
+    parts.push('  </select>');
+    parts.push('</div>');
+  }
+
+  // Progress panel (always in DOM, toggled via display)
+  parts.push('<div id="sprintProgress" class="ch-sprint-progress" style="display:none;"></div>');
+
+  // Sprint history
+  if (sprintHistory.length > 0) {
+    parts.push('<div class="ch-sprint-history">');
+    parts.push('  <div class="ch-sprint-history-title">Recent Sprints</div>');
+    for (let h = sprintHistory.length - 1; h >= 0; h--) {
+      const run = sprintHistory[h];
+      parts.push('  <div class="ch-sprint-history-item">');
+      parts.push('    <span class="ch-sprint-history-date">' + escapeHtml(run.date) + '</span>');
+      parts.push('    <span class="ch-sprint-history-count">' + run.completed + '/' + run.total + ' items</span>');
+      if (run.failed > 0) {
+        parts.push('    <span class="ch-sprint-history-fail">' + run.failed + ' failed</span>');
+      }
+      parts.push('  </div>');
+    }
+    parts.push('</div>');
+  }
+
+  // Use safe DOM insertion: all dynamic values passed through escapeHtml above
+  container.innerHTML = parts.join('\n');
+}
+
+function showSprintAddForm() {
+  var form = document.getElementById('sprintAddForm');
+  if (form) form.style.display = 'block';
+}
+
+function hideSprintAddForm() {
+  var form = document.getElementById('sprintAddForm');
+  if (form) form.style.display = 'none';
+}
+
+function addSprintItem() {
+  var typeEl = document.getElementById('sprintAddType');
+  var titleEl = document.getElementById('sprintAddTitle');
+  var kwEl = document.getElementById('sprintAddKeyword');
+  if (!typeEl || !titleEl || !kwEl) return;
+
+  var title = titleEl.value.trim();
+  var keyword = kwEl.value.trim();
+
+  if (!title) {
+    showToast('Title is required');
+    return;
+  }
+  if (!keyword) {
+    showToast('Keyword is required');
+    return;
+  }
+
+  sprintItems.push({
+    page_type: typeEl.value,
+    title: title,
+    keyword: keyword,
+  });
+
+  // Reset form inputs
+  titleEl.value = '';
+  kwEl.value = '';
+  hideSprintAddForm();
+  renderSprintView();
+}
+
+function removeSprintItem(index) {
+  if (index >= 0 && index < sprintItems.length) {
+    sprintItems.splice(index, 1);
+    renderSprintView();
+  }
+}
+
+async function runSprint() {
+  if (sprintItems.length === 0) {
+    showToast('Add at least one item before running');
+    return;
+  }
+  if (sprintRunning) return;
+
+  sprintRunning = true;
+  renderSprintView(); // Re-render to disable buttons
+
+  var progressEl = document.getElementById('sprintProgress');
+  if (!progressEl) return;
+  progressEl.style.display = 'block';
+
+  // Build initial progress UI
+  var totalItems = sprintItems.length;
+  var itemStates = sprintItems.map(function(item, idx) {
+    return { index: idx, title: item.title, page_type: item.page_type, status: 'queued', stage: '', stageIndex: 0, qaScore: null };
+  });
+
+  var stages = ['research', 'strategy', 'copywrite', 'design', 'qa'];
+
+  function renderProgress(currentItem, streamContent) {
+    var parts = [];
+    parts.push('<div class="ch-sprint-progress-header">');
+    parts.push('  <span>Sprint Progress</span>');
+    parts.push('</div>');
+
+    // Current item info
+    if (currentItem !== null && currentItem < totalItems) {
+      var cur = itemStates[currentItem];
+      parts.push('<div class="ch-sprint-progress-current">');
+      parts.push('  <div class="ch-sprint-progress-item-label">Item ' + (currentItem + 1) + '/' + totalItems + ': ' + escapeHtml(cur.title) + ' (' + escapeHtml(sprintTypeLabel(cur.page_type)) + ')</div>');
+
+      // Stage progress bar
+      var completedStages = cur.stageIndex;
+      parts.push('  <div class="ch-sprint-progress-stages">');
+      parts.push('    <div class="ch-sprint-stage-label">Stage: ');
+      for (var s = 0; s < stages.length; s++) {
+        if (s > 0) parts.push(' &rarr; ');
+        var cls = '';
+        if (s < completedStages) cls = 'done';
+        else if (s === completedStages && cur.status === 'running') cls = 'active';
+        parts.push('<span class="ch-sprint-stage ' + cls + '">' + stages[s] + '</span>');
+      }
+      parts.push('    </div>');
+
+      // Progress bar
+      var pct = Math.round((completedStages / stages.length) * 100);
+      parts.push('    <div class="ch-sprint-bar-track">');
+      parts.push('      <div class="ch-sprint-bar-fill" style="width:' + pct + '%"></div>');
+      parts.push('    </div>');
+      parts.push('    <div class="ch-sprint-bar-text">' + completedStages + '/' + stages.length + ' stages</div>');
+      parts.push('  </div>');
+      parts.push('</div>');
+    }
+
+    // SSE stream output
+    if (streamContent) {
+      parts.push('<div class="ch-sprint-stream">' + escapeHtml(streamContent) + '</div>');
+    }
+
+    // Results list
+    parts.push('<div class="ch-sprint-results">');
+    parts.push('  <div class="ch-sprint-results-title">Results:</div>');
+    for (var r = 0; r < itemStates.length; r++) {
+      var st = itemStates[r];
+      var icon = '';
+      var detail = '';
+      if (st.status === 'complete') {
+        icon = '<span class="ch-sprint-icon-done">&#10003;</span>';
+        detail = ' -- QA Score: ' + (st.qaScore !== null ? st.qaScore + '/100' : '--');
+      } else if (st.status === 'running') {
+        icon = '<span class="ch-sprint-icon-running">&#9203;</span>';
+        detail = ' -- Running...';
+      } else if (st.status === 'failed') {
+        icon = '<span class="ch-sprint-icon-fail">&#10007;</span>';
+        detail = ' -- Failed';
+      } else {
+        icon = '<span class="ch-sprint-icon-queued">&#9675;</span>';
+        detail = ' -- Queued';
+      }
+      parts.push('  <div class="ch-sprint-result-row">' + icon + ' ' + escapeHtml(st.title) + detail + '</div>');
+    }
+    parts.push('</div>');
+
+    // All values escaped above; safe for innerHTML
+    progressEl.innerHTML = parts.join('\n');
+  }
+
+  renderProgress(null, '');
+
+  // Collect approval mode
+  var approvalEl = document.getElementById('sprintApprovalMode');
+  var approvalMode = approvalEl ? approvalEl.value : 'autopilot';
+
+  // Build payload
+  var payload = {
+    items: sprintItems.map(function(item) {
+      return { page_type: item.page_type, keyword: item.keyword, title: item.title };
+    }),
+    approval_mode: approvalMode,
+  };
+
+  var streamText = '';
+  var currentItemIdx = null;
+
+  try {
+    var res = await fetch(API_BASE + '/api/clients/' + activeClientId + '/sprint', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+
+    var reader = res.body.getReader();
+    var decoder = new TextDecoder();
+    var buffer = '';
+
+    while (true) {
+      var chunk = await reader.read();
+      if (chunk.done) break;
+
+      buffer += decoder.decode(chunk.value, { stream: true });
+      var lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (var li = 0; li < lines.length; li++) {
+        var line = lines[li];
+        if (!line.startsWith('data: ')) continue;
+        var raw = line.slice(6).trim();
+        if (!raw) continue;
+
+        try {
+          var evt = JSON.parse(raw);
+
+          if (evt.type === 'sprint_start') {
+            // Sprint started
+            renderProgress(null, '');
+          } else if (evt.type === 'item_start') {
+            currentItemIdx = evt.index;
+            streamText = '';
+            if (itemStates[evt.index]) {
+              itemStates[evt.index].status = 'running';
+              itemStates[evt.index].stage = '';
+              itemStates[evt.index].stageIndex = 0;
+            }
+            renderProgress(currentItemIdx, streamText);
+          } else if (evt.type === 'stage_start') {
+            var si = stages.indexOf(evt.stage);
+            if (evt.item_index !== undefined && itemStates[evt.item_index]) {
+              itemStates[evt.item_index].stage = evt.stage;
+              itemStates[evt.item_index].stageIndex = si >= 0 ? si : 0;
+            }
+            renderProgress(currentItemIdx, streamText);
+          } else if (evt.type === 'token') {
+            streamText += evt.text || '';
+            // Only keep last 500 chars for the stream window
+            if (streamText.length > 500) {
+              streamText = streamText.slice(streamText.length - 500);
+            }
+            if (evt.item_index !== undefined) currentItemIdx = evt.item_index;
+            renderProgress(currentItemIdx, streamText);
+          } else if (evt.type === 'item_complete') {
+            if (itemStates[evt.index]) {
+              itemStates[evt.index].status = 'complete';
+              itemStates[evt.index].qaScore = evt.qa_score || null;
+              itemStates[evt.index].stageIndex = stages.length;
+            }
+            streamText = '';
+            renderProgress(currentItemIdx, '');
+          } else if (evt.type === 'item_error') {
+            if (itemStates[evt.index]) {
+              itemStates[evt.index].status = 'failed';
+            }
+            renderProgress(currentItemIdx, '');
+          } else if (evt.type === 'sprint_complete') {
+            // Store in history
+            sprintHistory.push({
+              date: new Date().toLocaleDateString(),
+              total: evt.completed + (evt.failed || 0),
+              completed: evt.completed,
+              failed: evt.failed || 0,
+            });
+            renderProgress(null, '');
+          } else if (evt.type === 'error') {
+            showToast('Sprint error: ' + (evt.message || 'Unknown'));
+          }
+        } catch (parseErr) {
+          // Non-JSON SSE line — ignore
+        }
+      }
+    }
+  } catch (err) {
+    showToast('Sprint failed: ' + err.message);
+    // Render final state for completed items
+    renderProgress(currentItemIdx, '');
+  } finally {
+    sprintRunning = false;
+    renderSprintView();
+  }
 }
 
 /* ══════════════════════════════════════════════════════════ */

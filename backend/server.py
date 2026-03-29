@@ -49,6 +49,7 @@ from utils.db import (
     get_job as db_get_job, get_all_jobs,
     create_client, get_client as db_get_client, get_all_clients,
     update_client, delete_client, approve_job, unapprove_job,
+    save_sprint, get_sprint as db_get_sprint, get_client_sprints,
 )
 from utils.metrics_db import (
     get_dashboard_summary, get_metric_timeseries, get_metric_breakdown,
@@ -69,6 +70,8 @@ from pipeline.page_types.service_page import PAGE_CONFIG as SERVICE_PAGE_CONFIG
 from pipeline.page_types.location_page import PAGE_CONFIG as LOCATION_PAGE_CONFIG
 from pipeline.page_types.blog_post import PAGE_CONFIG as BLOG_POST_CONFIG
 from memory.store import ClientMemoryStore
+from pipeline.sprint_runner import run_sprint
+from clickup_sync import update_task_status as clickup_update_task, add_task_comment as clickup_add_comment
 from utils.content_db import (
     get_assignable_items, get_roadmap_item, assign_to_pipeline,
     update_roadmap_status, mark_roadmap_approved,
@@ -1492,6 +1495,158 @@ async def start_batch_pipeline(pipeline_id: str):
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+# ── Monthly Sprint endpoints ──────────────────────────────────────────
+
+class SprintRequest(BaseModel):
+    client_id: int
+    items: list[dict]  # [{page_type, keyword, title, clickup_task_id?, location?, ...}]
+    approval_mode: str = "autopilot"
+    name: str = ""
+
+
+@app.post("/api/clients/{client_id}/sprint")
+async def run_client_sprint(client_id: int, body: SprintRequest):
+    """Execute a monthly content sprint for a client.
+
+    Creates a pipeline run for each item, executes them sequentially, and
+    streams SSE progress for the whole sprint.
+    """
+    if body.client_id != client_id:
+        body.client_id = client_id
+
+    client_row = await asyncio.to_thread(db_get_client, client_id)
+    if not client_row:
+        raise HTTPException(status_code=404, detail="Client not found")
+    if not body.items:
+        raise HTTPException(status_code=400, detail="No items in sprint")
+
+    client_name = client_row.get("name", "")
+    domain = client_row.get("domain", "")
+    sprint_name = body.name or f"{client_name} Sprint"
+
+    # Persist sprint record as pending
+    from datetime import datetime, timezone as tz
+    now = datetime.now(tz.utc).isoformat()
+
+    async def event_stream():
+        sprint_id = None
+        pipeline_ids = []
+        results = []
+
+        try:
+            async for chunk in run_sprint(
+                client_id=client_id,
+                client_name=client_name,
+                domain=domain,
+                items=body.items,
+                pipeline_engine=_pipeline_engine,
+                stage_runners=STAGE_RUNNERS,
+                approval_mode=body.approval_mode,
+                page_type_configs=PAGE_TYPE_CONFIGS,
+                sprint_name=sprint_name,
+            ):
+                # Capture sprint_id and results from events for DB persistence
+                try:
+                    event = json.loads(chunk)
+                    if event.get("type") == "sprint_start":
+                        sprint_id = event.get("sprint_id")
+                        # Save initial sprint record
+                        await asyncio.to_thread(save_sprint, sprint_id, {
+                            "client_id": client_id,
+                            "name": sprint_name,
+                            "status": "running",
+                            "items": body.items,
+                            "pipeline_ids": [],
+                            "results": {},
+                            "created_at": now,
+                        })
+                    elif event.get("type") == "sprint_complete":
+                        pipeline_ids = event.get("pipeline_ids", [])
+                        results = event.get("results", [])
+                        if sprint_id:
+                            await asyncio.to_thread(save_sprint, sprint_id, {
+                                "client_id": client_id,
+                                "name": sprint_name,
+                                "status": "completed",
+                                "items": body.items,
+                                "pipeline_ids": pipeline_ids,
+                                "results": {"items": results},
+                                "created_at": now,
+                                "completed_at": datetime.now(tz.utc).isoformat(),
+                            })
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+                yield f"data: {chunk}\n\n"
+
+        except Exception as e:
+            error_event = json.dumps({"type": "error", "message": str(e)})
+            if sprint_id:
+                await asyncio.to_thread(save_sprint, sprint_id, {
+                    "client_id": client_id,
+                    "name": sprint_name,
+                    "status": "failed",
+                    "items": body.items,
+                    "pipeline_ids": pipeline_ids,
+                    "results": {"error": str(e)},
+                    "created_at": now,
+                })
+            yield f"data: {error_event}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@app.get("/api/clients/{client_id}/sprints")
+async def list_client_sprints(client_id: int):
+    """List all sprint runs for a client."""
+    sprints = await asyncio.to_thread(get_client_sprints, client_id)
+    return {"client_id": client_id, "sprints": sprints}
+
+
+@app.get("/api/sprints/{sprint_id}")
+async def get_sprint_detail(sprint_id: str):
+    """Get details for a specific sprint run."""
+    sprint = await asyncio.to_thread(db_get_sprint, sprint_id)
+    if not sprint:
+        raise HTTPException(status_code=404, detail="Sprint not found")
+    return sprint
+
+
+class ApproveAndSyncRequest(BaseModel):
+    clickup_task_id: str = ""
+    comment: str = "Content generated and approved via ProofPilot Agent Hub"
+
+
+@app.post("/api/jobs/{job_id}/approve-and-sync")
+async def approve_and_sync_clickup(job_id: str, body: ApproveAndSyncRequest):
+    """Approve content AND update ClickUp task status to complete.
+
+    1. Marks the job as approved in the local DB
+    2. If a clickup_task_id is provided, updates the task status to 'complete'
+    3. Optionally adds a comment to the ClickUp task
+    """
+    # Approve in local DB
+    ok = await asyncio.to_thread(approve_job, job_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    clickup_synced = False
+    clickup_commented = False
+
+    if body.clickup_task_id:
+        clickup_synced = await clickup_update_task(body.clickup_task_id, "complete")
+        if body.comment:
+            clickup_commented = await clickup_add_comment(body.clickup_task_id, body.comment)
+
+    return {
+        "job_id": job_id,
+        "approved": True,
+        "clickup_task_id": body.clickup_task_id or None,
+        "clickup_synced": clickup_synced,
+        "clickup_commented": clickup_commented,
+    }
 
 
 @app.get("/api/pipeline/{pipeline_id}/download/html")

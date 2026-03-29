@@ -41,6 +41,20 @@ def save_brand_to_memory(memory_store, client_id: int, brand_data: dict) -> int:
                           json.dumps(brand_data["typography"]))
         saved += 1
 
+    # Save font files if self-hosted
+    font_files = brand_data.get("typography", {}).get("font_files", [])
+    if font_files:
+        memory_store.save(client_id, "design_system", "font_files",
+                          json.dumps(font_files))
+        saved += 1
+
+    # Save layout patterns if extracted
+    layout = brand_data.get("layout_patterns", {})
+    if layout:
+        memory_store.save(client_id, "design_system", "layout_patterns",
+                          json.dumps(layout))
+        saved += 1
+
     # Build a ready-to-paste CSS :root block
     css_block = build_design_system_css(brand_data)
     if css_block:
@@ -138,6 +152,9 @@ def build_design_system_css(brand_data: dict) -> str:
 
     This CSS block is stored in memory and injected into the design prompt
     so the designer agent can use the client's exact colors and sizing.
+
+    Filters out generic framework variables (Bootstrap, WordPress, Elementor)
+    that pollute the output and confuse the design agent.
     """
     palette = brand_data.get("color_palette", {})
     typo = brand_data.get("typography", {})
@@ -146,12 +163,17 @@ def build_design_system_css(brand_data: dict) -> str:
     if not palette and not custom_props:
         return ""
 
+    # Framework variable prefixes to filter out
+    _FRAMEWORK_PREFIXES = ("--bs-", "--wp-", "--elementor-", "--e-", "--tcb-", "--flavor-")
+
     lines = [":root {"]
 
-    # Use original CSS custom properties if available
+    # Use original CSS custom properties if available, filtering framework vars
     if custom_props:
         for prop, val in custom_props.items():
             prop_name = prop if prop.startswith("--") else f"--{prop}"
+            if any(prop_name.startswith(prefix) for prefix in _FRAMEWORK_PREFIXES):
+                continue
             lines.append(f"  {prop_name}: {val};")
     else:
         # Build from extracted palette
@@ -159,17 +181,23 @@ def build_design_system_css(brand_data: dict) -> str:
             if val:
                 lines.append(f"  --{key.replace('_', '-')}: {val};")
 
-    # Typography
-    if typo.get("heading_font"):
+    # Typography — only add if not already present from custom properties
+    existing = "\n".join(lines)
+    if typo.get("heading_font") and "--font-heading" not in existing:
         lines.append(f"  --font-heading: '{typo['heading_font']}', sans-serif;")
-    if typo.get("body_font"):
+    if typo.get("body_font") and "--font-body" not in existing:
         lines.append(f"  --font-body: '{typo['body_font']}', sans-serif;")
-    if typo.get("body_size"):
+    if typo.get("body_size") and "--font-size-body" not in existing:
         lines.append(f"  --font-size-body: {typo['body_size']};")
-    if typo.get("body_line_height"):
+    if typo.get("body_line_height") and "--line-height-body" not in existing:
         lines.append(f"  --line-height-body: {typo['body_line_height']};")
 
     lines.append("}")
+
+    # If we only have :root { }, return empty
+    if len(lines) <= 2:
+        return ""
+
     return "\n".join(lines)
 
 
@@ -212,44 +240,186 @@ async def ensure_brand_memory(
 def format_brand_for_design_prompt(memory_store, client_id: int) -> str:
     """Format brand data optimally for the design stage prompt.
 
-    This produces the structured format that DESIGN_BASE_PROMPT expects:
-    design_system_css, typography, section_patterns, component_styles, etc.
+    Structure: Critical directives FIRST (logo, fonts), then design system,
+    then reference data. The top section is formatted as non-negotiable
+    build requirements so the model cannot overlook them.
     """
     entries = memory_store.load_by_type(client_id, "design_system")
     if not entries:
         return ""
 
     entry_map = {e["key"]: e["value"] for e in entries}
-    parts = ["## Client Design System\n"]
 
-    # CSS Custom Properties (most important — designer uses these directly)
-    css = entry_map.get("design_system_css", "")
-    if css:
-        parts.append(f"### CSS Custom Properties\n```css\n{css}\n```\n")
+    # Load assets early — we need logos and fonts for the critical section
+    asset_entries = memory_store.load_by_type(client_id, "asset_catalog")
+    asset_map = {e["key"]: e["value"] for e in asset_entries}
 
-    # Typography
+    # Load brand voice early for business info
+    voice_entries = memory_store.load_by_type(client_id, "brand_voice")
+    voice_map = {e["key"]: e["value"] for e in voice_entries}
+
+    # Parse typography and assets once
+    typo = {}
     typo_json = entry_map.get("typography", "")
     if typo_json:
         try:
             typo = json.loads(typo_json)
-            parts.append("### Typography")
-            if typo.get("heading_font"):
-                parts.append(f"- Heading font: **{typo['heading_font']}**")
-            if typo.get("body_font"):
-                parts.append(f"- Body font: **{typo['body_font']}**")
-            if typo.get("google_fonts_url"):
-                parts.append(f"- Google Fonts: `{typo['google_fonts_url']}`")
-            if typo.get("h1_size"):
-                parts.append(f"- H1: {typo['h1_size']} / {typo.get('heading_weight', '700')}")
-            if typo.get("h2_size"):
-                parts.append(f"- H2: {typo['h2_size']}")
-            if typo.get("body_size"):
-                parts.append(f"- Body: {typo['body_size']} / line-height {typo.get('body_line_height', '1.6')}")
-            parts.append("")
         except json.JSONDecodeError:
             pass
 
-    # Color Palette (human-readable)
+    logos = []
+    logos_json = asset_map.get("logos", "")
+    if logos_json:
+        try:
+            logos = json.loads(logos_json)
+        except json.JSONDecodeError:
+            pass
+
+    nav = []
+    nav_json = asset_map.get("navigation", "")
+    if nav_json:
+        try:
+            nav = json.loads(nav_json)
+        except json.JSONDecodeError:
+            pass
+
+    biz = {}
+    biz_json = voice_map.get("business_info", "")
+    if biz_json:
+        try:
+            biz = json.loads(biz_json)
+        except json.JSONDecodeError:
+            pass
+
+    cta = {}
+    cta_json = entry_map.get("cta_patterns", "")
+    if cta_json:
+        try:
+            cta = json.loads(cta_json)
+        except json.JSONDecodeError:
+            pass
+
+    footer = {}
+    footer_json = asset_map.get("footer", "")
+    if footer_json:
+        try:
+            footer = json.loads(footer_json)
+        except json.JSONDecodeError:
+            pass
+
+    parts = []
+
+    # ── CRITICAL DIRECTIVES (top of prompt — must not be skipped) ──────
+
+    parts.append("## CRITICAL BUILD DIRECTIVES — YOU MUST USE THESE EXACTLY\n")
+
+    # Logo directive
+    if logos:
+        logo_url = logos[0].get("src", "")
+        if logo_url:
+            parts.append(f"**LOGO:** Include this EXACT logo image in the page header:")
+            parts.append(f'`<img src="{logo_url}" alt="{biz.get("name", "Logo")}" class="site-logo">`')
+            if len(logos) > 1:
+                parts.append(f"Alt/white logo variant: `{logos[1].get('src', '')}`")
+            parts.append("")
+
+    # Font directive — use self-hosted @font-face if available, else Google Fonts
+    google_fonts_url = typo.get("google_fonts_url", "")
+    heading_font = typo.get("heading_font", "")
+    body_font = typo.get("body_font", "")
+    font_files = typo.get("font_files", [])
+
+    # Also check stored font_files in memory
+    if not font_files:
+        font_files_json = entry_map.get("font_files", "")
+        if font_files_json:
+            try:
+                font_files = json.loads(font_files_json)
+            except json.JSONDecodeError:
+                pass
+
+    if font_files and len(font_files) > 0:
+        # Self-hosted fonts — emit @font-face CSS block
+        parts.append("**FONTS (SELF-HOSTED):** Include these EXACT @font-face declarations in your <style> block:")
+        parts.append("```css")
+        for ff in font_files:
+            family = ff.get("family", "")
+            weight = ff.get("weight", "400")
+            url = ff.get("url", "")
+            if family and url:
+                fmt = "woff2" if ".woff2" in url else "woff"
+                parts.append(f"@font-face {{")
+                parts.append(f'  font-family: "{family}";')
+                parts.append(f"  font-weight: {weight};")
+                parts.append(f'  src: url("{url}") format("{fmt}");')
+                parts.append(f"  font-display: swap;")
+                parts.append(f"}}")
+        parts.append("```")
+        parts.append("Do NOT use a Google Fonts <link> — these fonts are self-hosted on the client's server.")
+    elif google_fonts_url:
+        parts.append(f"**FONTS:** Include this EXACT Google Fonts link in <head>:")
+        parts.append(f"`{google_fonts_url}`")
+    elif heading_font or body_font:
+        # Build a Google Fonts URL from font names
+        font_families = []
+        if heading_font and heading_font.lower() not in ("system-ui", "sans-serif", "arial", "helvetica"):
+            font_families.append(heading_font.replace(" ", "+") + ":wght@400;500;600;700")
+        if body_font and body_font != heading_font and body_font.lower() not in ("system-ui", "sans-serif", "arial", "helvetica"):
+            font_families.append(body_font.replace(" ", "+") + ":wght@400;500;600;700")
+        if font_families:
+            built_url = f'<link href="https://fonts.googleapis.com/css2?family={"&family=".join(font_families)}&display=swap" rel="stylesheet">'
+            parts.append(f"**FONTS:** Include this Google Fonts link in <head>:")
+            parts.append(f"`{built_url}`")
+
+    if heading_font:
+        parts.append(f"- Heading font-family: `'{heading_font}', sans-serif`")
+    if body_font:
+        parts.append(f"- Body font-family: `'{body_font}', sans-serif`")
+    parts.append("")
+
+    # Phone directive
+    phone = cta.get("phone_number", "") or biz.get("phone", "") or (footer.get("phones", [None])[0] if footer.get("phones") else "")
+    if phone:
+        parts.append(f"**PHONE:** Display prominently in header and CTAs: `{phone}`")
+        parts.append("")
+
+    # Header/Nav directive
+    if nav:
+        parts.append("**HEADER:** Build a sticky header with: logo (left) | nav links (center) | phone + CTA button (right)")
+        parts.append("Nav links:")
+        for item in nav[:8]:
+            parts.append(f"  - [{item.get('text', '')}]({item.get('href', '')})")
+        parts.append("")
+
+    # ── DESIGN SYSTEM ─────────────────────────────────────────────────
+
+    parts.append("## Client Design System\n")
+
+    # CSS Custom Properties
+    css = entry_map.get("design_system_css", "")
+    if css:
+        # Strip any generic framework variables that leaked in
+        clean_lines = []
+        for line in css.split("\n"):
+            if not any(prefix in line for prefix in ("--bs-", "--wp-", "--elementor-")):
+                clean_lines.append(line)
+        clean_css = "\n".join(clean_lines)
+        parts.append(f"### CSS Custom Properties (use in your :root)\n```css\n{clean_css}\n```\n")
+
+    # Typography details
+    if typo:
+        parts.append("### Typography")
+        if typo.get("h1_size"):
+            parts.append(f"- H1: {typo['h1_size']} / weight {typo.get('heading_weight', '700')}")
+        if typo.get("h2_size"):
+            parts.append(f"- H2: {typo['h2_size']}")
+        if typo.get("h3_size"):
+            parts.append(f"- H3: {typo['h3_size']}")
+        if typo.get("body_size"):
+            parts.append(f"- Body: {typo['body_size']} / line-height {typo.get('body_line_height', '1.6')}")
+        parts.append("")
+
+    # Color Palette
     palette_json = entry_map.get("color_palette", "")
     if palette_json:
         try:
@@ -267,7 +437,7 @@ def format_brand_for_design_prompt(memory_store, client_id: int) -> str:
     if patterns_json:
         try:
             patterns = json.loads(patterns_json)
-            parts.append("### Section Patterns")
+            parts.append("### Section Patterns (match this visual rhythm)")
             for i, p in enumerate(patterns, 1):
                 notes = p.get("notes", "")
                 parts.append(f"{i}. **{p.get('type', 'section')}**: bg={p.get('bg', '?')}, text={p.get('text_color', '?')} {f'— {notes}' if notes else ''}")
@@ -290,18 +460,28 @@ def format_brand_for_design_prompt(memory_store, client_id: int) -> str:
             pass
 
     # CTA Patterns
-    cta_json = entry_map.get("cta_patterns", "")
-    if cta_json:
+    if cta:
+        parts.append("### CTA Patterns")
+        if cta.get("primary_cta_text"):
+            parts.append(f"- Primary CTA: \"{cta['primary_cta_text']}\"")
+        if cta.get("phone_prominent"):
+            parts.append("- Phone is prominently displayed on the site")
+        parts.append("")
+
+    # Layout Patterns
+    layout_json = entry_map.get("layout_patterns", "")
+    if layout_json:
         try:
-            cta = json.loads(cta_json)
-            parts.append("### CTA Patterns")
-            if cta.get("primary_cta_text"):
-                parts.append(f"- Primary CTA: \"{cta['primary_cta_text']}\"")
-            if cta.get("phone_number"):
-                parts.append(f"- Phone: **{cta['phone_number']}**")
-            if cta.get("phone_prominent"):
-                parts.append("- Phone is prominently displayed")
-            parts.append("")
+            layout = json.loads(layout_json)
+            if layout:
+                parts.append("### Layout Patterns (match this site structure)")
+                if layout.get("primary_layout"):
+                    parts.append(f"- Primary layout: **{layout['primary_layout']}**")
+                if layout.get("hero_style"):
+                    parts.append(f"- Hero style: {layout['hero_style']}")
+                if layout.get("section_alternation"):
+                    parts.append(f"- Section alternation: {layout['section_alternation']}")
+                parts.append("")
         except json.JSONDecodeError:
             pass
 
@@ -310,64 +490,48 @@ def format_brand_for_design_prompt(memory_store, client_id: int) -> str:
     if photo_style:
         parts.append(f"### Photography Style\n{photo_style}\n")
 
-    # Client Assets (logos, existing images to reuse)
-    asset_entries = memory_store.load_by_type(client_id, "asset_catalog")
-    asset_map = {e["key"]: e["value"] for e in asset_entries}
-
-    logos_json = asset_map.get("logos", "")
-    if logos_json:
-        try:
-            logos = json.loads(logos_json)
-            if logos:
-                parts.append("### Client Assets (USE THESE — do not generate)")
-                parts.append(f"- Logo: `{logos[0]['src']}`")
-                if len(logos) > 1:
-                    parts.append(f"- Alt logo: `{logos[1]['src']}`")
-        except json.JSONDecodeError:
-            pass
+    # ── EXISTING ASSETS ───────────────────────────────────────────────
 
     heroes_json = asset_map.get("hero_images", "")
     if heroes_json:
         try:
             heroes = json.loads(heroes_json)
             if heroes:
+                parts.append("### Hero Images (use as background-image)")
                 for h in heroes[:3]:
-                    parts.append(f"- Hero image: `{h['src']}` (alt: {h.get('alt', '')})")
-        except json.JSONDecodeError:
-            pass
-
-    # Navigation (so designer can replicate nav structure)
-    nav_json = asset_map.get("navigation", "")
-    if nav_json:
-        try:
-            nav = json.loads(nav_json)
-            if nav:
-                parts.append("\n### Navigation Structure")
-                for item in nav[:10]:
-                    parts.append(f"- [{item['text']}]({item['href']})")
+                    parts.append(f"- `{h['src']}` (alt: {h.get('alt', '')})")
                 parts.append("")
         except json.JSONDecodeError:
             pass
 
-    # Footer
-    footer_json = asset_map.get("footer", "")
-    if footer_json:
+    # Social links for footer
+    social_json = asset_map.get("social_links", "")
+    if social_json:
         try:
-            footer = json.loads(footer_json)
-            if footer.get("phones"):
-                parts.append(f"\n### Footer Info\n- Phone: {footer['phones'][0]}")
-            if footer.get("copyright"):
-                parts.append(f"- {footer['copyright']}")
-            parts.append("")
+            social = json.loads(social_json)
+            if social:
+                parts.append("### Social Links (for footer)")
+                for platform, url in social.items():
+                    parts.append(f"- {platform.replace('_', ' ').title()}: `{url}`")
+                parts.append("")
         except json.JSONDecodeError:
             pass
 
-    # Brand Voice
-    voice_entries = memory_store.load_by_type(client_id, "brand_voice")
-    voice_map = {e["key"]: e["value"] for e in voice_entries}
+    # Footer info
+    if footer:
+        parts.append("### Footer Info")
+        if footer.get("phones"):
+            parts.append(f"- Phone: {footer['phones'][0]}")
+        if footer.get("emails"):
+            parts.append(f"- Email: {footer['emails'][0]}")
+        if footer.get("copyright"):
+            parts.append(f"- {footer['copyright']}")
+        parts.append("")
+
+    # ── BRAND VOICE (brief for design context) ────────────────────────
 
     if voice_map.get("tone"):
-        parts.append(f"\n### Brand Voice\n{voice_map['tone']}\n")
+        parts.append(f"### Brand Voice\n{voice_map['tone']}\n")
 
     props_json = voice_map.get("value_propositions", "")
     if props_json:
@@ -381,22 +545,16 @@ def format_brand_for_design_prompt(memory_store, client_id: int) -> str:
         except json.JSONDecodeError:
             pass
 
-    biz_json = voice_map.get("business_info", "")
-    if biz_json:
-        try:
-            biz = json.loads(biz_json)
-            if biz.get("name"):
-                parts.append(f"### Business Info")
-                parts.append(f"- Name: {biz['name']}")
-                if biz.get("phone"):
-                    parts.append(f"- Phone: {biz['phone']}")
-                if biz.get("address"):
-                    parts.append(f"- Address: {biz['address']}")
-                if biz.get("license"):
-                    parts.append(f"- License: {biz['license']}")
-                parts.append("")
-        except json.JSONDecodeError:
-            pass
+    if biz.get("name"):
+        parts.append("### Business Info")
+        parts.append(f"- Name: {biz['name']}")
+        if biz.get("phone"):
+            parts.append(f"- Phone: {biz['phone']}")
+        if biz.get("address"):
+            parts.append(f"- Address: {biz['address']}")
+        if biz.get("license"):
+            parts.append(f"- License: {biz['license']}")
+        parts.append("")
 
     return "\n".join(parts)
 

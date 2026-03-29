@@ -533,7 +533,7 @@ def _build_full_snapshot(memory_store: ClientMemoryStore, client_id: int) -> str
 
 # ── Utilities ────────────────────────────────────────────────────────────────
 
-def _safe_parse_json(raw: str) -> dict | list | str:
+def _safe_parse_json(raw: str):
     """Parse JSON, returning the original string on failure."""
     try:
         return json.loads(raw)

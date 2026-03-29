@@ -222,12 +222,26 @@ class QAArtifact:
     # Full review text
     review_text: str = ""
 
+    # Structured revision directives (parsed from REVISION_DIRECTIVES block)
+    revision_directives: list[dict] = field(default_factory=list)  # [{stage, action, instruction}]
+
     def to_json(self) -> str:
         return json.dumps(asdict(self))
 
     @classmethod
     def from_json(cls, data: str) -> QAArtifact:
-        return cls(**json.loads(data))
+        d = json.loads(data)
+        # Handle older artifacts that don't have revision_directives
+        if "revision_directives" not in d:
+            d["revision_directives"] = []
+        return cls(**d)
+
+    def get_directives_for_stage(self, stage: str) -> list[dict]:
+        """Get revision directives targeted at a specific stage."""
+        return [d for d in self.revision_directives if d.get("stage") == stage]
+
+    def has_directives(self) -> bool:
+        return len(self.revision_directives) > 0
 
 
 # Maps stage names to their artifact types for deserialization

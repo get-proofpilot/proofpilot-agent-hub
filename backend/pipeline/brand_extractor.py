@@ -57,6 +57,9 @@ Return ONLY a JSON object with ALL of these fields (use null for anything you ca
     "heading_font": "Font Family Name",
     "body_font": "Font Family Name",
     "google_fonts_url": "full Google Fonts <link> URL or null",
+    "font_files": [
+      {"family": "Font Name", "weight": "400", "url": "full URL to .woff2 or .woff file"}
+    ],
     "h1_size": "size with unit",
     "h2_size": "size with unit",
     "h3_size": "size with unit",
@@ -64,6 +67,11 @@ Return ONLY a JSON object with ALL of these fields (use null for anything you ca
     "heading_weight": "weight number",
     "body_weight": "weight number",
     "body_line_height": "unitless number"
+  },
+  "layout_patterns": {
+    "primary_layout": "two-column-image-text or single-column-cards or mixed",
+    "hero_style": "description of hero layout (e.g., full-width-photo, split-with-form, textured-background)",
+    "section_alternation": "description of how sections alternate (e.g., text-left/image-right then reversed)"
   },
   "section_patterns": [
     {"type": "hero|trust_bar|services|features|process|testimonials|cta|faq|footer", "bg": "color or description", "text_color": "color", "notes": "layout description"}
@@ -138,7 +146,16 @@ async def extract_brand(domain: str, anthropic_client: anthropic.AsyncAnthropic)
         anthropic_client, homepage_html, external_css, interior_pages
     )
 
-    # Step 6: Merge Haiku output with regex-extracted assets
+    # Step 6: Extract @font-face declarations from HTML + CSS (regex-based, more reliable than Haiku)
+    font_files = _extract_font_face_declarations(homepage_html, external_css, url)
+    if font_files:
+        # Merge with Haiku typography data
+        typo = brand_data.get("typography", {})
+        if not typo.get("font_files"):
+            typo["font_files"] = font_files
+            brand_data["typography"] = typo
+
+    # Step 7: Merge Haiku output with regex-extracted assets
     brand_data["assets"] = assets
 
     logger.info(
@@ -313,9 +330,22 @@ def _get_image_context(html: str, pos: int) -> str:
 
 
 def _is_logo(img: dict) -> bool:
-    """Check if an image is likely a logo."""
+    """Check if an image is likely a logo (not a tracking pixel or ad tag)."""
+    src = img.get("src", "").lower()
+    # Filter out tracking pixels and ad tags
+    tracking_domains = [
+        "facebook.com/tr", "google-analytics.com", "googletagmanager.com",
+        "doubleclick.net", "pixel.", "analytics.", "track.", "beacon.",
+        "bat.bing.com", "clarity.ms", "hotjar.com",
+    ]
+    if any(domain in src for domain in tracking_domains):
+        return False
+    # Filter out 1x1 tracking pixels by file extension patterns
+    if src.endswith("&noscript=1") or "noscript" in src:
+        return False
+
     indicators = ["logo", "brand", "site-logo", "header-logo", "navbar-brand"]
-    text = f"{img['src']} {img['alt']} {img['context']}".lower()
+    text = f"{src} {img.get('alt', '')} {img.get('context', '')}".lower()
     return any(ind in text for ind in indicators)
 
 
@@ -433,6 +463,47 @@ def _extract_footer_content(html: str, base_url: str) -> dict:
         "links": footer_links[:20],
         "copyright": copyright_text,
     }
+
+
+def _extract_font_face_declarations(html: str, css: str, base_url: str) -> list[dict]:
+    """Extract @font-face declarations from HTML inline styles and external CSS.
+
+    Returns a list of {family, weight, url} dicts for each font file found.
+    These are critical for self-hosted fonts (not on Google Fonts).
+    """
+    combined = html + "\n" + css
+    font_faces = re.findall(r'@font-face\s*\{([^}]+)\}', combined, re.DOTALL)
+
+    results = []
+    seen = set()
+    for ff in font_faces:
+        family_match = re.search(r"font-family:\s*['\"]?([^;'\"]+)", ff)
+        weight_match = re.search(r"font-weight:\s*(\d+)", ff)
+        url_match = re.search(r'url\(["\']?([^"\')\s]+\.woff2?)["\']?\)', ff)
+
+        if not family_match or not url_match:
+            continue
+
+        family = family_match.group(1).strip().strip("'\"")
+        weight = weight_match.group(1) if weight_match else "400"
+        font_url = url_match.group(1)
+
+        # Make URL absolute
+        if not font_url.startswith("http"):
+            font_url = urljoin(base_url, font_url)
+
+        dedup_key = f"{family}:{weight}"
+        if dedup_key in seen:
+            continue
+        seen.add(dedup_key)
+
+        results.append({
+            "family": family,
+            "weight": weight,
+            "url": font_url,
+        })
+
+    return results
 
 
 # ── Haiku Extraction ─────────────────────────────────────────────────────

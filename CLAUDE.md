@@ -71,10 +71,23 @@ ProofPilot Agent Hub exists to **remove Matthew from the fulfillment bottleneck*
 - [x] Missing roadmap warnings in dashboard with strategy framework fallback
 - [x] 9 clients with vault data (recurring.yaml, roadmap.yaml, context.md)
 
+**Phase 4 (AutoPilot AI — SEO Page Builder): COMPLETE**
+- [x] AutoPilot AI — 6-stage pipeline: research → strategy → copywrite → design → images → qa
+- [x] Brand extraction system (scrapes client site → extracts colors, fonts, logos, nav, section patterns)
+- [x] Self-hosted font detection (@font-face woff2 URLs, not just Google Fonts)
+- [x] Two-column image+text layouts matching client's actual site structure
+- [x] Client memory store (design_system, asset_catalog, brand_voice, business_intel, learnings)
+- [x] Recraft image generation (5+ images per page with trade-specific prompts)
+- [x] QA-driven revision loop (score < 80 → parse directives → re-run copywrite/design → revert on regression)
+- [x] Lightweight design patcher (CSS selector/property/value fixes without full regeneration)
+- [x] SSE streaming for all stages including revision rounds
+- [x] Architecture doc: `docs/plans/2026-03-28-autopilot-ai-architecture.md`
+
 **What's NOT built yet (high priority per growth plan):**
 - GBP Post workflow (Month 1 priority — highest client visibility)
-- Google Drive integration (Phase 3 — zero-friction content handoff to Jo Paula)
+- Google Drive integration — zero-friction content handoff to Jo Paula
 - Scheduled automations / cron (makes the platform run without Matthew)
+- AutoPilot AI frontend integration (workflow card, progress UI for revision rounds)
 
 ---
 
@@ -228,6 +241,19 @@ backend/
     docx_generator.py            — Branded Word document output
     db.py                        — SQLite schema, CRUD operations, seed data
   workflows/                    — 25 workflow modules (see Live Workflows section)
+  pipeline/                     — AutoPilot AI (6-stage SEO page builder)
+    engine.py                   — Pipeline orchestrator, revision loop, design patcher
+    stages.py                   — Stage runners (research, strategy, copywrite, design, images, qa)
+    artifacts.py                — Typed artifacts passed between stages
+    brand_extractor.py          — Client website scraper → design system extraction
+    brand_memory.py             — Brand data → client memory + design prompt formatting
+    brain_formatter.py          — Context-aware memory injection per workflow type
+    image_gen.py                — Recraft image generation for page placeholders
+    design_prompt.py            — Shared design prompt (Claude + Gemini paths)
+    skill_loader.py             — Loads Claude Code skills into stage prompts
+  memory/
+    store.py                    — Client memory store (SQLite persistence)
+  scheduler/                    — APScheduler infrastructure (cron jobs)
   web/
     index.html                   — Full SPA markup (all views including SEO Playbook)
     script.js                    — View routing, SSE streaming, workflow launch

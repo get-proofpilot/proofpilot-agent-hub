@@ -465,8 +465,18 @@ async def run_copywrite(
     # Check if this is a revision pass
     is_revision = run.revision_round > 0 and run.revision_notes
     previous_content = ""
-    if is_revision and content_artifact:
-        previous_content = content_artifact.as_prompt_context()
+    if is_revision:
+        # Load the previous copywrite output from artifacts
+        prev_copy = prev_artifacts.get("copywrite")
+        if prev_copy and hasattr(prev_copy, "as_prompt_context"):
+            previous_content = prev_copy.as_prompt_context()
+        elif "copywrite" in run.artifacts:
+            # Fallback: load from stored artifact
+            try:
+                prev_copy = ContentArtifact.from_json(run.artifacts["copywrite"])
+                previous_content = prev_copy.as_prompt_context()
+            except Exception:
+                pass
 
     user_prompt = (
         f"Write the full content for a **{run.page_type}** for **{run.client_name}**.\n"
