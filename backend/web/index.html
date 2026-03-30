@@ -111,6 +111,15 @@
 
       <div class="nav-group">
         <span class="nav-group-label">Agents</span>
+        <a href="#" class="nav-item nav-item-agent" data-view="autopilot" id="nav-autopilot">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+            <path d="M2 17l10 5 10-5" />
+            <path d="M2 12l10 5 10-5" />
+          </svg>
+          AutoPilot AI
+          <span class="nav-badge nav-badge-agent">AGENT</span>
+        </a>
         <a href="/page-design" class="nav-item" target="_blank" id="nav-page-design">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <rect x="3" y="3" width="18" height="18" rx="2" />
@@ -868,6 +877,153 @@
     <div class="view" id="view-schedules">
       <div style="padding: 32px;">
         <div id="schedulesGrid" style="display:grid; gap:12px;"><!-- injected by JS --></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         VIEW: AUTOPILOT AI
+    ═══════════════════════════════ -->
+    <div class="view" id="view-autopilot">
+      <div class="ap-layout">
+        <!-- Header -->
+        <div class="ap-header">
+          <div class="ap-brand">
+            <div class="ap-logo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="28" height="28">
+                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                <path d="M2 17l10 5 10-5" />
+                <path d="M2 12l10 5 10-5" />
+              </svg>
+            </div>
+            <div>
+              <h2 class="ap-title">AutoPilot AI</h2>
+              <p class="ap-subtitle">6-Stage Page Builder &mdash; Research, Strategy, Copy, Design, Images, QA</p>
+            </div>
+          </div>
+          <div class="ap-header-actions">
+            <span class="ap-status-pill" id="apStatusPill">Ready</span>
+          </div>
+        </div>
+
+        <!-- Config Panel -->
+        <div class="ap-config">
+          <!-- Page Type Selector -->
+          <div class="ap-type-cards" id="apTypeCards">
+            <button class="ap-type-card selected" data-type="service-page" onclick="apSelectType(this)">
+              <span class="ap-type-icon">&#9889;</span>
+              <span class="ap-type-name">Service Page</span>
+              <span class="ap-type-desc">High-intent "[service] [city]" pages</span>
+            </button>
+            <button class="ap-type-card" data-type="location-page" onclick="apSelectType(this)">
+              <span class="ap-type-icon">&#128205;</span>
+              <span class="ap-type-name">Location Page</span>
+              <span class="ap-type-desc">Geo-targeted city service pages</span>
+            </button>
+            <button class="ap-type-card" data-type="blog-post" onclick="apSelectType(this)">
+              <span class="ap-type-icon">&#9997;&#65039;</span>
+              <span class="ap-type-name">Blog Post</span>
+              <span class="ap-type-desc">Informational SEO content</span>
+            </button>
+          </div>
+
+          <!-- Inputs Grid -->
+          <div class="ap-inputs">
+            <div class="ap-input-row">
+              <div class="ap-field">
+                <label>Client <span class="req">*</span></label>
+                <select id="apClient" onchange="apOnClientChange()">
+                  <option value="">-- Select client --</option>
+                </select>
+              </div>
+              <div class="ap-field">
+                <label>Domain <span class="req">*</span></label>
+                <input type="text" id="apDomain" placeholder="e.g. saiyanelectric.com" oninput="apCheckReady()" />
+              </div>
+            </div>
+            <div class="ap-input-row">
+              <div class="ap-field">
+                <label>Service / Business Type <span class="req">*</span></label>
+                <input type="text" id="apService" placeholder="e.g. panel upgrade, electrician" oninput="apCheckReady()" />
+              </div>
+              <div class="ap-field">
+                <label>Location <span class="req">*</span></label>
+                <input type="text" id="apLocation" placeholder="e.g. Chandler, AZ" oninput="apCheckReady()" />
+              </div>
+            </div>
+            <div class="ap-input-row">
+              <div class="ap-field">
+                <label>Target Keyword <span class="ap-opt">blog posts</span></label>
+                <input type="text" id="apKeyword" placeholder="e.g. how much does a panel upgrade cost" />
+              </div>
+              <div class="ap-field">
+                <label>Differentiators <span class="ap-opt">optional</span></label>
+                <input type="text" id="apDifferentiators" placeholder="e.g. same-day service, master electrician" />
+              </div>
+            </div>
+            <div class="ap-input-row">
+              <div class="ap-field">
+                <label>Competitors <span class="ap-opt">optional</span></label>
+                <input type="text" id="apCompetitors" placeholder="e.g. comp1.com, comp2.com" />
+              </div>
+              <div class="ap-field">
+                <label>Price Range <span class="ap-opt">optional</span></label>
+                <input type="text" id="apPriceRange" placeholder="e.g. $1,200-$3,500" />
+              </div>
+            </div>
+            <div class="ap-field" style="grid-column: 1 / -1;">
+              <label>Notes <span class="ap-opt">optional</span></label>
+              <textarea id="apNotes" rows="2" placeholder="Any special instructions for this page"></textarea>
+            </div>
+          </div>
+
+          <div class="ap-launch-bar">
+            <button class="ap-launch-btn" id="apLaunchBtn" disabled onclick="apLaunch()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+              Launch AutoPilot
+            </button>
+          </div>
+        </div>
+
+        <!-- Pipeline Progress (hidden until running) -->
+        <div class="ap-progress" id="apProgress" style="display:none;">
+          <!-- Stage stepper -->
+          <div class="ap-stepper" id="apStepper">
+            <div class="ap-step" data-stage="research"><span class="ap-step-num">1</span><span class="ap-step-label">Research</span></div>
+            <div class="ap-step-line"></div>
+            <div class="ap-step" data-stage="strategy"><span class="ap-step-num">2</span><span class="ap-step-label">Strategy</span></div>
+            <div class="ap-step-line"></div>
+            <div class="ap-step" data-stage="copywrite"><span class="ap-step-num">3</span><span class="ap-step-label">Copywrite</span></div>
+            <div class="ap-step-line"></div>
+            <div class="ap-step" data-stage="design"><span class="ap-step-num">4</span><span class="ap-step-label">Design</span></div>
+            <div class="ap-step-line"></div>
+            <div class="ap-step" data-stage="images"><span class="ap-step-num">5</span><span class="ap-step-label">Images</span></div>
+            <div class="ap-step-line"></div>
+            <div class="ap-step" data-stage="qa"><span class="ap-step-num">6</span><span class="ap-step-label">QA</span></div>
+            <div class="ap-score-badge" id="apScoreBadge" style="display:none;"></div>
+          </div>
+          <!-- Terminal output -->
+          <div class="ap-terminal" id="apTerminal"></div>
+          <!-- Preview pane (shown on completion) -->
+          <div class="ap-preview-pane" id="apPreviewPane" style="display:none;">
+            <div class="ap-preview-toolbar">
+              <button class="ap-vp-btn active" onclick="apSetViewport('100%', this)">Desktop</button>
+              <button class="ap-vp-btn" onclick="apSetViewport('768px', this)">Tablet</button>
+              <button class="ap-vp-btn" onclick="apSetViewport('375px', this)">Mobile</button>
+              <a class="ap-preview-link" id="apPreviewLink" href="#" target="_blank">Open full page &#8599;</a>
+              <a class="ap-download-link" id="apDownloadLink" href="#" style="display:none;">&#8595; Download .docx</a>
+            </div>
+            <div class="ap-iframe-wrap" id="apIframeWrap">
+              <iframe id="apIframe" sandbox="allow-same-origin allow-scripts" style="width:100%;height:100%;border:none;background:#fff;border-radius:6px;"></iframe>
+            </div>
+          </div>
+          <!-- Toggle between terminal and preview -->
+          <div class="ap-view-toggle" id="apViewToggle">
+            <button class="ap-toggle-btn active" onclick="apToggleView('terminal')">Terminal</button>
+            <button class="ap-toggle-btn" onclick="apToggleView('preview')">Preview</button>
+          </div>
+        </div>
       </div>
     </div>
 

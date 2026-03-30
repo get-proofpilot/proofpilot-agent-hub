@@ -231,7 +231,7 @@ function showView(viewId) {
     dashboard: 'Dashboard', workflows: 'Run Workflows', clients: 'Clients',
     jobs: 'Agent Tasks', reporting: 'Reporting', reports: 'Reports', content: 'Content',
     logs: 'Activity Log', ads: 'Ad Studio', campaigns: 'Campaigns', schedules: 'Schedules',
-    training: 'Training', 'client-hub': 'Client Hub'
+    training: 'Training', 'client-hub': 'Client Hub', autopilot: 'AutoPilot AI'
   };
   if (title) title.textContent = titles[viewId] || viewId;
 
@@ -248,6 +248,7 @@ function showView(viewId) {
   if (viewId === 'ads') renderAds();
   if (viewId === 'client-hub') renderClientHub();
   if (viewId === 'schedules') renderSchedules();
+  if (viewId === 'autopilot') renderAutoPilot();
 }
 
 function showJobMonitor(jobId) {
@@ -1991,6 +1992,267 @@ function appendStatusLineToTerminal(msg) {
   statusDiv.textContent = msg;
   tb.appendChild(statusDiv);
   tb.scrollTop = tb.scrollHeight;
+}
+
+/* ── AutoPilot AI Agent View ─────────────────────────────── */
+let apSelectedType = 'service-page';
+let apRunning = false;
+let apPipelineId = null;
+let apStreamDiv = null;
+
+function renderAutoPilot() {
+  // Populate client dropdown
+  const sel = document.getElementById('apClient');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">-- Select client --</option>';
+  CLIENTS.filter(c => c.status === 'active').forEach(c => {
+    sel.innerHTML += `<option value="${c.id}" data-domain="${c.domain || ''}" data-service="${c.service || ''}" data-location="${c.location || ''}">${c.name}</option>`;
+  });
+  if (current) sel.value = current;
+}
+
+function apSelectType(el) {
+  document.querySelectorAll('.ap-type-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  apSelectedType = el.dataset.type;
+  apCheckReady();
+}
+
+function apOnClientChange() {
+  const sel = document.getElementById('apClient');
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt || !opt.value) return;
+  const domain = opt.dataset.domain || '';
+  const service = opt.dataset.service || '';
+  const location = opt.dataset.location || '';
+  if (domain) document.getElementById('apDomain').value = domain;
+  if (service) document.getElementById('apService').value = service;
+  if (location) document.getElementById('apLocation').value = location;
+  apCheckReady();
+}
+
+function apCheckReady() {
+  const btn = document.getElementById('apLaunchBtn');
+  if (!btn) return;
+  const client = document.getElementById('apClient')?.value;
+  const domain = document.getElementById('apDomain')?.value.trim();
+  const service = document.getElementById('apService')?.value.trim();
+  const location = document.getElementById('apLocation')?.value.trim();
+  let ready = !!(client && domain && service && location);
+  if (apSelectedType === 'blog-post') {
+    const keyword = document.getElementById('apKeyword')?.value.trim();
+    ready = ready && !!keyword;
+  }
+  btn.disabled = !ready || apRunning;
+}
+
+function apToggleView(mode) {
+  const terminal = document.getElementById('apTerminal');
+  const preview = document.getElementById('apPreviewPane');
+  document.querySelectorAll('.ap-toggle-btn').forEach(b => b.classList.remove('active'));
+  if (mode === 'terminal') {
+    if (terminal) terminal.style.display = '';
+    if (preview) preview.classList.remove('visible');
+    document.querySelector('.ap-toggle-btn:first-child')?.classList.add('active');
+  } else {
+    if (terminal) terminal.style.display = 'none';
+    if (preview) preview.classList.add('visible');
+    document.querySelector('.ap-toggle-btn:last-child')?.classList.add('active');
+  }
+}
+
+function apSetViewport(width, btn) {
+  const iframe = document.getElementById('apIframe');
+  if (iframe) iframe.style.width = width;
+  document.querySelectorAll('.ap-vp-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+
+function apUpdateStepper(stage, state, stageIndex) {
+  const stepper = document.getElementById('apStepper');
+  if (!stepper) return;
+  const allSteps = stepper.querySelectorAll('.ap-step');
+  const allLines = stepper.querySelectorAll('.ap-step-line');
+  if (state === 'active' && stageIndex !== undefined) {
+    allSteps.forEach((s, i) => {
+      if (i < stageIndex) s.className = 'ap-step completed';
+      else if (i === stageIndex) s.className = 'ap-step active';
+      else s.className = 'ap-step';
+    });
+    allLines.forEach((l, i) => { l.className = i < stageIndex ? 'ap-step-line done' : 'ap-step-line'; });
+  } else {
+    const el = stepper.querySelector(`[data-stage="${stage}"]`);
+    if (el) el.className = `ap-step ${state}`;
+  }
+}
+
+function apAppendTerminal(text) {
+  const tb = document.getElementById('apTerminal');
+  if (!tb) return;
+  if (!apStreamDiv) {
+    apStreamDiv = document.createElement('div');
+    apStreamDiv.className = 'tl-stream';
+    tb.appendChild(apStreamDiv);
+  }
+  apStreamDiv.textContent += text;
+  tb.scrollTop = tb.scrollHeight;
+}
+
+function apAppendStatus(msg) {
+  const tb = document.getElementById('apTerminal');
+  if (!tb) return;
+  apStreamDiv = null;
+  const div = document.createElement('div');
+  div.className = 'tl-status';
+  div.textContent = msg;
+  tb.appendChild(div);
+  tb.scrollTop = tb.scrollHeight;
+}
+
+async function apLaunch() {
+  if (apRunning) return;
+  apRunning = true;
+  apPipelineId = null;
+  apStreamDiv = null;
+
+  const clientSel = document.getElementById('apClient');
+  const clientId = parseInt(clientSel.value);
+  const clientName = clientSel.options[clientSel.selectedIndex].text;
+
+  const inputs = {
+    domain: document.getElementById('apDomain')?.value.trim() || '',
+    service: document.getElementById('apService')?.value.trim() || '',
+    location: document.getElementById('apLocation')?.value.trim() || '',
+    keyword: document.getElementById('apKeyword')?.value.trim() || '',
+    differentiators: document.getElementById('apDifferentiators')?.value.trim() || '',
+    price_range: document.getElementById('apPriceRange')?.value.trim() || '',
+    competitors: document.getElementById('apCompetitors')?.value.trim() || '',
+    notes: document.getElementById('apNotes')?.value.trim() || '',
+    // Map fields for location page compatibility
+    primary_service: document.getElementById('apService')?.value.trim() || '',
+    target_location: document.getElementById('apLocation')?.value.trim() || '',
+    business_type: document.getElementById('apService')?.value.trim() || '',
+  };
+
+  // Update UI
+  const pill = document.getElementById('apStatusPill');
+  if (pill) { pill.textContent = 'Running'; pill.className = 'ap-status-pill running'; }
+  document.getElementById('apLaunchBtn').disabled = true;
+  const progress = document.getElementById('apProgress');
+  if (progress) progress.style.display = '';
+  const config = document.getElementById('apConfig');
+
+  // Reset stepper
+  document.querySelectorAll('.ap-step').forEach(s => s.className = 'ap-step');
+  document.querySelectorAll('.ap-step-line').forEach(l => l.className = 'ap-step-line');
+  const badge = document.getElementById('apScoreBadge');
+  if (badge) badge.style.display = 'none';
+
+  // Reset terminal
+  const tb = document.getElementById('apTerminal');
+  if (tb) {
+    tb.innerHTML = '';
+    const hdr = document.createElement('div');
+    hdr.className = 'tl-d';
+    hdr.textContent = `# AutoPilot AI — ${apSelectedType} for ${clientName}`;
+    tb.appendChild(hdr);
+    tb.appendChild(document.createElement('br'));
+  }
+  apToggleView('terminal');
+
+  // Hide preview pane
+  const previewPane = document.getElementById('apPreviewPane');
+  if (previewPane) previewPane.classList.remove('visible');
+
+  const payload = {
+    page_type: apSelectedType,
+    client_id: clientId,
+    client_name: clientName,
+    inputs,
+    approval_mode: 'autopilot',
+  };
+
+  try {
+    const response = await fetch(`${API_BASE}/api/pipeline/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) throw new Error(`Server returned ${response.status}`);
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let sseBuffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      sseBuffer += decoder.decode(value, { stream: true });
+      const lines = sseBuffer.split('\n');
+      sseBuffer = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const data = JSON.parse(line.slice(6));
+
+          if (data.type === 'token') {
+            apAppendTerminal(data.text);
+          } else if (data.type === 'stage_start') {
+            const label = (data.stage || '').toUpperCase();
+            const num = (data.stage_index || 0) + 1;
+            const total = data.total_stages || 6;
+            apAppendStatus(`\n▸ Stage ${num}/${total}: ${label}`);
+            apUpdateStepper(data.stage, 'active', data.stage_index);
+          } else if (data.type === 'stage_complete') {
+            apAppendStatus(`  ✓ ${(data.stage || '').toUpperCase()} complete`);
+            apUpdateStepper(data.stage, 'completed');
+          } else if (data.type === 'revision_start') {
+            apAppendStatus(`\n🔄 Revision round ${data.round}/${data.max_rounds} — score ${data.previous_score}/${data.threshold}`);
+            (data.stages_to_revise || []).forEach(s => apUpdateStepper(s, 'revision'));
+            if (badge) { badge.textContent = `${data.previous_score}/100 → revising`; badge.className = 'ap-score-badge fail'; badge.style.display = ''; }
+          } else if (data.type === 'pipeline_complete') {
+            const score = data.final_score;
+            apAppendStatus(`\n✅ Pipeline complete — ${data.stages_completed} stages, score: ${score != null ? score + '/100' : 'N/A'}`);
+            apPipelineId = data.pipeline_id;
+            // Mark all done
+            document.querySelectorAll('.ap-step').forEach(s => s.className = 'ap-step completed');
+            document.querySelectorAll('.ap-step-line').forEach(l => l.className = 'ap-step-line done');
+            if (badge && score != null) { badge.textContent = `${score}/100`; badge.className = `ap-score-badge ${score >= 80 ? 'pass' : 'fail'}`; badge.style.display = ''; }
+          } else if (data.type === 'done') {
+            apAppendStatus(`\n✓ Job ${data.job_id} saved — ready to preview`);
+            const pid = apPipelineId || data.pipeline_id;
+            // Load preview
+            if (pid) {
+              const iframe = document.getElementById('apIframe');
+              const previewLink = document.getElementById('apPreviewLink');
+              const dlLink = document.getElementById('apDownloadLink');
+              if (iframe) iframe.src = `${API_BASE}/api/pipeline/${pid}/preview`;
+              if (previewLink) previewLink.href = `${API_BASE}/api/pipeline/${pid}/preview`;
+              if (dlLink && data.workflow_id === 'pipeline-blog-post') {
+                dlLink.href = `${API_BASE}/api/download/${data.job_id}`;
+                dlLink.style.display = '';
+              }
+              if (previewPane) previewPane.classList.add('visible');
+              apToggleView('preview');
+            }
+            // Add to content library
+            addToContentLibrary(data.job_id, data.client_name || clientName, 0, data.workflow_id || '', data.workflow_title || '');
+          } else if (data.type === 'error') {
+            apAppendStatus(`\n✗ Error: ${data.message}`);
+          }
+        } catch (e) { /* skip malformed */ }
+      }
+    }
+  } catch (err) {
+    apAppendStatus(`\n✗ Connection error: ${err.message}`);
+  }
+
+  apRunning = false;
+  if (pill) { pill.textContent = 'Complete'; pill.className = 'ap-status-pill complete'; }
+  document.getElementById('apLaunchBtn').disabled = false;
+  apCheckReady();
 }
 
 /* ── Pipeline Stepper helpers ─────────────────────────────── */
