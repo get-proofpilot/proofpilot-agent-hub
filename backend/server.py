@@ -1356,9 +1356,39 @@ async def run_pipeline(body: PipelineRunRequest):
     )
 
     async def event_stream():
+        full_content: list[str] = []
+        pipeline_id_ref = run.pipeline_id
         try:
             async for chunk in _pipeline_engine.execute(run, STAGE_RUNNERS):
+                # Capture text tokens for job persistence / docx
+                try:
+                    parsed = json.loads(chunk)
+                    if parsed.get("type") == "token":
+                        full_content.append(parsed.get("text", ""))
+                except Exception:
+                    pass
                 yield f"data: {chunk}\n\n"
+
+            # Pipeline finished — persist job + generate docx (blog only)
+            content_str = "".join(full_content)
+            job_id = str(uuid.uuid4())[:8]
+            wf_title = f"AutoPilot: {config['title']}"
+            wf_id = f"pipeline-{body.page_type}"
+            job_data = {
+                "content": content_str,
+                "client_name": client_name,
+                "workflow_title": wf_title,
+                "workflow_id": wf_id,
+                "inputs": body.inputs,
+                "client_id": body.client_id,
+            }
+            await asyncio.to_thread(save_job, job_id, job_data)
+            # Only blog posts get a .docx — pages get a shareable HTML preview URL
+            if body.page_type == "blog-post":
+                docx_path = await asyncio.to_thread(generate_docx, job_id, job_data)
+                await asyncio.to_thread(update_docx_path, job_id, str(docx_path))
+
+            yield f"data: {json.dumps({'type': 'done', 'job_id': job_id, 'client_name': client_name, 'workflow_title': wf_title, 'workflow_id': wf_id, 'pipeline_id': pipeline_id_ref})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
 

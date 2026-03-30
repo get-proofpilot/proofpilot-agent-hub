@@ -528,6 +528,21 @@
         </div>
         <span class="jm-status-badge running" id="jmStatusBadge">RUNNING</span>
       </div>
+      <!-- Pipeline stage stepper (shown during AutoPilot runs) -->
+      <div id="pipelineStepper" class="pipeline-stepper" style="display:none;">
+        <div class="ps-stage" data-stage="research"><span class="ps-num">1</span><span class="ps-label">Research</span></div>
+        <div class="ps-connector"></div>
+        <div class="ps-stage" data-stage="strategy"><span class="ps-num">2</span><span class="ps-label">Strategy</span></div>
+        <div class="ps-connector"></div>
+        <div class="ps-stage" data-stage="copywrite"><span class="ps-num">3</span><span class="ps-label">Copywrite</span></div>
+        <div class="ps-connector"></div>
+        <div class="ps-stage" data-stage="design"><span class="ps-num">4</span><span class="ps-label">Design</span></div>
+        <div class="ps-connector"></div>
+        <div class="ps-stage" data-stage="images"><span class="ps-num">5</span><span class="ps-label">Images</span></div>
+        <div class="ps-connector"></div>
+        <div class="ps-stage" data-stage="qa"><span class="ps-num">6</span><span class="ps-label">QA</span></div>
+        <div id="pipelineScoreBadge" class="ps-score" style="display:none;"></div>
+      </div>
       <!-- Terminal view (existing) -->
       <div class="jm-terminal-wrap" id="jmTerminalWrap">
         <div class="terminal" id="monitorTerminal"></div>

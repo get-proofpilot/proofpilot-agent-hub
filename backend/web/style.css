@@ -6144,3 +6144,66 @@ body.dashboard-standalone {
     max-width: 120px;
   }
 }
+
+/* ── Pipeline Stage Stepper ─────────────────────────────────── */
+.pipeline-stepper {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 10px 20px;
+  background: var(--panel-bg, #0A1530);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.ps-stage {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.3);
+  transition: color 0.2s ease, background 0.2s ease;
+  white-space: nowrap;
+}
+.ps-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.ps-connector {
+  width: 16px;
+  height: 2px;
+  background: rgba(255,255,255,0.08);
+  flex-shrink: 0;
+}
+.ps-stage.active { color: var(--elec-blue, #0051FF); }
+.ps-stage.active .ps-num { background: var(--elec-blue, #0051FF); color: #fff; }
+.ps-stage.completed { color: var(--neon-green, #C8FF00); }
+.ps-stage.completed .ps-num { background: var(--neon-green, #C8FF00); color: #000; font-size: 0; }
+.ps-stage.completed .ps-num::after { content: '\2713'; font-size: 0.72rem; }
+.ps-connector.done { background: var(--neon-green, #C8FF00); }
+.ps-stage.revision { color: #f59e0b; }
+.ps-stage.revision .ps-num { background: #f59e0b; color: #000; }
+.ps-score {
+  margin-left: auto;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.ps-score.pass { background: rgba(200,255,0,0.15); color: var(--neon-green, #C8FF00); }
+.ps-score.fail { background: rgba(245,158,11,0.15); color: #f59e0b; }
+
+@media (max-width: 768px) {
+  .pipeline-stepper { padding: 8px 10px; overflow-x: auto; }
+  .ps-label { display: none; }
+  .ps-connector { width: 8px; }
+}

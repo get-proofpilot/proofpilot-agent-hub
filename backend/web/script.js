@@ -1795,6 +1795,7 @@ async function launchWorkflow() {
   };
 
   if (pipelineTypes[selectedWorkflow]) {
+    showPipelineStepper();
     const pipePayload = {
       page_type: pipelineTypes[selectedWorkflow],
       client_id: parseInt(clientVal),
@@ -1910,6 +1911,8 @@ function startStreamingTerminal(jobId, wfTitle, clientName) {
   if (docPanel) docPanel.innerHTML = '<div class="doc-panel-empty">Generating document...</div>';
   toggleDocView('terminal');
   sseBuffer = '';
+  // Hide pipeline stepper if not a pipeline run (it gets shown by launchWorkflow)
+  if (!isPipelineRun) hidePipelineStepper();
 
   const tb = activeTerminalEl || document.getElementById('terminal');
   if (!tb) return;
@@ -1990,6 +1993,47 @@ function appendStatusLineToTerminal(msg) {
   tb.scrollTop = tb.scrollHeight;
 }
 
+/* ── Pipeline Stepper helpers ─────────────────────────────── */
+let isPipelineRun = false;
+
+function showPipelineStepper() {
+  isPipelineRun = true;
+  const el = document.getElementById('pipelineStepper');
+  if (el) {
+    el.style.display = 'flex';
+    el.querySelectorAll('.ps-stage').forEach(s => s.className = 'ps-stage');
+    el.querySelectorAll('.ps-connector').forEach(c => c.className = 'ps-connector');
+  }
+  const badge = document.getElementById('pipelineScoreBadge');
+  if (badge) badge.style.display = 'none';
+}
+
+function hidePipelineStepper() {
+  isPipelineRun = false;
+  const el = document.getElementById('pipelineStepper');
+  if (el) el.style.display = 'none';
+}
+
+function updatePipelineStepper(stage, state, stageIndex) {
+  const stepper = document.getElementById('pipelineStepper');
+  if (!stepper) return;
+  const allStages = stepper.querySelectorAll('.ps-stage');
+  const allConnectors = stepper.querySelectorAll('.ps-connector');
+
+  if (state === 'active' && stageIndex !== undefined) {
+    allStages.forEach((s, i) => {
+      if (i < stageIndex) { s.className = 'ps-stage completed'; }
+      else if (i === stageIndex) { s.className = 'ps-stage active'; }
+    });
+    allConnectors.forEach((c, i) => {
+      if (i < stageIndex) c.className = 'ps-connector done';
+    });
+  } else {
+    const stageEl = stepper.querySelector(`[data-stage="${stage}"]`);
+    if (stageEl) stageEl.className = `ps-stage ${state}`;
+  }
+}
+
 function processSSEChunk(chunk, job) {
   sseBuffer += chunk;
   const lines = sseBuffer.split('\n');
@@ -2009,38 +2053,78 @@ function processSSEChunk(chunk, job) {
         const total = data.total_stages || 5;
         appendStatusLineToTerminal(`\n▸ Stage ${stageNum}/${total}: ${stageLabel}`);
         if (job) jobProgresses[job.id] = Math.min(90, (stageNum / total) * 80);
+        updatePipelineStepper(data.stage, 'active', data.stage_index);
 
       } else if (data.type === 'stage_complete') {
         const stageLabel = (data.stage || '').toUpperCase();
         appendStatusLineToTerminal(`  ✓ ${stageLabel} complete`);
+        updatePipelineStepper(data.stage, 'completed');
+
+      } else if (data.type === 'revision_start') {
+        appendStatusLineToTerminal(`\n🔄 Revision round ${data.round}/${data.max_rounds} — score ${data.previous_score}/${data.threshold} threshold`);
+        (data.stages_to_revise || []).forEach(s => updatePipelineStepper(s, 'revision'));
+        const scoreBadge = document.getElementById('pipelineScoreBadge');
+        if (scoreBadge) {
+          scoreBadge.textContent = `${data.previous_score}/100 → revising`;
+          scoreBadge.className = 'ps-score fail';
+          scoreBadge.style.display = '';
+        }
 
       } else if (data.type === 'awaiting_approval') {
         appendStatusLineToTerminal(`\n⏸ Paused — awaiting approval for "${data.stage}"`);
         if (job) { job.status = 'paused'; job.pipelineId = data.pipeline_id; }
 
       } else if (data.type === 'pipeline_complete') {
-        appendStatusLineToTerminal(`\n✅ Pipeline complete — ${data.stages_completed} stages finished`);
-        if (data.pipeline_id && job) job.pipelineId = data.pipeline_id;
-        // Fall through to done-like handling below
+        const score = data.final_score;
+        appendStatusLineToTerminal(`\n✅ Pipeline complete — ${data.stages_completed} stages, score: ${score != null ? score + '/100' : 'N/A'}`);
+        if (data.pipeline_id && job) { job.pipelineId = data.pipeline_id; job.finalScore = score; }
+        // Mark all stages completed in stepper + show score
+        const stepper = document.getElementById('pipelineStepper');
+        if (stepper) {
+          stepper.querySelectorAll('.ps-stage').forEach(s => s.className = 'ps-stage completed');
+          stepper.querySelectorAll('.ps-connector').forEach(c => c.className = 'ps-connector done');
+        }
+        const scoreBadge = document.getElementById('pipelineScoreBadge');
+        if (scoreBadge && score != null) {
+          scoreBadge.textContent = `${score}/100`;
+          scoreBadge.className = `ps-score ${score >= 80 ? 'pass' : 'fail'}`;
+          scoreBadge.style.display = '';
+        }
 
       } else if (data.type === 'done') {
         currentJobId = data.job_id;
         terminalStreaming = false;
         streamDiv = null;
 
-        // Save final document content and render
-        currentDocContent = markdownBuffer;
-        renderDocPanel();
-        // Auto-switch to document view on completion
-        toggleDocView('document');
+        const isPipelinePage = data.workflow_id && data.workflow_id.startsWith('pipeline-') && data.workflow_id !== 'pipeline-blog-post';
+        const pipelineId = data.pipeline_id || (job && job.pipelineId);
 
-        // Initialize version history and show edit bar
+        if (isPipelinePage && pipelineId) {
+          // Pipeline page build — show HTML preview in iframe instead of markdown
+          const docPanel = document.getElementById('docPanel');
+          if (docPanel) {
+            docPanel.innerHTML = `<iframe src="${API_BASE}/api/pipeline/${pipelineId}/preview" style="width:100%;height:100%;border:none;background:#fff;border-radius:8px;"></iframe>`;
+          }
+          toggleDocView('document');
+          // Show viewport toggle for responsive testing
+          const vpToggle = document.getElementById('viewportToggle');
+          if (vpToggle) vpToggle.style.display = '';
+        } else {
+          // Regular workflow or blog — render markdown document
+          currentDocContent = markdownBuffer;
+          renderDocPanel();
+          toggleDocView('document');
+        }
+
+        // Initialize version history and show edit bar (skip for pipeline pages)
         activeEditJobId = data.job_id;
-        docVersions = [{ content: currentDocContent, instruction: 'Original' }];
-        docVersionIndex = 0;
-        _updateVersionBar('monitor');
-        const editBar = document.getElementById('docEditBar');
-        if (editBar) editBar.style.display = 'flex';
+        if (!isPipelinePage) {
+          docVersions = [{ content: currentDocContent, instruction: 'Original' }];
+          docVersionIndex = 0;
+          _updateVersionBar('monitor');
+          const editBar = document.getElementById('docEditBar');
+          if (editBar) editBar.style.display = 'flex';
+        }
 
         if (job) {
           job.status = 'completed';
@@ -2076,6 +2160,21 @@ function processSSEChunk(chunk, job) {
                 previewLink.style.display = '';
               }
               dlLink.style.display = 'none';
+            } else if (isPipelinePage && pipelineId) {
+              // Pipeline page — show preview link (shareable URL for developer)
+              if (previewLink) {
+                previewLink.href = `${API_BASE}/api/pipeline/${pipelineId}/preview`;
+                previewLink.style.display = '';
+              }
+              dlLink.style.display = 'none';
+            } else if (data.workflow_id && data.workflow_id === 'pipeline-blog-post' && pipelineId) {
+              // Pipeline blog — show both preview and download
+              if (previewLink) {
+                previewLink.href = `${API_BASE}/api/pipeline/${pipelineId}/preview`;
+                previewLink.style.display = '';
+              }
+              dlLink.href = `${API_BASE}/api/download/${data.job_id}`;
+              dlLink.style.display = '';
             } else {
               dlLink.href = `${API_BASE}/api/download/${data.job_id}`;
               dlLink.style.display = '';
