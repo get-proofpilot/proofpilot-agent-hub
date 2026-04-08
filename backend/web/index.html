@@ -120,6 +120,18 @@
           AutoPilot AI
           <span class="nav-badge nav-badge-agent">AGENT</span>
         </a>
+        <a href="#" class="nav-item nav-item-agent nav-item-reddit" data-view="redditpilot" id="nav-redditpilot">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="12" cy="13" r="8"/>
+            <path d="M18 8a2 2 0 1 0 0-4"/>
+            <path d="M12 5V2M12 2l3 1M12 2L9 1"/>
+            <circle cx="9" cy="12" r="1.2" fill="currentColor"/>
+            <circle cx="15" cy="12" r="1.2" fill="currentColor"/>
+            <path d="M8.5 16c1 1.2 2.5 1.8 3.5 1.8s2.5-.6 3.5-1.8"/>
+          </svg>
+          RedditPilot
+          <span class="nav-badge nav-badge-agent">AGENT</span>
+        </a>
         <a href="/page-design" class="nav-item" target="_blank" id="nav-page-design">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <rect x="3" y="3" width="18" height="18" rx="2" />
@@ -1024,6 +1036,49 @@
             <button class="ap-toggle-btn" onclick="apToggleView('preview')">Preview</button>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         VIEW: REDDITPILOT
+    ═══════════════════════════════ -->
+    <div class="view" id="view-redditpilot">
+      <div class="rp-layout">
+        <!-- Header -->
+        <div class="rp-header">
+          <div class="rp-brand">
+            <div class="rp-logo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="28" height="28">
+                <circle cx="12" cy="13" r="8"/>
+                <path d="M18 8a2 2 0 1 0 0-4"/>
+                <path d="M12 5V2M12 2l3 1M12 2L9 1"/>
+                <circle cx="9" cy="12" r="1.2" fill="currentColor"/>
+                <circle cx="15" cy="12" r="1.2" fill="currentColor"/>
+                <path d="M8.5 16c1 1.2 2.5 1.8 3.5 1.8s2.5-.6 3.5-1.8"/>
+              </svg>
+            </div>
+            <div>
+              <h2 class="rp-title">RedditPilot</h2>
+              <p class="rp-subtitle">Autonomous Reddit Growth Agent</p>
+            </div>
+          </div>
+          <div class="rp-header-actions">
+            <span class="rp-status-pill" id="rpStatusPill">Connecting...</span>
+            <span class="rp-uptime" id="rpUptime"></span>
+          </div>
+        </div>
+
+        <!-- Sub-tab bar -->
+        <div class="rp-tab-bar" id="rpTabBar">
+          <button class="rp-tab active" data-rptab="command" onclick="rpSwitchTab('command')">Command Center</button>
+          <button class="rp-tab" data-rptab="clients" onclick="rpSwitchTab('clients')">Clients</button>
+          <button class="rp-tab" data-rptab="operations" onclick="rpSwitchTab('operations')">Operations</button>
+          <button class="rp-tab" data-rptab="intelligence" onclick="rpSwitchTab('intelligence')">Intelligence</button>
+          <button class="rp-tab" data-rptab="settings" onclick="rpSwitchTab('settings')">Settings</button>
+        </div>
+
+        <!-- Tab content container (rendered by JS) -->
+        <div class="rp-tab-content" id="rpTabContent"></div>
       </div>
     </div>
 

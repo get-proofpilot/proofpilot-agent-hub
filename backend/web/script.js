@@ -231,9 +231,16 @@ function showView(viewId) {
     dashboard: 'Dashboard', workflows: 'Run Workflows', clients: 'Clients',
     jobs: 'Agent Tasks', reporting: 'Reporting', reports: 'Reports', content: 'Content',
     logs: 'Activity Log', ads: 'Ad Studio', campaigns: 'Campaigns', schedules: 'Schedules',
-    training: 'Training', 'client-hub': 'Client Hub', autopilot: 'AutoPilot AI'
+    training: 'Training', 'client-hub': 'Client Hub', autopilot: 'AutoPilot AI',
+    redditpilot: 'RedditPilot'
   };
   if (title) title.textContent = titles[viewId] || viewId;
+
+  // Cleanup RedditPilot polling/ws when leaving
+  if (currentView === 'redditpilot' && viewId !== 'redditpilot') {
+    if (rpPollingInterval) { clearInterval(rpPollingInterval); rpPollingInterval = null; }
+    if (rpLogWs) { rpLogWs.close(); rpLogWs = null; }
+  }
 
   currentView = viewId;
 
@@ -249,6 +256,7 @@ function showView(viewId) {
   if (viewId === 'client-hub') renderClientHub();
   if (viewId === 'schedules') renderSchedules();
   if (viewId === 'autopilot') renderAutoPilot();
+  if (viewId === 'redditpilot') renderRedditPilot();
 }
 
 function showJobMonitor(jobId) {
@@ -5696,6 +5704,747 @@ async function _loadPublicDashboard(token) {
   } catch (e) {
     document.getElementById('view-reporting').style.display = 'none';
     document.getElementById('dashboardError').style.display = 'flex';
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   REDDITPILOT AGENT VIEW
+══════════════════════════════════════════════════════════════════ */
+
+let rpCurrentTab = 'command';
+let rpCharts = {};
+let rpLogWs = null;
+let rpPollingInterval = null;
+let rpData = {};
+
+function _rpFmt(n) {
+  if (n == null) return '—';
+  if (typeof n === 'number') return n.toLocaleString();
+  return String(n);
+}
+
+function _rpTimeSince(seconds) {
+  if (!seconds || seconds < 0) return '—';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+async function renderRedditPilot() {
+  const container = document.getElementById('rpTabContent');
+  if (!container) return;
+
+  // Fetch status + stats in parallel
+  try {
+    const [statusRes, statsRes] = await Promise.all([
+      fetch('/api/reddit/status'),
+      fetch('/api/reddit/stats'),
+    ]);
+    if (statusRes.ok) rpData.status = await statusRes.json();
+    else rpData.status = null;
+    if (statsRes.ok) rpData.stats = await statsRes.json();
+    else rpData.stats = null;
+  } catch (e) {
+    rpData.status = null;
+    rpData.stats = null;
+  }
+
+  // Update header
+  const pill = document.getElementById('rpStatusPill');
+  const uptime = document.getElementById('rpUptime');
+  if (rpData.status) {
+    const mode = rpData.status.mode || 'stopped';
+    if (pill) {
+      pill.textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
+      pill.className = 'rp-status-pill ' + mode;
+    }
+    if (uptime) uptime.textContent = _rpTimeSince(rpData.status.uptime_seconds);
+  } else {
+    if (pill) { pill.textContent = 'Disconnected'; pill.className = 'rp-status-pill disconnected'; }
+    if (uptime) uptime.textContent = '';
+  }
+
+  // Render current tab
+  rpSwitchTab(rpCurrentTab);
+
+  // Start polling (30s refresh)
+  if (rpPollingInterval) clearInterval(rpPollingInterval);
+  rpPollingInterval = setInterval(() => {
+    if (currentView === 'redditpilot') renderRedditPilot();
+  }, 30000);
+}
+
+function rpSwitchTab(tab) {
+  rpCurrentTab = tab;
+  document.querySelectorAll('.rp-tab').forEach(b =>
+    b.classList.toggle('active', b.dataset.rptab === tab)
+  );
+  const container = document.getElementById('rpTabContent');
+  if (!container) return;
+
+  // Destroy old charts
+  Object.values(rpCharts).forEach(c => { try { c.destroy(); } catch(e){} });
+  rpCharts = {};
+
+  // Close WS if not on operations tab
+  if (tab !== 'operations' && rpLogWs) { rpLogWs.close(); rpLogWs = null; }
+
+  if (!rpData.status) {
+    container.innerHTML = `
+      <div class="rp-disconnected">
+        <div class="rp-disconnected-icon">&#128268;</div>
+        <h3>RedditPilot Not Connected</h3>
+        <p>Set REDDITPILOT_URL, REDDITPILOT_USER, and REDDITPILOT_PASS environment variables to connect to your RedditPilot instance.</p>
+        <button class="rp-reconnect-btn" onclick="renderRedditPilot()">Retry Connection</button>
+      </div>`;
+    return;
+  }
+
+  switch (tab) {
+    case 'command':      rpRenderCommand(container);      break;
+    case 'clients':      rpRenderClients(container);      break;
+    case 'operations':   rpRenderOperations(container);   break;
+    case 'intelligence': rpRenderIntelligence(container); break;
+    case 'settings':     rpRenderSettings(container);     break;
+  }
+}
+
+/* ── Tab 1: Command Center ── */
+async function rpRenderCommand(el) {
+  let actions = [];
+  try {
+    const res = await fetch('/api/reddit/actions?limit=10');
+    if (res.ok) {
+      const data = await res.json();
+      actions = data.actions || data || [];
+    }
+  } catch (e) {}
+
+  const s = rpData.stats || {};
+  const st = rpData.status || {};
+
+  el.innerHTML = `
+    <div class="rp-kpi-row">
+      <div class="rp-kpi">
+        <div class="rp-kpi-label">Actions (24h)</div>
+        <div class="rp-kpi-value" style="color:#FF4500">${_rpFmt(s.total || s.actions_24h)}</div>
+        <div class="rp-kpi-sub">${_rpFmt(s.by_type ? Object.keys(s.by_type).length : 0)} types</div>
+      </div>
+      <div class="rp-kpi">
+        <div class="rp-kpi-label">Clients</div>
+        <div class="rp-kpi-value" style="color:var(--elec-blue)">${_rpFmt(st.client_count)}</div>
+        <div class="rp-kpi-sub">${_rpFmt(st.account_count)} accounts</div>
+      </div>
+      <div class="rp-kpi">
+        <div class="rp-kpi-label">Cycles</div>
+        <div class="rp-kpi-value">${_rpFmt(st.cycle_count)}</div>
+        <div class="rp-kpi-sub">Total completed</div>
+      </div>
+      <div class="rp-kpi">
+        <div class="rp-kpi-label">Uptime</div>
+        <div class="rp-kpi-value">${_rpTimeSince(st.uptime_seconds)}</div>
+        <div class="rp-kpi-sub">${st.mode || '—'}</div>
+      </div>
+    </div>
+
+    <div class="rp-controls">
+      <button class="rp-ctrl-btn rp-ctrl-success" onclick="rpControl('scan')">Scan</button>
+      <button class="rp-ctrl-btn" onclick="rpControl('discover')">Discover</button>
+      <button class="rp-ctrl-btn" onclick="rpControl('generate')">Generate</button>
+      <button class="rp-ctrl-btn" onclick="rpControl('post')">Post</button>
+      <button class="rp-ctrl-btn" onclick="rpControl('learn')">Learn</button>
+      <button class="rp-ctrl-btn" onclick="rpControl('cycle')">Full Cycle</button>
+      <button class="rp-ctrl-btn rp-ctrl-warn" onclick="rpControl('${st.paused ? 'resume' : 'pause'}')">${st.paused ? 'Resume' : 'Pause'}</button>
+      <button class="rp-ctrl-btn rp-ctrl-danger" onclick="rpControl('emergency_stop')">Emergency Stop</button>
+    </div>
+
+    <div class="rp-panel">
+      <div class="rp-panel-header">
+        <div class="rp-panel-title">Recent Activity</div>
+      </div>
+      <div class="rp-panel-body-flush">
+        ${Array.isArray(actions) && actions.length > 0 ? `
+          <table class="rp-table">
+            <thead><tr>
+              <th>Time</th><th>Type</th><th>Subreddit</th><th>Client</th><th>Score</th>
+            </tr></thead>
+            <tbody>
+              ${actions.slice(0, 10).map(a => `<tr>
+                <td>${a.created_at ? new Date(a.created_at).toLocaleTimeString() : '—'}</td>
+                <td><span class="rp-badge rp-badge-blue">${a.action_type || a.type || '—'}</span></td>
+                <td>${a.subreddit ? 'r/' + a.subreddit : '—'}</td>
+                <td>${a.client_name || a.client || '—'}</td>
+                <td>${a.score != null ? a.score : '—'}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        ` : `
+          <div class="rp-empty">
+            <div class="rp-empty-msg">No recent actions</div>
+            <div class="rp-empty-sub">Click Scan or Full Cycle to get started</div>
+          </div>
+        `}
+      </div>
+    </div>
+
+    ${s.by_type && Object.keys(s.by_type).length > 0 ? `
+      <div class="rp-panel">
+        <div class="rp-panel-header"><div class="rp-panel-title">Actions by Type (24h)</div></div>
+        <div class="rp-panel-body">
+          <div class="rp-chart-container"><canvas id="rpChartByType"></canvas></div>
+        </div>
+      </div>
+    ` : ''}
+  `;
+
+  // Render by-type chart
+  if (s.by_type && Object.keys(s.by_type).length > 0) {
+    const labels = Object.keys(s.by_type);
+    const values = Object.values(s.by_type);
+    const ctx = document.getElementById('rpChartByType');
+    if (ctx) {
+      rpCharts.byType = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            data: values,
+            backgroundColor: 'rgba(255, 69, 0, 0.6)',
+            borderColor: '#FF4500',
+            borderWidth: 1,
+            borderRadius: 4,
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, ticks: { stepSize: 1 } },
+            x: { ticks: { font: { size: 10 } } }
+          }
+        }
+      });
+    }
+  }
+}
+
+async function rpControl(action) {
+  try {
+    const res = await fetch(`/api/reddit/control/${action}`, { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) {
+      rpData.status = null; // Force refresh
+      setTimeout(() => renderRedditPilot(), 500);
+    }
+  } catch (e) {
+    console.error('RedditPilot control error:', e);
+  }
+}
+
+/* ── Tab 2: Clients ── */
+async function rpRenderClients(el) {
+  let clients = [];
+  try {
+    const res = await fetch('/api/reddit/clients');
+    if (res.ok) {
+      const data = await res.json();
+      clients = data.clients || data || [];
+    }
+  } catch (e) {}
+
+  if (!Array.isArray(clients) || clients.length === 0) {
+    el.innerHTML = `<div class="rp-empty"><div class="rp-empty-icon">&#128101;</div>
+      <div class="rp-empty-msg">No Clients Configured</div>
+      <div class="rp-empty-sub">Add clients in your RedditPilot config.yaml</div></div>`;
+    return;
+  }
+
+  el.innerHTML = `<div class="rp-client-grid">${clients.map(c => `
+    <div class="rp-client-card" onclick="rpShowClientDetail('${c.slug || c.name}')">
+      <div class="rp-client-name">${c.name || c.slug}</div>
+      <div class="rp-client-industry">${c.industry || ''} ${c.service_area ? '&mdash; ' + c.service_area : ''}</div>
+      <div class="rp-client-stats">
+        <div class="rp-client-stat">
+          <div class="rp-client-stat-val">${_rpFmt(c.total_actions || c.actions_count || 0)}</div>
+          <div class="rp-client-stat-label">Actions</div>
+        </div>
+        <div class="rp-client-stat">
+          <div class="rp-client-stat-val">${_rpFmt(c.subreddit_count || (c.target_subreddits ? c.target_subreddits.length : 0))}</div>
+          <div class="rp-client-stat-label">Subreddits</div>
+        </div>
+        <div class="rp-client-stat">
+          <div class="rp-client-stat-val">${_rpFmt(c.keyword_count || (c.keywords ? c.keywords.length : 0))}</div>
+          <div class="rp-client-stat-label">Keywords</div>
+        </div>
+      </div>
+      ${c.enabled === false ? '<div style="margin-top:8px"><span class="rp-badge rp-badge-amber">Disabled</span></div>' : ''}
+    </div>
+  `).join('')}</div>`;
+}
+
+async function rpShowClientDetail(slug) {
+  const container = document.getElementById('rpTabContent');
+  if (!container) return;
+  container.innerHTML = '<div class="rp-empty"><div class="rp-empty-msg">Loading...</div></div>';
+
+  try {
+    const res = await fetch(`/api/reddit/clients/${slug}`);
+    if (!res.ok) throw new Error('Failed to load client');
+    const c = await res.json();
+
+    const subs = c.target_subreddits || c.subreddits || [];
+    const kws = c.keywords || [];
+    const perf = c.performance || {};
+
+    container.innerHTML = `
+      <button class="rp-ctrl-btn" onclick="rpRenderClients(document.getElementById('rpTabContent'))" style="margin-bottom:16px">&larr; Back to Clients</button>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+        <h2 style="font-family:var(--display);font-size:24px;margin:0">${c.name || slug}</h2>
+        <span class="rp-badge ${c.enabled !== false ? 'rp-badge-green' : 'rp-badge-amber'}">${c.enabled !== false ? 'Active' : 'Disabled'}</span>
+      </div>
+
+      <div class="rp-kpi-row">
+        <div class="rp-kpi">
+          <div class="rp-kpi-label">Industry</div>
+          <div class="rp-kpi-value" style="font-size:18px">${c.industry || '—'}</div>
+        </div>
+        <div class="rp-kpi">
+          <div class="rp-kpi-label">Service Area</div>
+          <div class="rp-kpi-value" style="font-size:18px">${c.service_area || '—'}</div>
+        </div>
+        <div class="rp-kpi">
+          <div class="rp-kpi-label">Website</div>
+          <div class="rp-kpi-value" style="font-size:14px">${c.website || '—'}</div>
+        </div>
+        <div class="rp-kpi">
+          <div class="rp-kpi-label">Total Actions</div>
+          <div class="rp-kpi-value">${_rpFmt(perf.total_actions || c.total_actions || 0)}</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="rp-panel">
+          <div class="rp-panel-header"><div class="rp-panel-title">Target Subreddits (${subs.length})</div></div>
+          <div class="rp-panel-body">
+            ${subs.length > 0 ? subs.map(s => `<span class="rp-badge rp-badge-blue" style="margin:2px">r/${typeof s === 'string' ? s : s.name || s}</span>`).join(' ') : '<span style="color:var(--text4)">None configured</span>'}
+          </div>
+        </div>
+        <div class="rp-panel">
+          <div class="rp-panel-header"><div class="rp-panel-title">Keywords (${kws.length})</div></div>
+          <div class="rp-panel-body">
+            ${kws.length > 0 ? kws.map(k => `<span class="rp-badge" style="margin:2px;background:rgba(0,0,0,0.04);color:var(--text2)">${k}</span>`).join(' ') : '<span style="color:var(--text4)">None configured</span>'}
+          </div>
+        </div>
+      </div>
+    `;
+  } catch (e) {
+    container.innerHTML = `<div class="rp-empty"><div class="rp-empty-msg">Failed to load client</div><div class="rp-empty-sub">${e.message}</div></div>`;
+  }
+}
+
+/* ── Tab 3: Operations ── */
+async function rpRenderOperations(el) {
+  let opps = [], history = [];
+  try {
+    const [oppRes, histRes] = await Promise.all([
+      fetch('/api/reddit/opportunities'),
+      fetch('/api/reddit/history?limit=20'),
+    ]);
+    if (oppRes.ok) { const d = await oppRes.json(); opps = d.opportunities || d || []; }
+    if (histRes.ok) { const d = await histRes.json(); history = d.history || d.actions || d || []; }
+  } catch (e) {}
+
+  el.innerHTML = `
+    <div class="rp-panel">
+      <div class="rp-panel-header">
+        <div class="rp-panel-title">Scored Opportunities</div>
+        <button class="rp-ctrl-btn" onclick="rpControl('scan')" style="padding:4px 12px">Scan Now</button>
+      </div>
+      <div class="rp-panel-body-flush">
+        ${Array.isArray(opps) && opps.length > 0 ? `
+          <table class="rp-table">
+            <thead><tr><th>Score</th><th>Subreddit</th><th>Title</th><th>Client</th><th>Age</th></tr></thead>
+            <tbody>
+              ${opps.slice(0, 20).map(o => `<tr>
+                <td><strong style="color:#FF4500">${o.score != null ? o.score.toFixed(1) : '—'}</strong></td>
+                <td>r/${o.subreddit || '—'}</td>
+                <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.title || '—'}</td>
+                <td>${o.client_name || o.client || '—'}</td>
+                <td>${o.age_hours != null ? o.age_hours + 'h' : '—'}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        ` : '<div class="rp-empty"><div class="rp-empty-msg">No opportunities found</div><div class="rp-empty-sub">Run a scan to discover posting opportunities</div></div>'}
+      </div>
+    </div>
+
+    <div class="rp-panel">
+      <div class="rp-panel-header"><div class="rp-panel-title">Action History</div></div>
+      <div class="rp-panel-body-flush">
+        ${Array.isArray(history) && history.length > 0 ? `
+          <table class="rp-table">
+            <thead><tr><th>Time</th><th>Type</th><th>Subreddit</th><th>Client</th><th>Status</th></tr></thead>
+            <tbody>
+              ${history.slice(0, 20).map(a => `<tr>
+                <td>${a.created_at ? new Date(a.created_at).toLocaleString() : '—'}</td>
+                <td><span class="rp-badge rp-badge-blue">${a.action_type || a.type || '—'}</span></td>
+                <td>${a.subreddit ? 'r/' + a.subreddit : '—'}</td>
+                <td>${a.client_name || a.client || '—'}</td>
+                <td><span class="rp-badge ${a.success || a.status === 'success' ? 'rp-badge-green' : a.status === 'failed' ? 'rp-badge-red' : 'rp-badge-amber'}">${a.status || (a.success ? 'OK' : '—')}</span></td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        ` : '<div class="rp-empty"><div class="rp-empty-msg">No action history yet</div></div>'}
+      </div>
+    </div>
+
+    <div class="rp-panel">
+      <div class="rp-panel-header">
+        <div class="rp-panel-title">Live Log Feed</div>
+        <button class="rp-ctrl-btn" id="rpWsToggle" onclick="rpToggleLogs()" style="padding:4px 12px">Connect</button>
+      </div>
+      <div class="rp-panel-body">
+        <div class="rp-log-feed" id="rpLogFeed"></div>
+      </div>
+    </div>
+  `;
+}
+
+function rpToggleLogs() {
+  if (rpLogWs) {
+    rpLogWs.close();
+    rpLogWs = null;
+    const btn = document.getElementById('rpWsToggle');
+    if (btn) btn.textContent = 'Connect';
+    return;
+  }
+  rpConnectLogs();
+}
+
+async function rpConnectLogs() {
+  if (rpLogWs) return;
+  const btn = document.getElementById('rpWsToggle');
+  try {
+    const res = await fetch('/api/reddit/ws-url');
+    if (!res.ok) throw new Error('Could not get WS URL');
+    const { url } = await res.json();
+    rpLogWs = new WebSocket(url);
+    rpLogWs.onopen = () => {
+      if (btn) btn.textContent = 'Disconnect';
+      const feed = document.getElementById('rpLogFeed');
+      if (feed) feed.textContent = '[Connected to RedditPilot logs]\n';
+    };
+    rpLogWs.onmessage = (e) => {
+      const feed = document.getElementById('rpLogFeed');
+      if (!feed) return;
+      try {
+        const msg = JSON.parse(e.data);
+        feed.textContent += `[${msg.ts || ''}] ${msg.level || ''} ${msg.cat ? '[' + msg.cat + '] ' : ''}${msg.msg || e.data}\n`;
+      } catch (_) {
+        feed.textContent += e.data + '\n';
+      }
+      feed.scrollTop = feed.scrollHeight;
+      // Cap lines
+      const lines = feed.textContent.split('\n');
+      if (lines.length > 500) feed.textContent = lines.slice(-400).join('\n');
+    };
+    rpLogWs.onclose = () => {
+      rpLogWs = null;
+      if (btn) btn.textContent = 'Connect';
+      const feed = document.getElementById('rpLogFeed');
+      if (feed) feed.textContent += '[Disconnected]\n';
+    };
+    rpLogWs.onerror = () => {
+      rpLogWs = null;
+      if (btn) btn.textContent = 'Connect';
+    };
+  } catch (e) {
+    if (btn) btn.textContent = 'Connect';
+    const feed = document.getElementById('rpLogFeed');
+    if (feed) feed.textContent = '[Failed to connect: ' + e.message + ']\n';
+  }
+}
+
+/* ── Tab 4: Intelligence ── */
+async function rpRenderIntelligence(el) {
+  let insights = {}, perf = {}, heatmap = {}, funnel = {};
+  try {
+    const [insRes, perfRes, heatRes, funnelRes] = await Promise.all([
+      fetch('/api/reddit/insights'),
+      fetch('/api/reddit/performance'),
+      fetch('/api/reddit/heatmap'),
+      fetch('/api/reddit/funnel'),
+    ]);
+    if (insRes.ok) insights = await insRes.json();
+    if (perfRes.ok) perf = await perfRes.json();
+    if (heatRes.ok) heatmap = await heatRes.json();
+    if (funnelRes.ok) funnel = await funnelRes.json();
+  } catch (e) {}
+
+  const abTests = insights.ab_tests || insights.experiments || [];
+  const topSubs = insights.top_subreddits || [];
+  const strategies = insights.strategies || insights.top_strategies || [];
+
+  el.innerHTML = `
+    ${abTests.length > 0 ? `
+      <div class="rp-panel">
+        <div class="rp-panel-header"><div class="rp-panel-title">A/B Test Results</div></div>
+        <div class="rp-panel-body-flush">
+          <table class="rp-table">
+            <thead><tr><th>Experiment</th><th>Variant A</th><th>Variant B</th><th>Winner</th><th>Confidence</th></tr></thead>
+            <tbody>
+              ${abTests.map(t => `<tr>
+                <td>${t.name || t.experiment || '—'}</td>
+                <td>${t.variant_a_score != null ? t.variant_a_score.toFixed(2) : t.variant_a || '—'}</td>
+                <td>${t.variant_b_score != null ? t.variant_b_score.toFixed(2) : t.variant_b || '—'}</td>
+                <td><span class="rp-badge rp-badge-green">${t.winner || '—'}</span></td>
+                <td>${t.confidence != null ? (t.confidence * 100).toFixed(0) + '%' : '—'}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ` : ''}
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="rp-panel">
+        <div class="rp-panel-header"><div class="rp-panel-title">Performance Trend</div></div>
+        <div class="rp-panel-body">
+          <div class="rp-chart-container"><canvas id="rpPerfChart"></canvas></div>
+        </div>
+      </div>
+      <div class="rp-panel">
+        <div class="rp-panel-header"><div class="rp-panel-title">Conversion Funnel</div></div>
+        <div class="rp-panel-body">
+          <div class="rp-chart-container"><canvas id="rpFunnelChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    ${_rpRenderHeatmap(heatmap)}
+
+    ${topSubs.length > 0 ? `
+      <div class="rp-panel">
+        <div class="rp-panel-header"><div class="rp-panel-title">Top Subreddits</div></div>
+        <div class="rp-panel-body-flush">
+          <table class="rp-table">
+            <thead><tr><th>Subreddit</th><th>Actions</th><th>Avg Score</th><th>Engagement</th></tr></thead>
+            <tbody>
+              ${topSubs.slice(0, 10).map(s => `<tr>
+                <td>r/${s.subreddit || s.name || '—'}</td>
+                <td>${_rpFmt(s.action_count || s.actions)}</td>
+                <td>${s.avg_score != null ? s.avg_score.toFixed(1) : '—'}</td>
+                <td>${s.engagement_rate != null ? (s.engagement_rate * 100).toFixed(1) + '%' : '—'}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ` : ''}
+
+    ${strategies.length > 0 ? `
+      <div class="rp-panel">
+        <div class="rp-panel-header"><div class="rp-panel-title">Strategy Insights</div></div>
+        <div class="rp-panel-body">
+          ${strategies.map(s => `<div style="margin-bottom:12px;padding:10px;border-radius:6px;background:rgba(0,0,0,0.02)">
+            <div style="font-weight:600;margin-bottom:4px">${s.strategy || s.name || '—'}</div>
+            <div style="font-size:12px;color:var(--text3)">${s.insight || s.description || ''}</div>
+          </div>`).join('')}
+        </div>
+      </div>
+    ` : ''}
+  `;
+
+  // Performance trend chart
+  const perfData = perf.daily || perf.trend || perf.data || [];
+  if (Array.isArray(perfData) && perfData.length > 0) {
+    const ctx = document.getElementById('rpPerfChart');
+    if (ctx) {
+      rpCharts.perf = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: perfData.map(d => d.date || d.day || ''),
+          datasets: [{
+            label: 'Actions',
+            data: perfData.map(d => d.actions || d.count || 0),
+            borderColor: '#FF4500', backgroundColor: 'rgba(255,69,0,0.1)',
+            fill: true, tension: 0.3, pointRadius: 3,
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true },
+            x: { ticks: { font: { size: 10 }, maxTicksLimit: 7 } }
+          }
+        }
+      });
+    }
+  }
+
+  // Funnel chart
+  const funnelData = funnel.stages || funnel.funnel || [];
+  if (Array.isArray(funnelData) && funnelData.length > 0) {
+    const ctx = document.getElementById('rpFunnelChart');
+    if (ctx) {
+      rpCharts.funnel = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: funnelData.map(f => f.stage || f.label || ''),
+          datasets: [{
+            data: funnelData.map(f => f.count || f.value || 0),
+            backgroundColor: ['rgba(255,69,0,0.7)', 'rgba(255,69,0,0.55)', 'rgba(255,69,0,0.4)', 'rgba(255,69,0,0.25)', 'rgba(255,69,0,0.15)'],
+            borderRadius: 4,
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+          plugins: { legend: { display: false } },
+          scales: { x: { beginAtZero: true } }
+        }
+      });
+    }
+  }
+}
+
+function _rpRenderHeatmap(data) {
+  const grid = data.grid || data.heatmap || data.data;
+  if (!grid || !Array.isArray(grid) || grid.length === 0) return '';
+
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  let maxVal = 0;
+  grid.forEach(row => { if (Array.isArray(row)) row.forEach(v => { if (v > maxVal) maxVal = v; }); });
+
+  function heatLevel(v) {
+    if (!v || maxVal === 0) return '';
+    const ratio = v / maxVal;
+    if (ratio > 0.8) return 'rp-heat-5';
+    if (ratio > 0.6) return 'rp-heat-4';
+    if (ratio > 0.4) return 'rp-heat-3';
+    if (ratio > 0.2) return 'rp-heat-2';
+    return 'rp-heat-1';
+  }
+
+  let cells = '';
+  for (let d = 0; d < Math.min(grid.length, 7); d++) {
+    cells += `<div class="rp-heatmap-label">${days[d]}</div>`;
+    const row = grid[d] || [];
+    for (let h = 0; h < 24; h++) {
+      cells += `<div class="rp-heatmap-cell ${heatLevel(row[h] || 0)}" title="${days[d]} ${h}:00 — ${row[h] || 0} actions"></div>`;
+    }
+  }
+
+  return `
+    <div class="rp-panel">
+      <div class="rp-panel-header"><div class="rp-panel-title">Activity Heatmap (7d &times; 24h)</div></div>
+      <div class="rp-panel-body">
+        <div class="rp-heatmap-grid">${cells}</div>
+        <div style="display:flex;gap:4px;align-items:center;margin-top:8px;font-size:10px;color:var(--text4)">
+          <span>Less</span>
+          <div class="rp-heatmap-cell" style="width:12px;height:12px;display:inline-block"></div>
+          <div class="rp-heatmap-cell rp-heat-1" style="width:12px;height:12px;display:inline-block"></div>
+          <div class="rp-heatmap-cell rp-heat-3" style="width:12px;height:12px;display:inline-block"></div>
+          <div class="rp-heatmap-cell rp-heat-5" style="width:12px;height:12px;display:inline-block"></div>
+          <span>More</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ── Tab 5: Settings ── */
+async function rpRenderSettings(el) {
+  let accounts = [], schedule = {}, health = {};
+  try {
+    const [accRes, schRes, hRes] = await Promise.all([
+      fetch('/api/reddit/accounts'),
+      fetch('/api/reddit/schedule'),
+      fetch('/api/reddit/health'),
+    ]);
+    if (accRes.ok) { const d = await accRes.json(); accounts = d.accounts || d || []; }
+    if (schRes.ok) schedule = await schRes.json();
+    if (hRes.ok) health = await hRes.json();
+  } catch (e) {}
+
+  const schedJobs = schedule.jobs || schedule.schedule || [];
+
+  el.innerHTML = `
+    <div class="rp-panel">
+      <div class="rp-panel-header">
+        <div class="rp-panel-title">Connection Status</div>
+        <button class="rp-ctrl-btn" onclick="rpTestConnection()" style="padding:4px 12px">Test Connection</button>
+      </div>
+      <div class="rp-panel-body" id="rpConnectionStatus">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="rp-badge ${health.connected ? 'rp-badge-green' : 'rp-badge-red'}">${health.connected ? 'Connected' : 'Disconnected'}</span>
+          <span style="font-size:12px;color:var(--text3)">${health.connected ? 'RedditPilot is reachable' : (health.reason || 'Cannot reach RedditPilot')}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="rp-panel">
+      <div class="rp-panel-header"><div class="rp-panel-title">Reddit Accounts (${Array.isArray(accounts) ? accounts.length : 0})</div></div>
+      <div class="rp-panel-body">
+        ${Array.isArray(accounts) && accounts.length > 0 ? `
+          <div class="rp-account-grid">
+            ${accounts.map(a => `
+              <div class="rp-account-card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                  <div class="rp-account-name">u/${a.username || '—'}</div>
+                  <span class="rp-badge ${a.healthy !== false ? 'rp-badge-green' : 'rp-badge-red'}">${a.healthy !== false ? 'Healthy' : 'Issue'}</span>
+                </div>
+                <div class="rp-account-tier rp-tier-${a.karma_tier || 'new'}" style="margin-bottom:6px">
+                  ${(a.karma_tier || 'new').toUpperCase()} TIER
+                </div>
+                <div style="font-size:11px;color:var(--text3)">
+                  ${a.karma != null ? 'Karma: ' + _rpFmt(a.karma) : ''}
+                  ${a.daily_remaining != null ? ' &bull; ' + a.daily_remaining + ' remaining today' : ''}
+                  ${a.shadowbanned ? '<br><span style="color:var(--red)">Shadowbanned</span>' : ''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        ` : '<div class="rp-empty"><div class="rp-empty-msg">No accounts configured</div></div>'}
+      </div>
+    </div>
+
+    <div class="rp-panel">
+      <div class="rp-panel-header"><div class="rp-panel-title">Autonomous Schedule</div></div>
+      <div class="rp-panel-body-flush">
+        ${Array.isArray(schedJobs) && schedJobs.length > 0 ? `
+          <table class="rp-table">
+            <thead><tr><th>Job</th><th>Interval</th><th>Next Run</th><th>Status</th></tr></thead>
+            <tbody>
+              ${schedJobs.map(j => `<tr>
+                <td>${j.name || j.id || '—'}</td>
+                <td>${j.interval || j.trigger || '—'}</td>
+                <td>${j.next_run ? new Date(j.next_run).toLocaleString() : '—'}</td>
+                <td><span class="rp-badge ${j.active !== false ? 'rp-badge-green' : 'rp-badge-amber'}">${j.active !== false ? 'Active' : 'Paused'}</span></td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        ` : '<div class="rp-empty"><div class="rp-empty-msg">No scheduled jobs</div><div class="rp-empty-sub">RedditPilot schedules are configured in the orchestrator</div></div>'}
+      </div>
+    </div>
+  `;
+}
+
+async function rpTestConnection() {
+  const status = document.getElementById('rpConnectionStatus');
+  if (status) status.innerHTML = '<span style="color:var(--text3)">Testing...</span>';
+  try {
+    const res = await fetch('/api/reddit/health');
+    const data = await res.json();
+    if (status) {
+      status.innerHTML = `<div style="display:flex;align-items:center;gap:10px">
+        <span class="rp-badge ${data.connected ? 'rp-badge-green' : 'rp-badge-red'}">${data.connected ? 'Connected' : 'Disconnected'}</span>
+        <span style="font-size:12px;color:var(--text3)">${data.connected ? 'RedditPilot is reachable' : (data.reason || 'Cannot reach RedditPilot')}</span>
+      </div>`;
+    }
+  } catch (e) {
+    if (status) status.innerHTML = '<span class="rp-badge rp-badge-red">Error</span> <span style="font-size:12px;color:var(--text3)">Network error</span>';
   }
 }
 
