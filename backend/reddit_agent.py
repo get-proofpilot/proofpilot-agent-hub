@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
 import threading
 from collections import deque
 from datetime import datetime, timedelta
@@ -41,14 +42,40 @@ _CONFIG_PATH = Path(
     os.environ.get("REDDITPILOT_CONFIG_PATH", _DEFAULT_DATA_DIR / "config.yaml")
 )
 
+# Seeded template path — bundled in the Docker image. If no user config
+# exists on the volume, we copy this template on first access so the
+# orchestrator can boot with all clients pre-populated.
+_SEEDED_TEMPLATE = Path(__file__).parent / "redditpilot" / "config.seeded.yaml"
+
 
 def config_path() -> Path:
     return _CONFIG_PATH
 
 
+def seeded_template_path() -> Path:
+    return _SEEDED_TEMPLATE
+
+
 def is_configured() -> bool:
-    """True if a RedditPilot config file exists."""
-    return _CONFIG_PATH.exists()
+    """True if a RedditPilot config file exists (user config OR seeded template)."""
+    return _CONFIG_PATH.exists() or _SEEDED_TEMPLATE.exists()
+
+
+def _bootstrap_config() -> bool:
+    """If no user config exists but the seeded template does, copy it to
+    the user config path. Returns True if a config file is available."""
+    if _CONFIG_PATH.exists():
+        return True
+    if not _SEEDED_TEMPLATE.exists():
+        return False
+    try:
+        _CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(_SEEDED_TEMPLATE, _CONFIG_PATH)
+        logger.info(f"RedditPilot: bootstrapped user config from seeded template → {_CONFIG_PATH}")
+        return True
+    except Exception as e:
+        logger.error(f"RedditPilot: failed to bootstrap config: {e}")
+        return False
 
 
 # ── Singleton orchestrator ────────────────────────────────────────
@@ -76,8 +103,12 @@ def get_orch():
     with _orch_lock:
         if _orch is not None:
             return _orch
-        if not is_configured():
-            _orch_error = f"Config file not found at {_CONFIG_PATH}"
+        # Bootstrap user config from seeded template if needed
+        if not _bootstrap_config():
+            _orch_error = (
+                f"No config file found. Expected user config at {_CONFIG_PATH} "
+                f"or seeded template at {_SEEDED_TEMPLATE}"
+            )
             return None
         try:
             # Lazy import — avoids loading praw/bs4 until actually needed
@@ -88,10 +119,31 @@ def get_orch():
             # Force data_dir to the config's parent so DB lives alongside config
             cfg.data_dir = str(_CONFIG_PATH.parent)
 
+            # Wire LLM API keys from Agent Hub env vars.
+            # Primary: OpenRouter (preferred — matches pipeline/image_gen.py convention).
+            # Fallback: REDDITPILOT_LLM_API_KEY for backwards compat.
+            if not cfg.llm.primary_api_key:
+                cfg.llm.primary_api_key = (
+                    os.environ.get("OPENROUTER_API_KEY", "")
+                    or os.environ.get("REDDITPILOT_LLM_API_KEY", "")
+                )
+            if not cfg.llm.fallback_api_key:
+                cfg.llm.fallback_api_key = (
+                    os.environ.get("ANTHROPIC_API_KEY", "")
+                    or os.environ.get("REDDITPILOT_LLM_FALLBACK_KEY", "")
+                )
+
             _orch = RedditPilot(cfg)
             _init_time = __import__("time").time()
             _init_logger_capture()
-            logger.info(f"RedditPilot orchestrator initialized from {_CONFIG_PATH}")
+            n_clients = len(cfg.get_enabled_clients())
+            n_accounts = len(cfg.get_enabled_accounts())
+            logger.info(
+                f"RedditPilot orchestrator initialized from {_CONFIG_PATH} "
+                f"({n_clients} clients, {n_accounts} accounts, "
+                f"llm={cfg.llm.primary_provider}/{cfg.llm.primary_model}, "
+                f"key_set={bool(cfg.llm.primary_api_key)})"
+            )
             return _orch
         except Exception as e:
             _orch_error = f"{type(e).__name__}: {e}"

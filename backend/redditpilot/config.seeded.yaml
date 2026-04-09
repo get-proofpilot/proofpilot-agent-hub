@@ -1,0 +1,294 @@
+# ──────────────────────────────────────────────────────────────
+# RedditPilot Seeded Config — ProofPilot Agent Hub
+# ──────────────────────────────────────────────────────────────
+# This file is committed to the repo and used as a bootstrap template.
+# On first RedditPilot startup, reddit_agent.py copies this file to the
+# persistent Railway volume at /app/data/redditpilot/config.yaml so the
+# orchestrator has something to load.
+#
+# Once the user config exists on the volume, the bootstrap is a no-op —
+# the volume copy is the source of truth and can be edited freely without
+# redeployment.
+#
+# To hook up real Reddit accounts:
+#   1. Edit /app/data/redditpilot/config.yaml via Railway SSH or a future
+#      in-dashboard editor.
+#   2. Add entries under `accounts:` with real credentials.
+#
+# ──────────────────────────────────────────────────────────────
+
+# ── LLM provider: OpenRouter → MiniMax M2 ────────────────────
+# primary_api_key is read from env var OPENROUTER_API_KEY (preferred) or
+# REDDITPILOT_LLM_API_KEY (fallback). Leave blank here.
+llm:
+  primary_provider: "openrouter"
+  primary_model: "minimax/minimax-m2"
+  primary_api_key: ""
+  fallback_provider: "anthropic"
+  fallback_model: "claude-haiku-4-5-20251001"
+  fallback_api_key: ""  # Reads from ANTHROPIC_API_KEY env var
+  temperature: 0.8
+  max_tokens: 600
+  casualness: 0.7
+  use_contractions: true
+
+# ── Reddit accounts ──────────────────────────────────────────
+# Placeholder — add real accounts per client before enabling posting.
+# Karma tier caps: new=3c/0p, growing=7c/2p, established=12c/5p, veteran=20c/10p
+accounts: []
+
+# ── Clients ──────────────────────────────────────────────────
+# Seeded from backend/vault_data/_clients-index.yaml.
+# approval_required: true on all — nothing posts without explicit review.
+clients:
+  - name: "Saiyan Electric"
+    slug: "saiyan-electric"
+    industry: "electrician"
+    service_area: "Downey, Los Angeles, CA"
+    website: "https://saiyanelectric.com"
+    brand_voice: "Helpful, direct local electrician. Plain-spoken, no jargon. Quick to share practical tips."
+    keywords:
+      - "electrician"
+      - "panel upgrade"
+      - "ev charger installation"
+      - "rewiring"
+      - "electrical repair"
+      - "knob and tube"
+      - "tesla charger"
+    target_subreddits:
+      - "HomeImprovement"
+      - "electricians"
+      - "AskElectricians"
+      - "DIY"
+      - "LosAngeles"
+      - "electricvehicles"
+    promo_ratio: 0.05
+    approval_required: true
+    enabled: true
+
+  - name: "All Thingz Electric"
+    slug: "all-thingz-electric"
+    industry: "electrician"
+    service_area: "South Orange County, CA"
+    website: "https://allthingzelectric.com"
+    brand_voice: "Friendly, knowledgeable Orange County electrician. Personable and never condescending."
+    keywords:
+      - "electrician"
+      - "panel upgrade"
+      - "ev charger"
+      - "rewiring"
+      - "electrical repair"
+      - "whole home surge protector"
+      - "solar battery backup"
+    target_subreddits:
+      - "HomeImprovement"
+      - "electricians"
+      - "AskElectricians"
+      - "DIY"
+      - "orangecounty"
+      - "electricvehicles"
+    promo_ratio: 0.05
+    approval_required: true
+    enabled: true
+
+  - name: "Integrative Sports and Spine"
+    slug: "integrative-sports-spine"
+    industry: "chiropractic and pain management"
+    service_area: "Long Beach, CA"
+    website: "https://integrativesportsandspine.com"
+    brand_voice: "Sports medicine doctor tone — educational, evidence-based, empathetic. Speaks to athletes and people in pain."
+    keywords:
+      - "back pain"
+      - "sciatica"
+      - "sports injury"
+      - "chiropractor"
+      - "sports medicine"
+      - "regenerative medicine"
+      - "prp therapy"
+      - "herniated disc"
+    target_subreddits:
+      - "backpain"
+      - "ChronicPain"
+      - "running"
+      - "crossfit"
+      - "longbeach"
+      - "Sciatica"
+      - "Fitness"
+    promo_ratio: 0.03
+    approval_required: true
+    enabled: true
+
+  - name: "Cedar Gold Group"
+    slug: "cedar-gold-group"
+    industry: "gold IRA and precious metals"
+    service_area: "Nationwide (Remote)"
+    website: "https://cedargoldgroup.com"
+    brand_voice: "Trusted precious metals advisor. Informational, never salesy. Focuses on education around retirement protection."
+    keywords:
+      - "gold ira"
+      - "precious metals ira"
+      - "silver ira"
+      - "gold investing"
+      - "retirement protection"
+      - "ira rollover"
+      - "401k to gold"
+      - "inflation hedge"
+    target_subreddits:
+      - "Gold"
+      - "investing"
+      - "retirement"
+      - "personalfinance"
+      - "SilverBugs"
+      - "Wallstreetsilver"
+      - "preppers"
+    promo_ratio: 0.04
+    approval_required: true
+    enabled: true
+
+  - name: "Trading Academy"
+    slug: "trading-academy"
+    industry: "trading education"
+    service_area: "Nationwide (Remote)"
+    website: "https://tradingacademy.com"
+    brand_voice: "Experienced trading educator. Direct, no hype, focused on risk management and realistic expectations."
+    keywords:
+      - "day trading"
+      - "swing trading"
+      - "trading education"
+      - "technical analysis"
+      - "options trading"
+      - "futures trading"
+      - "trading psychology"
+    target_subreddits:
+      - "Daytrading"
+      - "stocks"
+      - "investing"
+      - "options"
+      - "StockMarket"
+      - "Trading"
+    promo_ratio: 0.04
+    approval_required: true
+    enabled: true
+
+  - name: "Pelican Coast Electric"
+    slug: "pelican-coast-electric"
+    industry: "electrician"
+    service_area: "Newport Beach, CA"
+    website: "https://pelicancoastelectric.com"
+    brand_voice: "Coastal OC electrician — relaxed, professional, genuinely helpful to homeowners."
+    keywords:
+      - "electrician"
+      - "panel upgrade"
+      - "ev charger"
+      - "landscape lighting"
+      - "electrical repair"
+      - "generator installation"
+    target_subreddits:
+      - "HomeImprovement"
+      - "electricians"
+      - "AskElectricians"
+      - "orangecounty"
+      - "electricvehicles"
+    promo_ratio: 0.05
+    approval_required: true
+    enabled: true
+
+  - name: "Dolce Electric"
+    slug: "dolce-electric"
+    industry: "electrician"
+    service_area: "Mesa, AZ"
+    website: "https://electriciansmesaaz.com"
+    brand_voice: "Arizona electrician. Direct, practical, focused on desert-specific issues (heat, solar, monsoon damage)."
+    keywords:
+      - "electrician mesa"
+      - "electrician phoenix"
+      - "panel upgrade"
+      - "solar installation"
+      - "ac electrical"
+      - "ev charger"
+      - "pool electrical"
+    target_subreddits:
+      - "HomeImprovement"
+      - "electricians"
+      - "AskElectricians"
+      - "phoenix"
+      - "arizona"
+      - "solar"
+    promo_ratio: 0.05
+    approval_required: true
+    enabled: true
+
+  - name: "Alpha Property Management"
+    slug: "alpha-property-management"
+    industry: "property management"
+    service_area: "Sacramento, CA"
+    website: "https://alphapropmanagement.com"
+    brand_voice: "Experienced Sacramento property manager. Helpful to landlords, no-nonsense about tenant issues, California law expert."
+    keywords:
+      - "property management"
+      - "rental management"
+      - "landlord"
+      - "sacramento rentals"
+      - "california landlord law"
+      - "tenant screening"
+      - "rental property"
+    target_subreddits:
+      - "RealEstate"
+      - "Landlord"
+      - "realestateinvesting"
+      - "Sacramento"
+      - "rental"
+      - "PropertyManagement"
+    promo_ratio: 0.04
+    approval_required: true
+    enabled: true
+
+  - name: "Adam Levinstein Photography"
+    slug: "adam-levinstein-photography"
+    industry: "photography"
+    service_area: "Orange County and San Diego, CA"
+    website: "https://adamlevinstein.com"
+    brand_voice: "Creative portrait photographer. Warm, artistic, passionate about storytelling through images."
+    keywords:
+      - "family photographer"
+      - "portrait photographer"
+      - "wedding photography"
+      - "senior photos"
+      - "maternity photography"
+      - "headshots"
+      - "orange county photographer"
+      - "san diego photographer"
+    target_subreddits:
+      - "photography"
+      - "AskPhotography"
+      - "orangecounty"
+      - "sandiego"
+      - "WeddingPhotography"
+      - "photocritique"
+    promo_ratio: 0.04
+    approval_required: true
+    enabled: true
+
+# ── Safety / anti-detection ──────────────────────────────────
+safety:
+  min_delay_seconds: 45
+  max_delay_seconds: 240
+  min_account_age_days: 30
+  min_karma_to_post: 50
+  shadowban_check_interval_hours: 6
+  max_actions_per_hour: 6
+  content_validation_enabled: true
+  auto_delete_negative_comments: true
+  negative_score_threshold: -2
+
+# ── Slack approval (optional) ────────────────────────────────
+slack:
+  enabled: false
+  bot_token: ""
+  approval_channel: ""
+  notification_channel: ""
+
+# ── Top-level ────────────────────────────────────────────────
+log_level: "INFO"
+scan_interval_minutes: 30
+learning_interval_hours: 6
