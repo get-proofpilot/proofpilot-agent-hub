@@ -5731,6 +5731,20 @@ function _rpTimeSince(seconds) {
   return `${m}m`;
 }
 
+function _rpGauge(label, value, unit, severity) {
+  const pct = Math.min(Math.max(value || 0, 0), 100);
+  const color = severity === 'red' ? '#ef4444' : severity === 'amber' ? '#f59e0b' : '#4ade80';
+  return `<div style="padding:10px;border-radius:8px;background:rgba(0,0,0,0.02);border:1px solid var(--border)">
+    <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px">
+      <span style="font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:.06em">${label}</span>
+      <span style="font-weight:600;color:${color}">${pct.toFixed(0)}${unit || ''}</span>
+    </div>
+    <div style="height:6px;background:rgba(0,0,0,0.05);border-radius:3px;overflow:hidden">
+      <div style="height:100%;width:${pct}%;background:${color};transition:width .4s ease"></div>
+    </div>
+  </div>`;
+}
+
 async function renderRedditPilot() {
   const container = document.getElementById('rpTabContent');
   if (!container) return;
@@ -5818,52 +5832,112 @@ function rpSwitchTab(tab) {
 
 /* ── Tab 1: Command Center ── */
 async function rpRenderCommand(el) {
-  let actions = [];
+  let actions = [], alerts = [];
   try {
-    const res = await fetch('/api/reddit/actions?limit=10');
-    if (res.ok) {
-      const data = await res.json();
-      actions = data.actions || data || [];
-    }
+    const [actRes, alertRes] = await Promise.all([
+      fetch('/api/reddit/actions?limit=10'),
+      fetch('/api/reddit/alerts?limit=5'),
+    ]);
+    if (actRes.ok) { const d = await actRes.json(); actions = d.actions || []; }
+    if (alertRes.ok) { const d = await alertRes.json(); alerts = d.alerts || []; }
   } catch (e) {}
 
   const s = rpData.stats || {};
   const st = rpData.status || {};
+  const res = (st.resources || {}).system || {};
+  const pendingOpps = s.pending_opportunities || 0;
+  const successRate = s.success_rate != null ? (s.success_rate * 100).toFixed(0) + '%' : '—';
+  const schedOn = !!st.scheduler_running;
 
   el.innerHTML = `
     <div class="rp-kpi-row">
       <div class="rp-kpi">
         <div class="rp-kpi-label">Actions (24h)</div>
         <div class="rp-kpi-value" style="color:#FF4500">${_rpFmt(s.total || s.actions_24h)}</div>
-        <div class="rp-kpi-sub">${_rpFmt(s.by_type ? Object.keys(s.by_type).length : 0)} types</div>
+        <div class="rp-kpi-sub">${successRate} success rate</div>
       </div>
       <div class="rp-kpi">
-        <div class="rp-kpi-label">Clients</div>
-        <div class="rp-kpi-value" style="color:var(--elec-blue)">${_rpFmt(st.client_count)}</div>
-        <div class="rp-kpi-sub">${_rpFmt(st.account_count)} accounts</div>
+        <div class="rp-kpi-label">Opportunities</div>
+        <div class="rp-kpi-value" style="color:var(--amber)">${_rpFmt(pendingOpps)}</div>
+        <div class="rp-kpi-sub">Pending in queue</div>
       </div>
       <div class="rp-kpi">
-        <div class="rp-kpi-label">Cycles</div>
-        <div class="rp-kpi-value">${_rpFmt(st.cycle_count)}</div>
-        <div class="rp-kpi-sub">Total completed</div>
+        <div class="rp-kpi-label">Clients / Accounts</div>
+        <div class="rp-kpi-value" style="color:var(--elec-blue)">${_rpFmt(st.client_count)} / ${_rpFmt(st.account_count)}</div>
+        <div class="rp-kpi-sub">${_rpFmt(st.cycle_count)} cycles completed</div>
       </div>
       <div class="rp-kpi">
         <div class="rp-kpi-label">Uptime</div>
         <div class="rp-kpi-value">${_rpTimeSince(st.uptime_seconds)}</div>
-        <div class="rp-kpi-sub">${st.mode || '—'}</div>
+        <div class="rp-kpi-sub">${schedOn ? 'Autonomous mode ON' : 'Manual mode'}</div>
       </div>
     </div>
 
-    <div class="rp-controls">
-      <button class="rp-ctrl-btn rp-ctrl-success" onclick="rpControl('scan')">Scan</button>
-      <button class="rp-ctrl-btn" onclick="rpControl('discover')">Discover</button>
-      <button class="rp-ctrl-btn" onclick="rpControl('generate')">Generate</button>
-      <button class="rp-ctrl-btn" onclick="rpControl('post')">Post</button>
-      <button class="rp-ctrl-btn" onclick="rpControl('learn')">Learn</button>
-      <button class="rp-ctrl-btn" onclick="rpControl('cycle')">Full Cycle</button>
-      <button class="rp-ctrl-btn rp-ctrl-warn" onclick="rpControl('${st.paused ? 'resume' : 'pause'}')">${st.paused ? 'Resume' : 'Pause'}</button>
-      <button class="rp-ctrl-btn rp-ctrl-danger" onclick="rpControl('emergency_stop')">Emergency Stop</button>
+    ${alerts.length > 0 ? `
+      <div class="rp-panel" style="border-left:3px solid var(--amber)">
+        <div class="rp-panel-header"><div class="rp-panel-title">&#9888; Agent Alerts</div></div>
+        <div class="rp-panel-body-flush">
+          ${alerts.map(a => `<div style="padding:8px 18px;border-bottom:1px solid var(--border);font-size:12px">
+            <span style="color:var(--text4);font-family:var(--mono);margin-right:8px">${a.timestamp ? new Date(a.timestamp).toLocaleTimeString() : ''}</span>
+            <span>${a.message || ''}</span>
+          </div>`).join('')}
+        </div>
+      </div>
+    ` : ''}
+
+    <div class="rp-panel">
+      <div class="rp-panel-header">
+        <div class="rp-panel-title">Autonomous Mode</div>
+        <span class="rp-badge ${schedOn ? 'rp-badge-green' : 'rp-badge-amber'}">${schedOn ? 'Running' : 'Stopped'}</span>
+      </div>
+      <div class="rp-panel-body">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:14px">
+          <div style="font-size:12px;color:var(--text3);max-width:500px">
+            ${schedOn
+              ? 'APScheduler is running. Scan, generate, and learn jobs will fire on their configured intervals automatically.'
+              : 'Agent is in manual mode — no autonomous actions will run. Start the scheduler to enable background cycles (approval still required before posts go live).'}
+          </div>
+          <button class="rp-ctrl-btn ${schedOn ? 'rp-ctrl-warn' : 'rp-ctrl-success'}" onclick="rpControl('${schedOn ? 'stop_scheduler' : 'start_scheduler'}')">
+            ${schedOn ? 'Stop Scheduler' : 'Start Scheduler'}
+          </button>
+        </div>
+      </div>
     </div>
+
+    <div class="rp-panel">
+      <div class="rp-panel-header"><div class="rp-panel-title">Manual Controls</div></div>
+      <div class="rp-panel-body">
+        <div class="rp-controls">
+          <button class="rp-ctrl-btn rp-ctrl-success" onclick="rpControl('scan')" title="Find new posting opportunities">Scan</button>
+          <button class="rp-ctrl-btn" onclick="rpControl('discover')" title="Discover new subreddits">Discover</button>
+          <button class="rp-ctrl-btn" onclick="rpControl('generate')" title="Generate draft comments/posts">Generate</button>
+          <button class="rp-ctrl-btn" onclick="rpControl('post')" title="Post approved content">Post</button>
+          <button class="rp-ctrl-btn" onclick="rpControl('verify')" title="Verify posted comments are still live">Verify</button>
+          <button class="rp-ctrl-btn" onclick="rpControl('learn')" title="Run learning cycle">Learn</button>
+          <button class="rp-ctrl-btn" onclick="rpControl('cycle')" title="Full scan → generate → post cycle">Full Cycle</button>
+          <button class="rp-ctrl-btn rp-ctrl-warn" onclick="rpControl('${st.paused ? 'resume' : 'pause'}')">${st.paused ? 'Resume' : 'Pause'}</button>
+          <button class="rp-ctrl-btn rp-ctrl-danger" onclick="rpControl('emergency_stop')">Emergency Stop</button>
+        </div>
+      </div>
+    </div>
+
+    ${res.ram_used_percent != null ? `
+      <div class="rp-panel">
+        <div class="rp-panel-header"><div class="rp-panel-title">System Resources</div></div>
+        <div class="rp-panel-body">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+            ${_rpGauge('RAM', res.ram_used_percent, '%', res.ram_used_percent > 85 ? 'red' : res.ram_used_percent > 70 ? 'amber' : 'green')}
+            ${_rpGauge('CPU', res.cpu_percent || 0, '%', res.cpu_percent > 85 ? 'red' : res.cpu_percent > 70 ? 'amber' : 'green')}
+            ${_rpGauge('Disk', res.disk_used_percent || 0, '%', res.disk_used_percent > 85 ? 'red' : res.disk_used_percent > 70 ? 'amber' : 'green')}
+          </div>
+          <div style="font-size:11px;color:var(--text4);margin-top:10px">
+            ${res.ram_available_gb != null ? `${res.ram_available_gb.toFixed(1)}GB free` : ''}
+            ${res.disk_free_gb != null ? ` &middot; ${res.disk_free_gb.toFixed(1)}GB disk free` : ''}
+            ${res.process_rss_mb != null ? ` &middot; process ${res.process_rss_mb.toFixed(0)}MB` : ''}
+          </div>
+        </div>
+      </div>
+    ` : ''}
 
     <div class="rp-panel">
       <div class="rp-panel-header">
@@ -5873,15 +5947,16 @@ async function rpRenderCommand(el) {
         ${Array.isArray(actions) && actions.length > 0 ? `
           <table class="rp-table">
             <thead><tr>
-              <th>Time</th><th>Type</th><th>Subreddit</th><th>Client</th><th>Score</th>
+              <th>Time</th><th>Type</th><th>Subreddit</th><th>Client</th><th>Account</th><th>Status</th>
             </tr></thead>
             <tbody>
               ${actions.slice(0, 10).map(a => `<tr>
                 <td>${a.created_at ? new Date(a.created_at).toLocaleTimeString() : '—'}</td>
-                <td><span class="rp-badge rp-badge-blue">${a.action_type || a.type || '—'}</span></td>
+                <td><span class="rp-badge rp-badge-blue">${a.action_type || '—'}</span></td>
                 <td>${a.subreddit ? 'r/' + a.subreddit : '—'}</td>
-                <td>${a.client_name || a.client || '—'}</td>
-                <td>${a.score != null ? a.score : '—'}</td>
+                <td>${a.client_name || '—'}</td>
+                <td>${a.account_username ? 'u/' + a.account_username : '—'}</td>
+                <td><span class="rp-badge ${a.success ? 'rp-badge-green' : 'rp-badge-red'}">${a.success ? 'OK' : 'Failed'}</span></td>
               </tr>`).join('')}
             </tbody>
           </table>
@@ -5967,24 +6042,28 @@ async function rpRenderClients(el) {
   }
 
   el.innerHTML = `<div class="rp-client-grid">${clients.map(c => `
-    <div class="rp-client-card" onclick="rpShowClientDetail('${c.slug || c.name}')">
+    <div class="rp-client-card" onclick="rpShowClientDetail('${(c.slug || c.name).replace(/'/g, '&#39;')}')">
       <div class="rp-client-name">${c.name || c.slug}</div>
       <div class="rp-client-industry">${c.industry || ''} ${c.service_area ? '&mdash; ' + c.service_area : ''}</div>
       <div class="rp-client-stats">
         <div class="rp-client-stat">
-          <div class="rp-client-stat-val">${_rpFmt(c.total_actions || c.actions_count || 0)}</div>
-          <div class="rp-client-stat-label">Actions</div>
+          <div class="rp-client-stat-val">${_rpFmt(c.actions_24h || 0)}</div>
+          <div class="rp-client-stat-label">24h Actions</div>
         </div>
         <div class="rp-client-stat">
-          <div class="rp-client-stat-val">${_rpFmt(c.subreddit_count || (c.target_subreddits ? c.target_subreddits.length : 0))}</div>
-          <div class="rp-client-stat-label">Subreddits</div>
+          <div class="rp-client-stat-val">${_rpFmt(c.pending_opportunities || 0)}</div>
+          <div class="rp-client-stat-label">Pending</div>
         </div>
         <div class="rp-client-stat">
-          <div class="rp-client-stat-val">${_rpFmt(c.keyword_count || (c.keywords ? c.keywords.length : 0))}</div>
-          <div class="rp-client-stat-label">Keywords</div>
+          <div class="rp-client-stat-val">${_rpFmt(c.subreddit_count || 0)}</div>
+          <div class="rp-client-stat-label">Subs</div>
         </div>
       </div>
-      ${c.enabled === false ? '<div style="margin-top:8px"><span class="rp-badge rp-badge-amber">Disabled</span></div>' : ''}
+      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+        ${c.enabled === false ? '<span class="rp-badge rp-badge-amber">Disabled</span>' : ''}
+        ${c.comments_posted > 0 ? `<span class="rp-badge rp-badge-green">${c.comments_posted} posted</span>` : ''}
+        ${c.keyword_count > 0 ? `<span class="rp-badge rp-badge-blue">${c.keyword_count} kws</span>` : ''}
+      </div>
     </div>
   `).join('')}</div>`;
 }
@@ -5995,13 +6074,16 @@ async function rpShowClientDetail(slug) {
   container.innerHTML = '<div class="rp-empty"><div class="rp-empty-msg">Loading...</div></div>';
 
   try {
-    const res = await fetch(`/api/reddit/clients/${slug}`);
+    const res = await fetch(`/api/reddit/clients/${encodeURIComponent(slug)}`);
     if (!res.ok) throw new Error('Failed to load client');
     const c = await res.json();
+    if (c.error) throw new Error(c.error);
 
-    const subs = c.target_subreddits || c.subreddits || [];
+    const targetSubs = c.target_subreddits || [];
+    const assignedSubs = c.assigned_subreddits || [];
     const kws = c.keywords || [];
     const perf = c.performance || {};
+    const recentComments = c.recent_comments || [];
 
     container.innerHTML = `
       <button class="rp-ctrl-btn" onclick="rpRenderClients(document.getElementById('rpTabContent'))" style="margin-bottom:16px">&larr; Back to Clients</button>
@@ -6013,70 +6095,128 @@ async function rpShowClientDetail(slug) {
       <div class="rp-kpi-row">
         <div class="rp-kpi">
           <div class="rp-kpi-label">Industry</div>
-          <div class="rp-kpi-value" style="font-size:18px">${c.industry || '—'}</div>
+          <div class="rp-kpi-value" style="font-size:16px">${c.industry || '—'}</div>
+          <div class="rp-kpi-sub">${c.service_area || ''}</div>
         </div>
         <div class="rp-kpi">
-          <div class="rp-kpi-label">Service Area</div>
-          <div class="rp-kpi-value" style="font-size:18px">${c.service_area || '—'}</div>
+          <div class="rp-kpi-label">Actions 24h</div>
+          <div class="rp-kpi-value">${_rpFmt(perf.actions_24h || 0)}</div>
+          <div class="rp-kpi-sub">${perf.success_rate != null ? (perf.success_rate * 100).toFixed(0) + '% success' : ''}</div>
+        </div>
+        <div class="rp-kpi">
+          <div class="rp-kpi-label">Total Comments</div>
+          <div class="rp-kpi-value">${_rpFmt(perf.total_comments || 0)}</div>
+          <div class="rp-kpi-sub">${perf.avg_comment_score != null ? 'avg score ' + perf.avg_comment_score : ''}</div>
         </div>
         <div class="rp-kpi">
           <div class="rp-kpi-label">Website</div>
-          <div class="rp-kpi-value" style="font-size:14px">${c.website || '—'}</div>
-        </div>
-        <div class="rp-kpi">
-          <div class="rp-kpi-label">Total Actions</div>
-          <div class="rp-kpi-value">${_rpFmt(perf.total_actions || c.total_actions || 0)}</div>
+          <div class="rp-kpi-value" style="font-size:13px;word-break:break-all">${c.website || '—'}</div>
         </div>
       </div>
 
+      ${c.brand_voice ? `
+        <div class="rp-panel">
+          <div class="rp-panel-header"><div class="rp-panel-title">Brand Voice</div></div>
+          <div class="rp-panel-body" style="font-size:13px;color:var(--text2);font-style:italic">"${c.brand_voice}"</div>
+        </div>
+      ` : ''}
+
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
         <div class="rp-panel">
-          <div class="rp-panel-header"><div class="rp-panel-title">Target Subreddits (${subs.length})</div></div>
+          <div class="rp-panel-header"><div class="rp-panel-title">Target Subreddits (${targetSubs.length})</div></div>
           <div class="rp-panel-body">
-            ${subs.length > 0 ? subs.map(s => `<span class="rp-badge rp-badge-blue" style="margin:2px">r/${typeof s === 'string' ? s : s.name || s}</span>`).join(' ') : '<span style="color:var(--text4)">None configured</span>'}
+            ${targetSubs.length > 0 ? targetSubs.map(s => `<span class="rp-badge rp-badge-blue" style="margin:2px;display:inline-block">r/${s}</span>`).join(' ') : '<span style="color:var(--text4)">None configured</span>'}
           </div>
         </div>
         <div class="rp-panel">
           <div class="rp-panel-header"><div class="rp-panel-title">Keywords (${kws.length})</div></div>
           <div class="rp-panel-body">
-            ${kws.length > 0 ? kws.map(k => `<span class="rp-badge" style="margin:2px;background:rgba(0,0,0,0.04);color:var(--text2)">${k}</span>`).join(' ') : '<span style="color:var(--text4)">None configured</span>'}
+            ${kws.length > 0 ? kws.map(k => `<span class="rp-badge" style="margin:2px;background:rgba(0,0,0,0.04);color:var(--text2);display:inline-block">${k}</span>`).join(' ') : '<span style="color:var(--text4)">None configured</span>'}
           </div>
         </div>
       </div>
+
+      ${assignedSubs.length > 0 ? `
+        <div class="rp-panel">
+          <div class="rp-panel-header"><div class="rp-panel-title">Scored & Assigned Subreddits</div></div>
+          <div class="rp-panel-body-flush">
+            <table class="rp-table">
+              <thead><tr><th>Subreddit</th><th>Subscribers</th><th>Tier</th><th>Relevance</th></tr></thead>
+              <tbody>
+                ${assignedSubs.slice(0, 20).map(s => `<tr>
+                  <td>r/${s.name}</td>
+                  <td>${_rpFmt(s.subscribers)}</td>
+                  <td><span class="rp-badge rp-badge-blue">T${s.tier || '—'}</span></td>
+                  <td>${s.relevance_score != null ? s.relevance_score.toFixed(2) : '—'}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ` : ''}
+
+      ${recentComments.length > 0 ? `
+        <div class="rp-panel">
+          <div class="rp-panel-header"><div class="rp-panel-title">Recent Comments (${recentComments.length})</div></div>
+          <div class="rp-panel-body-flush">
+            ${recentComments.map(cm => `
+              <div style="padding:12px 18px;border-bottom:1px solid var(--border)">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                  <div style="font-size:11px;font-family:var(--mono);color:var(--text3)">
+                    r/${cm.subreddit || '—'}
+                    ${cm.posted_at ? ' &middot; ' + new Date(cm.posted_at).toLocaleString() : ''}
+                  </div>
+                  <div style="display:flex;gap:6px">
+                    <span class="rp-badge ${cm.status === 'posted' ? 'rp-badge-green' : 'rp-badge-amber'}">${cm.status || '—'}</span>
+                    ${cm.score != null ? `<span class="rp-badge rp-badge-blue">${cm.score}</span>` : ''}
+                  </div>
+                </div>
+                <div style="font-size:12px;color:var(--text2);line-height:1.5">${(cm.content || '').slice(0, 300)}${(cm.content || '').length > 300 ? '&hellip;' : ''}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
     `;
   } catch (e) {
-    container.innerHTML = `<div class="rp-empty"><div class="rp-empty-msg">Failed to load client</div><div class="rp-empty-sub">${e.message}</div></div>`;
+    container.innerHTML = `<div class="rp-empty"><div class="rp-empty-msg">Failed to load client</div><div class="rp-empty-sub">${e.message}</div><button class="rp-reconnect-btn" onclick="rpRenderClients(document.getElementById('rpTabContent'))" style="margin-top:14px">Back to Clients</button></div>`;
   }
 }
 
 /* ── Tab 3: Operations ── */
 async function rpRenderOperations(el) {
-  let opps = [], history = [];
+  let opps = [], history = [], comments = [];
   try {
-    const [oppRes, histRes] = await Promise.all([
-      fetch('/api/reddit/opportunities'),
-      fetch('/api/reddit/history?limit=20'),
+    const [oppRes, histRes, cmtRes] = await Promise.all([
+      fetch('/api/reddit/opportunities?limit=30'),
+      fetch('/api/reddit/history?days=7&limit=30'),
+      fetch('/api/reddit/comments?hours=168&limit=20'),
     ]);
-    if (oppRes.ok) { const d = await oppRes.json(); opps = d.opportunities || d || []; }
-    if (histRes.ok) { const d = await histRes.json(); history = d.history || d.actions || d || []; }
+    if (oppRes.ok) { const d = await oppRes.json(); opps = d.opportunities || []; }
+    if (histRes.ok) { const d = await histRes.json(); history = d.history || []; }
+    if (cmtRes.ok) { const d = await cmtRes.json(); comments = d.comments || []; }
   } catch (e) {}
 
   el.innerHTML = `
     <div class="rp-panel">
       <div class="rp-panel-header">
-        <div class="rp-panel-title">Scored Opportunities</div>
+        <div class="rp-panel-title">Scored Opportunities (${opps.length})</div>
         <button class="rp-ctrl-btn" onclick="rpControl('scan')" style="padding:4px 12px">Scan Now</button>
       </div>
       <div class="rp-panel-body-flush">
         ${Array.isArray(opps) && opps.length > 0 ? `
           <table class="rp-table">
-            <thead><tr><th>Score</th><th>Subreddit</th><th>Title</th><th>Client</th><th>Age</th></tr></thead>
+            <thead><tr>
+              <th>Opp</th><th>Relev</th><th>Engage</th><th>Subreddit</th><th>Title</th><th>Client</th><th>Age</th>
+            </tr></thead>
             <tbody>
-              ${opps.slice(0, 20).map(o => `<tr>
-                <td><strong style="color:#FF4500">${o.score != null ? o.score.toFixed(1) : '—'}</strong></td>
+              ${opps.slice(0, 30).map(o => `<tr>
+                <td><strong style="color:#FF4500">${o.opportunity_score != null ? o.opportunity_score.toFixed(1) : '—'}</strong></td>
+                <td>${o.relevance_score != null ? o.relevance_score.toFixed(1) : '—'}</td>
+                <td>${o.engagement_score != null ? o.engagement_score.toFixed(1) : '—'}</td>
                 <td>r/${o.subreddit || '—'}</td>
-                <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.title || '—'}</td>
-                <td>${o.client_name || o.client || '—'}</td>
+                <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(o.title || '').replace(/"/g,'&quot;')}">${o.title || '—'}</td>
+                <td>${o.client_name || '—'}</td>
                 <td>${o.age_hours != null ? o.age_hours + 'h' : '—'}</td>
               </tr>`).join('')}
             </tbody>
@@ -6086,18 +6226,48 @@ async function rpRenderOperations(el) {
     </div>
 
     <div class="rp-panel">
-      <div class="rp-panel-header"><div class="rp-panel-title">Action History</div></div>
+      <div class="rp-panel-header">
+        <div class="rp-panel-title">Posted Comments (${comments.length})</div>
+      </div>
+      <div class="rp-panel-body-flush">
+        ${Array.isArray(comments) && comments.length > 0 ? comments.slice(0, 20).map(c => `
+          <div style="padding:12px 18px;border-bottom:1px solid var(--border)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <div style="font-size:11px;font-family:var(--mono);color:var(--text3)">
+                r/${c.subreddit || '—'}
+                ${c.account_username ? ' &middot; u/' + c.account_username : ''}
+                ${c.client_name ? ' &middot; ' + c.client_name : ''}
+                ${c.posted_at ? ' &middot; ' + new Date(c.posted_at).toLocaleString() : ''}
+              </div>
+              <div style="display:flex;gap:6px">
+                <span class="rp-badge ${c.status === 'posted' ? 'rp-badge-green' : c.status === 'failed' ? 'rp-badge-red' : 'rp-badge-amber'}">${c.status || '—'}</span>
+                ${c.score != null ? `<span class="rp-badge rp-badge-blue">score ${c.score}</span>` : ''}
+                ${c.engagement_count ? `<span class="rp-badge rp-badge-blue">${c.engagement_count} replies</span>` : ''}
+              </div>
+            </div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.5;max-height:80px;overflow:hidden">${(c.content || '').slice(0, 350)}${(c.content || '').length > 350 ? '&hellip;' : ''}</div>
+          </div>
+        `).join('') : '<div class="rp-empty"><div class="rp-empty-msg">No comments posted yet</div></div>'}
+      </div>
+    </div>
+
+    <div class="rp-panel">
+      <div class="rp-panel-header"><div class="rp-panel-title">Action History (7d)</div></div>
       <div class="rp-panel-body-flush">
         ${Array.isArray(history) && history.length > 0 ? `
           <table class="rp-table">
-            <thead><tr><th>Time</th><th>Type</th><th>Subreddit</th><th>Client</th><th>Status</th></tr></thead>
+            <thead><tr><th>Time</th><th>Type</th><th>Subreddit</th><th>Client</th><th>Account</th><th>Status</th></tr></thead>
             <tbody>
-              ${history.slice(0, 20).map(a => `<tr>
+              ${history.slice(0, 30).map(a => `<tr>
                 <td>${a.created_at ? new Date(a.created_at).toLocaleString() : '—'}</td>
-                <td><span class="rp-badge rp-badge-blue">${a.action_type || a.type || '—'}</span></td>
+                <td><span class="rp-badge rp-badge-blue">${a.action_type || '—'}</span></td>
                 <td>${a.subreddit ? 'r/' + a.subreddit : '—'}</td>
-                <td>${a.client_name || a.client || '—'}</td>
-                <td><span class="rp-badge ${a.success || a.status === 'success' ? 'rp-badge-green' : a.status === 'failed' ? 'rp-badge-red' : 'rp-badge-amber'}">${a.status || (a.success ? 'OK' : '—')}</span></td>
+                <td>${a.client_name || '—'}</td>
+                <td>${a.account_username ? 'u/' + a.account_username : '—'}</td>
+                <td>
+                  <span class="rp-badge ${a.success ? 'rp-badge-green' : 'rp-badge-red'}">${a.success ? 'OK' : 'Failed'}</span>
+                  ${a.error_message ? `<span style="display:block;font-size:10px;color:var(--red);margin-top:2px" title="${a.error_message.replace(/"/g,'&quot;')}">${a.error_message.slice(0, 50)}${a.error_message.length > 50 ? '…' : ''}</span>` : ''}
+                </td>
               </tr>`).join('')}
             </tbody>
           </table>
@@ -6173,48 +6343,34 @@ async function rpConnectLogs() {
 
 /* ── Tab 4: Intelligence ── */
 async function rpRenderIntelligence(el) {
-  let insights = {}, perf = {}, heatmap = {}, funnel = {};
+  let insights = {}, perf = {}, heatmap = {}, funnel = {}, failures = {}, subIntel = [];
   try {
-    const [insRes, perfRes, heatRes, funnelRes] = await Promise.all([
+    const [insRes, perfRes, heatRes, funnelRes, failRes, siRes] = await Promise.all([
       fetch('/api/reddit/insights'),
       fetch('/api/reddit/performance'),
       fetch('/api/reddit/heatmap'),
       fetch('/api/reddit/funnel'),
+      fetch('/api/reddit/failures'),
+      fetch('/api/reddit/subreddit-intel'),
     ]);
     if (insRes.ok) insights = await insRes.json();
     if (perfRes.ok) perf = await perfRes.json();
     if (heatRes.ok) heatmap = await heatRes.json();
     if (funnelRes.ok) funnel = await funnelRes.json();
+    if (failRes.ok) failures = await failRes.json();
+    if (siRes.ok) { const d = await siRes.json(); subIntel = d.subreddits || []; }
   } catch (e) {}
 
-  const abTests = insights.ab_tests || insights.experiments || [];
+  const abTests = insights.ab_tests || [];
   const topSubs = insights.top_subreddits || [];
-  const strategies = insights.strategies || insights.top_strategies || [];
+  const strategies = insights.strategies || [];
+  const failPatterns = failures.patterns || [];
+  const topFailTypes = failures.top_types || [];
 
   el.innerHTML = `
-    ${abTests.length > 0 ? `
-      <div class="rp-panel">
-        <div class="rp-panel-header"><div class="rp-panel-title">A/B Test Results</div></div>
-        <div class="rp-panel-body-flush">
-          <table class="rp-table">
-            <thead><tr><th>Experiment</th><th>Variant A</th><th>Variant B</th><th>Winner</th><th>Confidence</th></tr></thead>
-            <tbody>
-              ${abTests.map(t => `<tr>
-                <td>${t.name || t.experiment || '—'}</td>
-                <td>${t.variant_a_score != null ? t.variant_a_score.toFixed(2) : t.variant_a || '—'}</td>
-                <td>${t.variant_b_score != null ? t.variant_b_score.toFixed(2) : t.variant_b || '—'}</td>
-                <td><span class="rp-badge rp-badge-green">${t.winner || '—'}</span></td>
-                <td>${t.confidence != null ? (t.confidence * 100).toFixed(0) + '%' : '—'}</td>
-              </tr>`).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    ` : ''}
-
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
       <div class="rp-panel">
-        <div class="rp-panel-header"><div class="rp-panel-title">Performance Trend</div></div>
+        <div class="rp-panel-header"><div class="rp-panel-title">Performance Trend (7d)</div></div>
         <div class="rp-panel-body">
           <div class="rp-chart-container"><canvas id="rpPerfChart"></canvas></div>
         </div>
@@ -6229,18 +6385,59 @@ async function rpRenderIntelligence(el) {
 
     ${_rpRenderHeatmap(heatmap)}
 
-    ${topSubs.length > 0 ? `
+    ${abTests.length > 0 ? `
       <div class="rp-panel">
-        <div class="rp-panel-header"><div class="rp-panel-title">Top Subreddits</div></div>
+        <div class="rp-panel-header"><div class="rp-panel-title">A/B Experiments</div></div>
         <div class="rp-panel-body-flush">
           <table class="rp-table">
-            <thead><tr><th>Subreddit</th><th>Actions</th><th>Avg Score</th><th>Engagement</th></tr></thead>
+            <thead><tr><th>Name</th><th>Dimension</th><th>Status</th><th>Winner</th><th>Sample</th><th>Confidence</th></tr></thead>
+            <tbody>
+              ${abTests.map(t => `<tr>
+                <td>${t.name || '—'}</td>
+                <td><span class="rp-badge rp-badge-blue">${t.dimension || '—'}</span></td>
+                <td><span class="rp-badge ${t.status === 'concluded' ? 'rp-badge-green' : 'rp-badge-amber'}">${t.status || '—'}</span></td>
+                <td>${t.winner || '<span style="color:var(--text4)">—</span>'}</td>
+                <td>${_rpFmt(t.sample_size)}</td>
+                <td>${t.confidence != null ? (t.confidence * 100).toFixed(0) + '%' : '—'}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ` : ''}
+
+    ${topSubs.length > 0 ? `
+      <div class="rp-panel">
+        <div class="rp-panel-header"><div class="rp-panel-title">Top Subreddits by Activity</div></div>
+        <div class="rp-panel-body-flush">
+          <table class="rp-table">
+            <thead><tr><th>Subreddit</th><th>Actions</th><th>Success Rate</th></tr></thead>
             <tbody>
               ${topSubs.slice(0, 10).map(s => `<tr>
-                <td>r/${s.subreddit || s.name || '—'}</td>
-                <td>${_rpFmt(s.action_count || s.actions)}</td>
-                <td>${s.avg_score != null ? s.avg_score.toFixed(1) : '—'}</td>
+                <td>r/${s.subreddit || '—'}</td>
+                <td>${_rpFmt(s.actions)}</td>
                 <td>${s.engagement_rate != null ? (s.engagement_rate * 100).toFixed(1) + '%' : '—'}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ` : ''}
+
+    ${subIntel.length > 0 ? `
+      <div class="rp-panel">
+        <div class="rp-panel-header"><div class="rp-panel-title">Subreddit Intelligence</div></div>
+        <div class="rp-panel-body-flush">
+          <table class="rp-table">
+            <thead><tr><th>Subreddit</th><th>Subs</th><th>Opp Score</th><th>Avg Score</th><th>Posts/day</th><th>Top Themes</th></tr></thead>
+            <tbody>
+              ${subIntel.slice(0, 15).map(s => `<tr>
+                <td>r/${s.subreddit}</td>
+                <td>${_rpFmt(s.subscribers)}</td>
+                <td><strong style="color:#FF4500">${s.opportunity_score != null ? s.opportunity_score.toFixed(1) : '—'}</strong></td>
+                <td>${s.avg_score != null ? s.avg_score.toFixed(1) : '—'}</td>
+                <td>${s.posts_per_day != null ? s.posts_per_day.toFixed(1) : '—'}</td>
+                <td style="font-size:10px;color:var(--text3)">${Array.isArray(s.top_themes) ? s.top_themes.slice(0, 3).join(', ') : ''}</td>
               </tr>`).join('')}
             </tbody>
           </table>
@@ -6250,13 +6447,50 @@ async function rpRenderIntelligence(el) {
 
     ${strategies.length > 0 ? `
       <div class="rp-panel">
-        <div class="rp-panel-header"><div class="rp-panel-title">Strategy Insights</div></div>
+        <div class="rp-panel-header"><div class="rp-panel-title">Learned Strategies</div></div>
         <div class="rp-panel-body">
-          ${strategies.map(s => `<div style="margin-bottom:12px;padding:10px;border-radius:6px;background:rgba(0,0,0,0.02)">
-            <div style="font-weight:600;margin-bottom:4px">${s.strategy || s.name || '—'}</div>
-            <div style="font-size:12px;color:var(--text3)">${s.insight || s.description || ''}</div>
+          ${strategies.map(s => `<div style="margin-bottom:10px;padding:10px;border-radius:6px;background:rgba(0,0,0,0.02)">
+            <div style="font-weight:600;font-size:12px">${s.strategy || '—'}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">${s.insight || ''}</div>
           </div>`).join('')}
         </div>
+      </div>
+    ` : ''}
+
+    ${(topFailTypes.length > 0 || failPatterns.length > 0) ? `
+      <div class="rp-panel" style="border-left:3px solid var(--red)">
+        <div class="rp-panel-header"><div class="rp-panel-title">Failure Patterns (7d)</div></div>
+        <div class="rp-panel-body">
+          ${topFailTypes.length > 0 ? `
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+              ${topFailTypes.map(f => `<div style="padding:6px 12px;border-radius:6px;background:var(--red-bg);font-size:12px">
+                <strong>${f.error_type}</strong>
+                <span style="margin-left:6px;color:var(--red)">${f.total_count}</span>
+              </div>`).join('')}
+            </div>
+          ` : ''}
+          ${failPatterns.length > 0 ? `
+            <table class="rp-table">
+              <thead><tr><th>When</th><th>Type</th><th>Freq</th><th>Resolution</th></tr></thead>
+              <tbody>
+                ${failPatterns.slice(0, 10).map(f => `<tr>
+                  <td>${f.timestamp ? new Date(f.timestamp).toLocaleString() : '—'}</td>
+                  <td><span class="rp-badge rp-badge-red">${f.error_type || '—'}</span></td>
+                  <td>${f.frequency || 1}</td>
+                  <td style="font-size:11px;color:var(--text3);max-width:400px">${f.resolution || f.llm_analysis || '—'}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          ` : ''}
+        </div>
+      </div>
+    ` : ''}
+
+    ${(abTests.length + topSubs.length + subIntel.length + strategies.length + failPatterns.length) === 0 ? `
+      <div class="rp-empty">
+        <div class="rp-empty-icon">&#128200;</div>
+        <div class="rp-empty-msg">No intelligence data yet</div>
+        <div class="rp-empty-sub">Intelligence populates as the agent runs cycles and learns. Run a few scans to get started.</div>
       </div>
     ` : ''}
   `;
@@ -6361,19 +6595,21 @@ function _rpRenderHeatmap(data) {
 
 /* ── Tab 5: Settings ── */
 async function rpRenderSettings(el) {
-  let accounts = [], schedule = {}, health = {};
+  let accounts = [], schedule = {}, health = {}, tpl = {};
   try {
-    const [accRes, schRes, hRes] = await Promise.all([
+    const [accRes, schRes, hRes, tplRes] = await Promise.all([
       fetch('/api/reddit/accounts'),
       fetch('/api/reddit/schedule'),
       fetch('/api/reddit/health'),
+      fetch('/api/reddit/config-template'),
     ]);
-    if (accRes.ok) { const d = await accRes.json(); accounts = d.accounts || d || []; }
+    if (accRes.ok) { const d = await accRes.json(); accounts = d.accounts || []; }
     if (schRes.ok) schedule = await schRes.json();
     if (hRes.ok) health = await hRes.json();
+    if (tplRes.ok) tpl = await tplRes.json();
   } catch (e) {}
 
-  const schedJobs = schedule.jobs || schedule.schedule || [];
+  const schedJobs = schedule.jobs || [];
   const healthOk = health.connected && health.configured;
 
   el.innerHTML = `
@@ -6385,18 +6621,30 @@ async function rpRenderSettings(el) {
       <div class="rp-panel-body" id="rpConnectionStatus">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
           <span class="rp-badge ${healthOk ? 'rp-badge-green' : 'rp-badge-red'}">${healthOk ? 'Running' : (health.configured ? 'Error' : 'Not Configured')}</span>
-          <span style="font-size:12px;color:var(--text3)">${healthOk ? 'Embedded orchestrator initialized' : (health.reason || 'Agent not started')}</span>
+          <span style="font-size:12px;color:var(--text3)">${healthOk ? 'Embedded orchestrator initialized — all systems go' : (health.reason || 'Agent not started')}</span>
         </div>
-        ${!health.configured ? `
-          <div style="background:rgba(0,81,255,0.04);padding:12px;border-radius:6px;border-left:3px solid var(--elec-blue);font-size:12px;margin-top:12px">
-            <div style="font-weight:600;margin-bottom:6px">Setup Required</div>
-            Create a config file at <code style="background:rgba(0,0,0,0.05);padding:1px 4px">/app/data/redditpilot/config.yaml</code> with your Reddit accounts, clients, and LLM provider.
-            <br><br>
-            Use the template at <code style="background:rgba(0,0,0,0.05);padding:1px 4px">backend/redditpilot/config.example.yaml</code> in the repo.
+        ${tpl.target_path ? `
+          <div style="font-size:11px;color:var(--text4);margin-top:6px">
+            Config path: <code style="background:rgba(0,0,0,0.05);padding:1px 4px;font-size:11px">${tpl.target_path}</code>
           </div>
         ` : ''}
       </div>
     </div>
+
+    ${!health.configured && tpl.template ? `
+      <div class="rp-panel" style="border-left:3px solid var(--elec-blue)">
+        <div class="rp-panel-header">
+          <div class="rp-panel-title">Setup — Create Config File</div>
+          <button class="rp-ctrl-btn" id="rpCopyTplBtn" onclick="rpCopyTemplate()" style="padding:4px 12px">Copy Template</button>
+        </div>
+        <div class="rp-panel-body">
+          <div style="font-size:12px;color:var(--text3);margin-bottom:10px">
+            Save this YAML template to <code style="background:rgba(0,0,0,0.05);padding:1px 4px">${tpl.target_path}</code> (on Railway, use the persistent volume at <code>/app/data/redditpilot/</code>). Fill in your Reddit accounts, clients, and LLM provider keys, then refresh this page.
+          </div>
+          <pre id="rpConfigTemplate" style="background:#0a0e1a;color:#4ade80;padding:14px;border-radius:6px;font-family:var(--mono);font-size:11px;max-height:360px;overflow:auto;white-space:pre-wrap">${tpl.template.replace(/</g, '&lt;')}</pre>
+        </div>
+      </div>
+    ` : ''}
 
     <div class="rp-panel">
       <div class="rp-panel-header"><div class="rp-panel-title">Reddit Accounts (${Array.isArray(accounts) ? accounts.length : 0})</div></div>
@@ -6446,8 +6694,25 @@ async function rpRenderSettings(el) {
 }
 
 async function rpTestConnection() {
-  // Simply re-render the settings tab which re-fetches health
-  rpRenderSettings(document.getElementById('rpTabContent'));
+  // Drop cached status and re-render the whole view to refresh everything
+  rpData.status = null;
+  renderRedditPilot();
+}
+
+function rpCopyTemplate() {
+  const pre = document.getElementById('rpConfigTemplate');
+  const btn = document.getElementById('rpCopyTplBtn');
+  if (!pre) return;
+  navigator.clipboard.writeText(pre.textContent).then(() => {
+    if (btn) {
+      const old = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = old; }, 1500);
+    }
+  }).catch(e => {
+    console.error('copy failed', e);
+    if (btn) btn.textContent = 'Copy failed';
+  });
 }
 
 /* ── INIT ── */

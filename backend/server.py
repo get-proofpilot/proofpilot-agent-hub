@@ -134,6 +134,15 @@ async def _stop_scheduler():
 import reddit_agent
 
 
+@app.on_event("shutdown")
+async def _stop_reddit_agent():
+    """Gracefully shut down the RedditPilot orchestrator if it was initialized."""
+    try:
+        reddit_agent.shutdown()
+    except Exception:
+        pass
+
+
 WORKFLOW_TITLES = {
     "home-service-content":      "Home Service SEO Content",
     "seo-blog-post":             "SEO Blog Post",
@@ -2065,6 +2074,35 @@ async def rp_decisions(hours: int = QueryParam(24, le=168), limit: int = QueryPa
 @app.get("/api/reddit/summary")
 async def rp_summary():
     return reddit_agent.get_summary()
+
+
+@app.get("/api/reddit/alerts")
+async def rp_alerts(limit: int = QueryParam(20, le=100)):
+    return {"alerts": reddit_agent.get_alerts(limit=limit)}
+
+
+@app.get("/api/reddit/comments")
+async def rp_comments(hours: int = QueryParam(168, le=720), limit: int = QueryParam(50, le=200)):
+    return {"comments": reddit_agent.get_comments(hours=hours, limit=limit)}
+
+
+@app.get("/api/reddit/failures")
+async def rp_failures(days: int = QueryParam(7, le=30), limit: int = QueryParam(20, le=100)):
+    return reddit_agent.get_failures(days=days, limit=limit)
+
+
+@app.get("/api/reddit/subreddit-intel")
+async def rp_subreddit_intel(limit: int = QueryParam(20, le=100)):
+    return {"subreddits": reddit_agent.get_subreddit_intel(limit=limit)}
+
+
+@app.get("/api/reddit/config-template")
+async def rp_config_template():
+    """Return the config template so the frontend can show a setup helper."""
+    tpl_path = Path(__file__).parent / "redditpilot" / "config.example.yaml"
+    if tpl_path.exists():
+        return {"template": tpl_path.read_text(), "target_path": str(reddit_agent.config_path())}
+    return {"template": "", "target_path": str(reddit_agent.config_path())}
 
 
 @app.post("/api/reddit/control/{action}")

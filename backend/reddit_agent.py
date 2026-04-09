@@ -3,17 +3,24 @@ RedditPilot agent integration for ProofPilot Agent Hub.
 
 Lazy-loads the vendored `redditpilot` package and manages a singleton
 orchestrator instance. All heavy imports (praw, bs4, apscheduler) happen
-on first use — Agent Hub starts fine even if deps are broken.
+on first use — Agent Hub starts fine even if deps are broken or no
+config file exists.
 
-Config file lives at $REDDITPILOT_CONFIG_PATH or /app/data/redditpilot/config.yaml.
-DB lives in the same directory.
+Config file lives at $REDDITPILOT_CONFIG_PATH or
+$DOCS_DIR/redditpilot/config.yaml (Railway volume persistent path).
 
 Routes in server.py import helper functions from this module instead of
-talking HTTP to a separate service.
+talking HTTP to a separate service. Everything runs in-process.
+
+SAFETY: get_orch() instantiates the RedditPilot orchestrator but does
+NOT call .start() — autonomous cycles only run when the user explicitly
+clicks "Start Scheduler" from the dashboard. This prevents accidental
+posting after a deploy.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import threading
@@ -25,6 +32,10 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger("proofpilot.reddit_agent")
 
 # ── Config path resolution ────────────────────────────────────────
+# Priority:
+#   1. $REDDITPILOT_CONFIG_PATH (explicit override)
+#   2. $DOCS_DIR/redditpilot/config.yaml (Railway volume)
+#   3. ./data/redditpilot/config.yaml (local dev)
 _DEFAULT_DATA_DIR = Path(os.environ.get("DOCS_DIR", "./data")) / "redditpilot"
 _CONFIG_PATH = Path(
     os.environ.get("REDDITPILOT_CONFIG_PATH", _DEFAULT_DATA_DIR / "config.yaml")
@@ -44,19 +55,7 @@ def is_configured() -> bool:
 _orch = None
 _orch_lock = threading.Lock()
 _orch_error: Optional[str] = None
-
-
-def _init_logger_capture():
-    """Attach a log capture handler for WebSocket broadcast."""
-    global _log_capture
-    if _log_capture is not None:
-        return _log_capture
-    _log_capture = _LogCapture(maxlen=500)
-    # Attach to the redditpilot logger tree
-    rp_logger = logging.getLogger("redditpilot")
-    rp_logger.addHandler(_log_capture)
-    rp_logger.setLevel(logging.INFO)
-    return _log_capture
+_init_time: Optional[float] = None
 
 
 def get_orch():
@@ -67,11 +66,11 @@ def get_orch():
     `_orch_error` and returned as None so the frontend can show a clear
     "not configured" state.
 
-    IMPORTANT: Does NOT start the orchestrator's scheduler. The user must
-    explicitly trigger scans/cycles from the dashboard to avoid accidental
-    autonomous posting after deploys.
+    IMPORTANT: Does NOT start the orchestrator's APScheduler. The scheduler
+    must be explicitly started via POST /api/reddit/control/start_scheduler
+    to avoid accidental autonomous posting after deploys.
     """
-    global _orch, _orch_error
+    global _orch, _orch_error, _init_time
     if _orch is not None:
         return _orch
     with _orch_lock:
@@ -85,11 +84,12 @@ def get_orch():
             from redditpilot.core.config import Config
             from redditpilot.orchestrator import RedditPilot
 
-            # Force data_dir to our resolved location
             cfg = Config.load(str(_CONFIG_PATH))
+            # Force data_dir to the config's parent so DB lives alongside config
             cfg.data_dir = str(_CONFIG_PATH.parent)
 
             _orch = RedditPilot(cfg)
+            _init_time = __import__("time").time()
             _init_logger_capture()
             logger.info(f"RedditPilot orchestrator initialized from {_CONFIG_PATH}")
             return _orch
@@ -103,18 +103,33 @@ def get_error() -> Optional[str]:
     return _orch_error
 
 
+def shutdown():
+    """Gracefully shut down the orchestrator (called by FastAPI shutdown)."""
+    global _orch
+    with _orch_lock:
+        if _orch is None:
+            return
+        try:
+            if hasattr(_orch, "scheduler") and _orch.scheduler.running:
+                _orch.scheduler.shutdown(wait=False)
+            if hasattr(_orch, "resource_monitor"):
+                try:
+                    _orch.resource_monitor.stop()
+                except Exception:
+                    pass
+            logger.info("RedditPilot orchestrator shut down")
+        except Exception as e:
+            logger.warning(f"Error during RedditPilot shutdown: {e}")
+
+
 def reset():
     """Drop the cached orchestrator (e.g., after config change)."""
-    global _orch, _orch_error
+    global _orch, _orch_error, _init_time
+    shutdown()
     with _orch_lock:
-        if _orch is not None:
-            try:
-                if hasattr(_orch, "scheduler") and _orch.scheduler.running:
-                    _orch.scheduler.shutdown(wait=False)
-            except Exception:
-                pass
         _orch = None
         _orch_error = None
+        _init_time = None
 
 
 # ── Log capture for WebSocket ─────────────────────────────────────
@@ -122,7 +137,7 @@ _log_capture = None
 
 
 class _LogCapture(logging.Handler):
-    """Captures log records for WebSocket broadcast (based on RedditPilot's own handler)."""
+    """Captures log records for WebSocket broadcast (mirrors RedditPilot's pattern)."""
 
     def __init__(self, maxlen: int = 500):
         super().__init__()
@@ -171,76 +186,132 @@ class _LogCapture(logging.Handler):
             return [r for r in self.records if r["seq"] > seq]
 
 
+def _init_logger_capture():
+    """Attach log capture handler to the redditpilot logger tree."""
+    global _log_capture
+    if _log_capture is not None:
+        return _log_capture
+    _log_capture = _LogCapture(maxlen=500)
+    rp_logger = logging.getLogger("redditpilot")
+    rp_logger.addHandler(_log_capture)
+    if rp_logger.level == logging.NOTSET:
+        rp_logger.setLevel(logging.INFO)
+    return _log_capture
+
+
 def log_capture() -> Optional[_LogCapture]:
     return _log_capture
 
 
 # ══════════════════════════════════════════════════════════════════
-# Data query helpers
+# Data query helpers — all return JSON-safe plain dicts
 # ══════════════════════════════════════════════════════════════════
 
 
-def _cutoff(hours: int = 24) -> str:
+def _cutoff_hours(hours: int) -> str:
     return (datetime.utcnow() - timedelta(hours=hours)).isoformat()
 
 
+def _cutoff_days(days: int) -> str:
+    return (datetime.utcnow() - timedelta(days=days)).isoformat()
+
+
+def _safe_db(orch):
+    """Return the orchestrator's db or None if not available."""
+    if orch is None:
+        return None
+    return getattr(orch, "db", None)
+
+
+def not_configured_payload(extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    base = {
+        "connected": False,
+        "configured": is_configured(),
+        "error": _orch_error,
+        "mode": "stopped",
+        "paused": False,
+        "uptime_seconds": 0,
+        "client_count": 0,
+        "account_count": 0,
+        "cycle_count": 0,
+    }
+    if extra:
+        base.update(extra)
+    return base
+
+
 def get_status() -> Dict[str, Any]:
-    """Return orchestrator status (paused, uptime, client/account counts)."""
+    """Return orchestrator status (paused, uptime, client/account counts, resources)."""
     orch = get_orch()
     if not orch:
-        return {
-            "connected": False,
-            "configured": is_configured(),
-            "error": _orch_error,
-            "mode": "stopped",
-            "paused": False,
-            "uptime_seconds": 0,
-            "client_count": 0,
-            "account_count": 0,
-            "cycle_count": 0,
-        }
-    clients = []
-    for c in orch.config.get_enabled_clients():
-        clients.append({
-            "name": c.name, "slug": c.slug,
-            "industry": c.industry, "enabled": c.enabled,
-        })
-    paused = getattr(orch, "_paused", False)
-    running = getattr(orch, "_running", False)
-    scheduler_running = False
+        return not_configured_payload()
     try:
-        scheduler_running = orch.scheduler.running
-    except Exception:
-        pass
-    mode = "running" if (running or scheduler_running) and not paused else ("paused" if paused else "stopped")
-    return {
-        "connected": True,
-        "configured": True,
-        "mode": mode,
-        "paused": paused,
-        "running": running,
-        "scheduler_running": scheduler_running,
-        "uptime_seconds": 0,  # Orchestrator doesn't track start time directly
-        "clients": clients,
-        "client_count": len(clients),
-        "account_count": len(orch.config.get_enabled_accounts()),
-        "cycle_count": getattr(orch, "_cycle_count", 0),
-        "emergency_stopped": getattr(orch, "_emergency_stopped", False),
-    }
+        clients = [
+            {"name": c.name, "slug": c.slug, "industry": c.industry, "enabled": c.enabled}
+            for c in orch.config.get_enabled_clients()
+        ]
+        paused = getattr(orch, "_paused", False)
+        running = getattr(orch, "_running", False)
+        scheduler_running = False
+        try:
+            scheduler_running = bool(orch.scheduler.running)
+        except Exception:
+            pass
+        if paused:
+            mode = "paused"
+        elif scheduler_running or running:
+            mode = "running"
+        else:
+            mode = "stopped"
+
+        uptime = 0
+        if _init_time:
+            uptime = int(__import__("time").time() - _init_time)
+
+        # Resource snapshot (doesn't require resource_monitor.start())
+        resources = {}
+        try:
+            rm = orch.resource_monitor
+            if hasattr(rm, "get_status_dict"):
+                resources = rm.get_status_dict()
+        except Exception as e:
+            logger.debug(f"Failed to get resource status: {e}")
+
+        return {
+            "connected": True,
+            "configured": True,
+            "mode": mode,
+            "paused": paused,
+            "running": running,
+            "scheduler_running": scheduler_running,
+            "uptime_seconds": uptime,
+            "clients": clients,
+            "client_count": len(clients),
+            "account_count": len(orch.config.get_enabled_accounts()),
+            "cycle_count": getattr(orch, "_cycle_count", 0),
+            "emergency_stopped": getattr(orch, "_emergency_stopped", False),
+            "resources": resources,
+        }
+    except Exception as e:
+        logger.error(f"get_status error: {e}", exc_info=True)
+        return not_configured_payload({"error": str(e), "connected": True, "configured": True})
 
 
 def get_stats(hours: int = 24) -> Dict[str, Any]:
+    """24h action statistics by client, type, subreddit."""
     orch = get_orch()
-    if not orch:
-        return {"total": 0, "by_type": {}, "by_client": {}, "by_subreddit": {}, "success_rate": 0, "pending_opportunities": 0}
+    db = _safe_db(orch)
+    if not db:
+        return {"total": 0, "by_type": {}, "by_client": {}, "by_subreddit": {},
+                "success_rate": 0, "pending_opportunities": 0}
     try:
-        db = orch.db
-        cutoff = _cutoff(hours)
+        cutoff = _cutoff_hours(hours)
         total_row = db.fetchone("SELECT COUNT(*) as cnt FROM action_log WHERE created_at > ?", (cutoff,))
         total = total_row["cnt"] if total_row else 0
 
         by_type_rows = db.fetchall(
-            "SELECT action_type, COUNT(*) as cnt FROM action_log WHERE created_at > ? GROUP BY action_type ORDER BY cnt DESC",
+            "SELECT action_type, COUNT(*) as cnt FROM action_log "
+            "WHERE created_at > ? GROUP BY action_type ORDER BY cnt DESC",
             (cutoff,),
         )
         by_type = {r["action_type"]: r["cnt"] for r in by_type_rows}
@@ -261,7 +332,8 @@ def get_stats(hours: int = 24) -> Dict[str, Any]:
         by_subreddit = {r["subreddit"]: r["cnt"] for r in by_sub_rows}
 
         success_row = db.fetchone(
-            "SELECT COUNT(*) as cnt FROM action_log WHERE created_at > ? AND success = 1", (cutoff,)
+            "SELECT COUNT(*) as cnt FROM action_log WHERE created_at > ? AND success = 1",
+            (cutoff,),
         )
         successes = success_row["cnt"] if success_row else 0
 
@@ -272,30 +344,34 @@ def get_stats(hours: int = 24) -> Dict[str, Any]:
 
         return {
             "total": total,
+            "actions_24h": total,  # alias for frontend compatibility
             "by_type": by_type,
             "by_client": by_client,
             "by_subreddit": by_subreddit,
             "success_rate": round(successes / max(total, 1), 3),
             "pending_opportunities": pending,
+            "successes": successes,
         }
     except Exception as e:
         logger.error(f"get_stats error: {e}")
-        return {"error": str(e), "total": 0, "by_type": {}, "by_client": {}, "by_subreddit": {}}
+        return {"total": 0, "by_type": {}, "by_client": {}, "by_subreddit": {},
+                "success_rate": 0, "pending_opportunities": 0, "error": str(e)}
 
 
 def get_clients() -> List[Dict[str, Any]]:
     orch = get_orch()
-    if not orch:
+    db = _safe_db(orch)
+    if not db:
         return []
     result = []
     try:
-        db = orch.db
-        cutoff = _cutoff(24)
+        cutoff = _cutoff_hours(24)
         for client in orch.config.get_enabled_clients():
             crow = db.fetchone("SELECT id FROM clients WHERE slug = ?", (client.slug,))
             cid = crow["id"] if crow else None
             actions_24h = 0
             pending = 0
+            comments_posted = 0
             if cid:
                 a = db.fetchone(
                     "SELECT COUNT(*) as cnt FROM action_log WHERE client_id = ? AND created_at > ?",
@@ -307,15 +383,26 @@ def get_clients() -> List[Dict[str, Any]]:
                     (cid,),
                 )
                 pending = p["cnt"] if p else 0
+                c2 = db.fetchone(
+                    "SELECT COUNT(*) as cnt FROM comments WHERE client_id = ? AND status = 'posted'",
+                    (cid,),
+                )
+                comments_posted = c2["cnt"] if c2 else 0
+
             result.append({
                 "name": client.name, "slug": client.slug,
                 "industry": client.industry, "service_area": client.service_area,
                 "website": client.website, "enabled": client.enabled,
+                "brand_voice": client.brand_voice,
+                "promo_ratio": client.promo_ratio,
                 "keyword_count": len(client.keywords or []),
                 "subreddit_count": len(client.target_subreddits or []),
-                "total_actions": actions_24h,
+                "target_subreddits": list(client.target_subreddits or []),
+                "keywords": list(client.keywords or []),
                 "actions_24h": actions_24h,
+                "total_actions": actions_24h,
                 "pending_opportunities": pending,
+                "comments_posted": comments_posted,
             })
     except Exception as e:
         logger.error(f"get_clients error: {e}")
@@ -324,7 +411,8 @@ def get_clients() -> List[Dict[str, Any]]:
 
 def get_client_detail(slug: str) -> Dict[str, Any]:
     orch = get_orch()
-    if not orch:
+    db = _safe_db(orch)
+    if not orch or not db:
         return {"error": "not configured"}
     client = None
     for c in orch.config.get_enabled_clients():
@@ -334,14 +422,17 @@ def get_client_detail(slug: str) -> Dict[str, Any]:
     if not client:
         return {"error": "client not found"}
     try:
-        db = orch.db
         crow = db.fetchone("SELECT id FROM clients WHERE slug = ?", (slug,))
         cid = crow["id"] if crow else None
-        performance = {}
+        performance: Dict[str, Any] = {}
+        recent_comments: List[Dict[str, Any]] = []
+        assigned_subs: List[Dict[str, Any]] = []
+
         if cid:
-            cutoff = _cutoff(24)
+            cutoff = _cutoff_hours(24)
             perf = db.fetchone(
-                "SELECT COUNT(*) as total_actions, SUM(CASE WHEN success=1 THEN 1 ELSE 0 END) as successes "
+                "SELECT COUNT(*) as total_actions, "
+                "SUM(CASE WHEN success=1 THEN 1 ELSE 0 END) as successes "
                 "FROM action_log WHERE client_id = ? AND created_at > ?",
                 (cid, cutoff),
             )
@@ -352,6 +443,31 @@ def get_client_detail(slug: str) -> Dict[str, Any]:
                     "actions_24h": ta,
                     "success_rate": round((perf["successes"] or 0) / max(ta, 1), 3),
                 }
+            cperf = db.fetchone(
+                "SELECT COUNT(*) as total, AVG(score) as avg_score "
+                "FROM comments WHERE client_id = ? AND status = 'posted'",
+                (cid,),
+            )
+            if cperf:
+                performance["total_comments"] = cperf["total"] or 0
+                performance["avg_comment_score"] = round(cperf["avg_score"] or 0, 1)
+
+            rc_rows = db.fetchall(
+                "SELECT reddit_comment_id, subreddit, content, score, status, posted_at "
+                "FROM comments WHERE client_id = ? ORDER BY created_at DESC LIMIT 10",
+                (cid,),
+            )
+            recent_comments = list(rc_rows)
+
+            sub_rows = db.fetchall(
+                "SELECT s.name, s.subscribers, s.relevance_score, s.tier "
+                "FROM client_subreddits cs "
+                "JOIN subreddits s ON cs.subreddit_id = s.id "
+                "WHERE cs.client_id = ? ORDER BY cs.relevance_score DESC",
+                (cid,),
+            )
+            assigned_subs = list(sub_rows)
+
         return {
             "name": client.name, "slug": client.slug,
             "industry": client.industry, "service_area": client.service_area,
@@ -360,32 +476,51 @@ def get_client_detail(slug: str) -> Dict[str, Any]:
             "target_subreddits": list(client.target_subreddits or []),
             "enabled": client.enabled,
             "performance": performance,
+            "recent_comments": recent_comments,
+            "assigned_subreddits": assigned_subs,
         }
     except Exception as e:
+        logger.error(f"get_client_detail error: {e}")
         return {"error": str(e)}
 
 
 def get_accounts() -> List[Dict[str, Any]]:
     orch = get_orch()
-    if not orch:
+    db = _safe_db(orch)
+    if not db:
         return []
     result = []
     try:
-        db = orch.db
         for account in orch.config.get_enabled_accounts():
             username = account.username
-            acc_row = db.fetchone("SELECT * FROM accounts WHERE username = ?", (username,))
+            acc_row = db.fetchone("SELECT * FROM accounts WHERE username = ?", (username,)) or {}
+            health_row = None
+            try:
+                health_row = db.get_account_health(username)
+            except Exception:
+                pass
+            comment_karma = acc_row.get("comment_karma", 0) or 0
+            post_karma = acc_row.get("post_karma", 0) or 0
+            daily_comments_today = acc_row.get("daily_comments_today", 0) or 0
+            daily_posts_today = acc_row.get("daily_posts_today", 0) or 0
+            is_shadowbanned = bool(acc_row.get("is_shadowbanned", 0))
+
             result.append({
                 "username": username,
-                "karma_tier": (acc_row.get("karma_tier") if acc_row else None) or account.karma_tier,
-                "karma": ((acc_row.get("comment_karma") or 0) + (acc_row.get("post_karma") or 0)) if acc_row else 0,
-                "daily_comments": acc_row.get("daily_comments_today", 0) if acc_row else 0,
-                "daily_posts": acc_row.get("daily_posts_today", 0) if acc_row else 0,
+                "karma_tier": acc_row.get("karma_tier") or account.karma_tier,
+                "karma": comment_karma + post_karma,
+                "comment_karma": comment_karma,
+                "post_karma": post_karma,
+                "account_age_days": acc_row.get("account_age_days", 0),
+                "daily_comments": daily_comments_today,
+                "daily_posts": daily_posts_today,
                 "daily_comment_cap": account.daily_comment_cap,
                 "daily_post_cap": account.daily_post_cap,
-                "daily_remaining": account.daily_comment_cap - (acc_row.get("daily_comments_today", 0) if acc_row else 0),
-                "shadowbanned": bool(acc_row.get("is_shadowbanned", 0)) if acc_row else False,
-                "healthy": not (acc_row.get("is_shadowbanned") if acc_row else False),
+                "daily_remaining": max(account.daily_comment_cap - daily_comments_today, 0),
+                "shadowbanned": is_shadowbanned,
+                "healthy": not is_shadowbanned and (health_row is None or health_row.get("status") in (None, "healthy")),
+                "health_status": (health_row or {}).get("status", "unknown"),
+                "last_action_at": acc_row.get("last_action_at"),
                 "enabled": account.enabled,
             })
     except Exception as e:
@@ -394,18 +529,38 @@ def get_accounts() -> List[Dict[str, Any]]:
 
 
 def get_opportunities(limit: int = 50) -> List[Dict[str, Any]]:
+    """Return scored discovered_posts awaiting action."""
     orch = get_orch()
-    if not orch:
+    db = _safe_db(orch)
+    if not db:
         return []
     try:
-        rows = orch.db.fetchall(
-            "SELECT dp.*, c.name as client_name FROM discovered_posts dp "
+        rows = db.fetchall(
+            "SELECT dp.id, dp.reddit_id, dp.subreddit, dp.title, dp.author, dp.url, "
+            "       dp.score as reddit_score, dp.num_comments, dp.opportunity_score, "
+            "       dp.relevance_score, dp.engagement_score, dp.seo_value_score, "
+            "       dp.status, dp.discovered_at, c.name as client_name, c.slug as client_slug "
+            "FROM discovered_posts dp "
             "LEFT JOIN clients c ON dp.client_id = c.id "
             "WHERE dp.status IN ('new', 'queued') "
-            "ORDER BY dp.score DESC LIMIT ?",
+            "ORDER BY dp.opportunity_score DESC, dp.discovered_at DESC LIMIT ?",
             (limit,),
         )
-        return [dict(r) for r in rows]
+        result = []
+        for r in rows:
+            # Compute age_hours from discovered_at
+            age_hours = None
+            try:
+                dt = datetime.fromisoformat(r["discovered_at"])
+                age_hours = round((datetime.utcnow() - dt).total_seconds() / 3600, 1)
+            except Exception:
+                pass
+            r["age_hours"] = age_hours
+            r["score"] = r.get("opportunity_score")  # alias for frontend
+            r["client"] = r.get("client_name")
+            r["created_at"] = r.get("discovered_at")  # alias
+            result.append(r)
+        return result
     except Exception as e:
         logger.error(f"get_opportunities error: {e}")
         return []
@@ -413,17 +568,26 @@ def get_opportunities(limit: int = 50) -> List[Dict[str, Any]]:
 
 def get_actions(hours: int = 24, limit: int = 50) -> List[Dict[str, Any]]:
     orch = get_orch()
-    if not orch:
+    db = _safe_db(orch)
+    if not db:
         return []
     try:
-        rows = orch.db.fetchall(
-            "SELECT al.*, c.name as client_name FROM action_log al "
+        rows = db.fetchall(
+            "SELECT al.id, al.action_type, al.subreddit, al.reddit_id, al.success, "
+            "       al.error_message, al.created_at, "
+            "       c.name as client_name, a.username as account_username "
+            "FROM action_log al "
             "LEFT JOIN clients c ON al.client_id = c.id "
+            "LEFT JOIN accounts a ON al.account_id = a.id "
             "WHERE al.created_at > ? "
             "ORDER BY al.created_at DESC LIMIT ?",
-            (_cutoff(hours), limit),
+            (_cutoff_hours(hours), limit),
         )
-        return [dict(r) for r in rows]
+        # Alias fields for frontend convenience
+        for r in rows:
+            r["status"] = "success" if r.get("success") else "failed"
+            r["client"] = r.get("client_name")
+        return rows
     except Exception as e:
         logger.error(f"get_actions error: {e}")
         return []
@@ -431,27 +595,70 @@ def get_actions(hours: int = 24, limit: int = 50) -> List[Dict[str, Any]]:
 
 def get_history(days: int = 7, limit: int = 50) -> List[Dict[str, Any]]:
     orch = get_orch()
+    db = _safe_db(orch)
+    if not db:
+        return []
+    try:
+        rows = db.fetchall(
+            "SELECT al.id, al.action_type, al.subreddit, al.success, al.error_message, "
+            "       al.created_at, c.name as client_name, a.username as account_username "
+            "FROM action_log al "
+            "LEFT JOIN clients c ON al.client_id = c.id "
+            "LEFT JOIN accounts a ON al.account_id = a.id "
+            "WHERE al.created_at > ? "
+            "ORDER BY al.created_at DESC LIMIT ?",
+            (_cutoff_days(days), limit),
+        )
+        for r in rows:
+            r["status"] = "success" if r.get("success") else "failed"
+            r["client"] = r.get("client_name")
+        return rows
+    except Exception as e:
+        logger.error(f"get_history error: {e}")
+        return []
+
+
+def get_comments(hours: int = 168, limit: int = 50) -> List[Dict[str, Any]]:
+    """Posted comments with content + scores."""
+    orch = get_orch()
+    db = _safe_db(orch)
+    if not db:
+        return []
+    try:
+        rows = db.fetchall(
+            "SELECT cm.id, cm.reddit_comment_id, cm.subreddit, cm.content, cm.score, "
+            "       cm.engagement_count, cm.status, cm.posted_at, cm.created_at, "
+            "       c.name as client_name, a.username as account_username "
+            "FROM comments cm "
+            "LEFT JOIN clients c ON cm.client_id = c.id "
+            "LEFT JOIN accounts a ON cm.account_id = a.id "
+            "WHERE cm.created_at > ? "
+            "ORDER BY cm.created_at DESC LIMIT ?",
+            (_cutoff_hours(hours), limit),
+        )
+        return rows
+    except Exception as e:
+        logger.error(f"get_comments error: {e}")
+        return []
+
+
+def get_alerts(limit: int = 20) -> List[Dict[str, Any]]:
+    """Orchestrator alert log (auto-pause events, resource warnings)."""
+    orch = get_orch()
     if not orch:
         return []
     try:
-        cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
-        rows = orch.db.fetchall(
-            "SELECT al.*, c.name as client_name FROM action_log al "
-            "LEFT JOIN clients c ON al.client_id = c.id "
-            "WHERE al.created_at > ? "
-            "ORDER BY al.created_at DESC LIMIT ?",
-            (cutoff, limit),
-        )
-        return [dict(r) for r in rows]
+        raw = list(getattr(orch, "_alert_log", []))[-limit:]
+        return [{"timestamp": t, "message": m} for t, m in raw]
     except Exception as e:
-        logger.error(f"get_history error: {e}")
+        logger.error(f"get_alerts error: {e}")
         return []
 
 
 def get_schedule() -> Dict[str, Any]:
     orch = get_orch()
     if not orch:
-        return {"jobs": []}
+        return {"jobs": [], "scheduler_running": False}
     try:
         jobs = []
         for job in orch.scheduler.get_jobs():
@@ -464,61 +671,113 @@ def get_schedule() -> Dict[str, Any]:
             })
         return {
             "jobs": jobs,
-            "scheduler_running": orch.scheduler.running,
+            "scheduler_running": bool(orch.scheduler.running),
             "scan_interval_minutes": orch.config.scan_interval_minutes,
             "learning_interval_hours": orch.config.learning_interval_hours,
         }
     except Exception as e:
-        return {"jobs": [], "error": str(e)}
+        return {"jobs": [], "scheduler_running": False, "error": str(e)}
 
 
 def get_insights() -> Dict[str, Any]:
+    """A/B test results + top subreddits + learned strategies."""
     orch = get_orch()
-    if not orch:
+    db = _safe_db(orch)
+    if not db:
         return {"ab_tests": [], "top_subreddits": [], "strategies": []}
     try:
-        db = orch.db
+        ab_rows = db.fetchall(
+            "SELECT id, name, dimension, variants, status, winner, sample_size, "
+            "       significance, created_at, concluded_at "
+            "FROM ab_experiments "
+            "ORDER BY created_at DESC LIMIT 20"
+        )
+        ab_tests = []
+        for r in ab_rows:
+            try:
+                variants = json.loads(r.get("variants") or "[]")
+            except Exception:
+                variants = []
+            ab_tests.append({
+                "id": r["id"],
+                "name": r["name"],
+                "dimension": r["dimension"],
+                "variants": variants,
+                "status": r["status"],
+                "winner": r["winner"],
+                "sample_size": r["sample_size"],
+                "confidence": r.get("significance", 0),
+                "created_at": r["created_at"],
+                "concluded_at": r.get("concluded_at"),
+            })
+
         top_subs_rows = db.fetchall(
-            "SELECT subreddit, COUNT(*) as action_count, AVG(CASE WHEN success=1 THEN 1.0 ELSE 0.0 END) as success_rate "
+            "SELECT subreddit, COUNT(*) as action_count, "
+            "       AVG(CASE WHEN success=1 THEN 1.0 ELSE 0.0 END) as success_rate "
             "FROM action_log WHERE subreddit IS NOT NULL "
             "GROUP BY subreddit ORDER BY action_count DESC LIMIT 10"
         )
         top_subs = [
-            {"subreddit": r["subreddit"], "actions": r["action_count"], "engagement_rate": r["success_rate"] or 0}
+            {"subreddit": r["subreddit"], "actions": r["action_count"],
+             "engagement_rate": r["success_rate"] or 0}
             for r in top_subs_rows
         ]
-        return {"ab_tests": [], "top_subreddits": top_subs, "strategies": []}
+
+        strat_rows = db.fetchall(
+            "SELECT strategy_type, key, value, confidence, sample_count "
+            "FROM learned_strategies "
+            "WHERE confidence > 0.5 "
+            "ORDER BY confidence DESC, sample_count DESC LIMIT 10"
+        )
+        strategies = [
+            {
+                "strategy": f"{r['strategy_type']}: {r['key']}",
+                "insight": f"Score {r['value']:.2f} (confidence {r['confidence']:.0%}, n={r['sample_count']})",
+            }
+            for r in strat_rows
+        ]
+
+        return {"ab_tests": ab_tests, "top_subreddits": top_subs, "strategies": strategies}
     except Exception as e:
+        logger.error(f"get_insights error: {e}")
         return {"ab_tests": [], "top_subreddits": [], "strategies": [], "error": str(e)}
 
 
 def get_performance(days: int = 7) -> Dict[str, Any]:
     orch = get_orch()
-    if not orch:
+    db = _safe_db(orch)
+    if not db:
         return {"daily": []}
     try:
-        rows = orch.db.fetchall(
-            "SELECT DATE(created_at) as day, COUNT(*) as actions "
-            "FROM action_log "
-            "WHERE created_at > ? "
+        rows = db.fetchall(
+            "SELECT DATE(created_at) as day, "
+            "       COUNT(*) as actions, "
+            "       SUM(CASE WHEN success=1 THEN 1 ELSE 0 END) as successes "
+            "FROM action_log WHERE created_at > ? "
             "GROUP BY DATE(created_at) ORDER BY day",
-            ((datetime.utcnow() - timedelta(days=days)).isoformat(),),
+            (_cutoff_days(days),),
         )
-        return {"daily": [{"date": r["day"], "actions": r["actions"]} for r in rows]}
+        return {
+            "daily": [
+                {"date": r["day"], "actions": r["actions"], "successes": r["successes"] or 0}
+                for r in rows
+            ]
+        }
     except Exception as e:
         return {"daily": [], "error": str(e)}
 
 
 def get_heatmap() -> Dict[str, Any]:
-    """Return a 7x24 activity grid (day-of-week x hour-of-day)."""
+    """Return 7x24 activity grid (Mon-Sun × hour)."""
     orch = get_orch()
-    if not orch:
-        return {"grid": []}
+    db = _safe_db(orch)
+    if not db:
+        return {"grid": [[0] * 24 for _ in range(7)]}
     try:
         grid = [[0 for _ in range(24)] for _ in range(7)]
-        rows = orch.db.fetchall(
+        rows = db.fetchall(
             "SELECT created_at FROM action_log WHERE created_at > ?",
-            ((datetime.utcnow() - timedelta(days=7)).isoformat(),),
+            (_cutoff_days(7),),
         )
         for r in rows:
             try:
@@ -528,24 +787,29 @@ def get_heatmap() -> Dict[str, Any]:
                 continue
         return {"grid": grid}
     except Exception as e:
-        return {"grid": [], "error": str(e)}
+        return {"grid": [[0] * 24 for _ in range(7)], "error": str(e)}
 
 
 def get_funnel() -> Dict[str, Any]:
+    """Return conversion funnel stages."""
     orch = get_orch()
-    if not orch:
+    db = _safe_db(orch)
+    if not db:
         return {"stages": []}
     try:
-        db = orch.db
         discovered = db.fetchone("SELECT COUNT(*) as cnt FROM discovered_posts")
-        scored = db.fetchone("SELECT COUNT(*) as cnt FROM discovered_posts WHERE score IS NOT NULL")
-        approved = db.fetchone("SELECT COUNT(*) as cnt FROM discovered_posts WHERE status = 'approved'")
-        posted = db.fetchone("SELECT COUNT(*) as cnt FROM action_log WHERE success = 1")
+        scored = db.fetchone(
+            "SELECT COUNT(*) as cnt FROM discovered_posts WHERE opportunity_score > 0"
+        )
+        queued = db.fetchone("SELECT COUNT(*) as cnt FROM discovered_posts WHERE status = 'queued'")
+        posted_ok = db.fetchone(
+            "SELECT COUNT(*) as cnt FROM comments WHERE status = 'posted'"
+        )
         stages = [
             {"stage": "Discovered", "count": discovered["cnt"] if discovered else 0},
             {"stage": "Scored", "count": scored["cnt"] if scored else 0},
-            {"stage": "Approved", "count": approved["cnt"] if approved else 0},
-            {"stage": "Posted", "count": posted["cnt"] if posted else 0},
+            {"stage": "Queued", "count": queued["cnt"] if queued else 0},
+            {"stage": "Posted", "count": posted_ok["cnt"] if posted_ok else 0},
         ]
         return {"stages": stages}
     except Exception as e:
@@ -553,21 +817,59 @@ def get_funnel() -> Dict[str, Any]:
 
 
 def get_summary() -> Dict[str, Any]:
-    status = get_status()
-    stats = get_stats(24)
-    return {"status": status, "stats": stats}
+    return {"status": get_status(), "stats": get_stats(24), "alerts": get_alerts(5)}
 
 
 def get_decisions(hours: int = 24, limit: int = 50) -> List[Dict[str, Any]]:
     orch = get_orch()
-    if not orch:
+    db = _safe_db(orch)
+    if not db:
         return []
     try:
-        if hasattr(orch.db, "get_recent_decisions"):
-            return orch.db.get_recent_decisions(hours=hours, limit=limit)
+        if hasattr(db, "get_recent_decisions"):
+            return db.get_recent_decisions(hours=hours, limit=limit)
     except Exception as e:
         logger.error(f"get_decisions error: {e}")
     return []
+
+
+def get_failures(days: int = 7, limit: int = 20) -> Dict[str, Any]:
+    orch = get_orch()
+    db = _safe_db(orch)
+    if not db:
+        return {"patterns": [], "top_types": []}
+    try:
+        patterns = db.get_failure_patterns(days=days, limit=limit)
+        top_types = db.get_top_failure_types(days=days)
+        return {"patterns": patterns, "top_types": top_types}
+    except Exception as e:
+        logger.error(f"get_failures error: {e}")
+        return {"patterns": [], "top_types": [], "error": str(e)}
+
+
+def get_subreddit_intel(limit: int = 20) -> List[Dict[str, Any]]:
+    orch = get_orch()
+    db = _safe_db(orch)
+    if not db:
+        return []
+    try:
+        rows = db.fetchall(
+            "SELECT subreddit, subscribers, active_users, posts_per_day, "
+            "       avg_score, avg_comments_per_post, opportunity_score, "
+            "       relevance_score, top_themes, last_analyzed "
+            "FROM subreddit_intel "
+            "ORDER BY opportunity_score DESC LIMIT ?",
+            (limit,),
+        )
+        for r in rows:
+            try:
+                r["top_themes"] = json.loads(r.get("top_themes") or "[]")
+            except Exception:
+                r["top_themes"] = []
+        return rows
+    except Exception as e:
+        logger.error(f"get_subreddit_intel error: {e}")
+        return []
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -582,26 +884,31 @@ def control(action: str) -> Dict[str, Any]:
         return {"ok": False, "error": "RedditPilot not configured"}
 
     if getattr(orch, "_emergency_stopped", False) and action != "emergency_reset":
-        return {"ok": False, "error": "Emergency stop active"}
+        return {"ok": False, "error": "Emergency stop active — use emergency_reset first"}
 
-    action_map = {
+    safe_methods = {
         "scan": "_scan_safe",
         "learn": "_learn_safe",
         "discover": "_discover_safe",
         "generate": "_generate_safe",
         "post": "_post_safe",
         "cycle": "_run_cycle_safe",
+        "verify": "_verify_comments_safe",
+        "health_check": "_health_check_safe",
     }
 
-    if action in action_map:
-        method = getattr(orch, action_map[action], None)
-        if method:
-            threading.Thread(target=method, daemon=True).start()
-            return {"ok": True, "message": f"{action} started"}
-        return {"ok": False, "error": f"Method not available: {action_map[action]}"}
+    if action in safe_methods:
+        method = getattr(orch, safe_methods[action], None)
+        if method is None:
+            return {"ok": False, "error": f"Method not available: {safe_methods[action]}"}
+        threading.Thread(target=method, daemon=True, name=f"rp-{action}").start()
+        return {"ok": True, "message": f"{action} started"}
 
     if action == "pause":
-        orch.pause() if hasattr(orch, "pause") else setattr(orch, "_paused", True)
+        if hasattr(orch, "pause"):
+            orch.pause()
+        else:
+            orch._paused = True
         return {"ok": True, "paused": True}
 
     if action == "resume":
@@ -619,23 +926,33 @@ def control(action: str) -> Dict[str, Any]:
         return {"ok": True, "message": "Emergency stop triggered"}
 
     if action == "emergency_reset":
-        orch._emergency_stopped = False
-        orch._paused = False
-        return {"ok": True, "message": "Emergency reset"}
+        try:
+            with orch._state_lock:
+                orch._emergency_stopped = False
+                orch._paused = False
+        except Exception:
+            orch._emergency_stopped = False
+            orch._paused = False
+        return {"ok": True, "message": "Emergency reset — all flags cleared"}
 
     if action == "start_scheduler":
         try:
             if not orch.scheduler.running:
-                orch.scheduler.start()
-            return {"ok": True, "scheduler_running": True}
+                # Use orchestrator.start() to schedule all jobs properly
+                if hasattr(orch, "start"):
+                    orch.start(nonblocking=True)
+                else:
+                    orch.scheduler.start()
+            return {"ok": True, "scheduler_running": True, "message": "Scheduler started"}
         except Exception as e:
+            logger.error(f"start_scheduler failed: {e}", exc_info=True)
             return {"ok": False, "error": str(e)}
 
     if action == "stop_scheduler":
         try:
             if orch.scheduler.running:
                 orch.scheduler.shutdown(wait=False)
-            return {"ok": True, "scheduler_running": False}
+            return {"ok": True, "scheduler_running": False, "message": "Scheduler stopped"}
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
