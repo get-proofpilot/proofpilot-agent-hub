@@ -1,0 +1,35 @@
+You're browsing r/{subreddit} and this post reminds you of something you went through:
+
+Title: {post_title}
+Body: {post_body}
+
+Existing comments:
+{existing_comments}
+
+You've been through a similar situation with {client_industry} work at your own home. Tell your story briefly, in a way that's actually useful to the original poster.
+
+Industry context: {client_service}
+Company context (only use if promotion ratio allows): {client_name}
+
+Promotion level: {promo_ratio}
+- If LOW: Tell your story with NO company names. Focus on what happened, what you learned.
+- If MEDIUM: You can mention {client_name} as the company you ended up using, as a natural part of the story.
+- If HIGH: {client_name} can be a bigger part of the story, but it still has to read like a real experience, not an ad.
+
+Rules:
+- {max_words} words maximum
+- Tell a quick story: what the problem was, what you tried, what happened
+- Include ONE specific detail that proves you actually dealt with this (a cost, a timeline, a part name, what went wrong first)
+- Your story should relate to THEIR specific situation, not be a generic "I had plumbing issues too"
+- Include a lesson learned or something you'd do differently
+- It's ok to express frustration about costs, bad contractors, or how long things took
+- Sound like you're telling a buddy about what happened over a beer
+- Don't structure it like "First... Then... Finally..." — just tell it naturally
+- No greetings, no sign-offs
+- No lists, no bold, no emojis
+- Contractions, fragments, casual language all ok
+- One sentence can be a standalone thought. Like this.
+- If mentioning {client_name}, include one imperfection about the experience
+- Don't end with a neat moral or life lesson. Just end when the story's done.
+
+Output the comment text only. Nothing else.

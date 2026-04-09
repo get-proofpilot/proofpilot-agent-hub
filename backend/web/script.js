@@ -5753,7 +5753,7 @@ async function renderRedditPilot() {
   // Update header
   const pill = document.getElementById('rpStatusPill');
   const uptime = document.getElementById('rpUptime');
-  if (rpData.status) {
+  if (rpData.status && rpData.status.connected) {
     const mode = rpData.status.mode || 'stopped';
     if (pill) {
       pill.textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
@@ -5761,7 +5761,11 @@ async function renderRedditPilot() {
     }
     if (uptime) uptime.textContent = _rpTimeSince(rpData.status.uptime_seconds);
   } else {
-    if (pill) { pill.textContent = 'Disconnected'; pill.className = 'rp-status-pill disconnected'; }
+    if (pill) {
+      const label = rpData.status && rpData.status.configured ? 'Error' : 'Not Configured';
+      pill.textContent = label;
+      pill.className = 'rp-status-pill disconnected';
+    }
     if (uptime) uptime.textContent = '';
   }
 
@@ -5790,13 +5794,15 @@ function rpSwitchTab(tab) {
   // Close WS if not on operations tab
   if (tab !== 'operations' && rpLogWs) { rpLogWs.close(); rpLogWs = null; }
 
-  if (!rpData.status) {
+  if (!rpData.status || rpData.status.connected === false) {
+    const reason = rpData.status && rpData.status.error ? rpData.status.error : 'RedditPilot config file not found';
+    const configured = rpData.status && rpData.status.configured;
     container.innerHTML = `
       <div class="rp-disconnected">
         <div class="rp-disconnected-icon">&#128268;</div>
-        <h3>RedditPilot Not Connected</h3>
-        <p>Set REDDITPILOT_URL, REDDITPILOT_USER, and REDDITPILOT_PASS environment variables to connect to your RedditPilot instance.</p>
-        <button class="rp-reconnect-btn" onclick="renderRedditPilot()">Retry Connection</button>
+        <h3>${configured ? 'RedditPilot Failed to Start' : 'RedditPilot Not Configured'}</h3>
+        <p>${configured ? reason : 'Create a config file at <code>/app/data/redditpilot/config.yaml</code> with Reddit accounts, clients, and LLM provider. See the Settings tab for the template.'}</p>
+        <button class="rp-reconnect-btn" onclick="renderRedditPilot()">Retry</button>
       </div>`;
     return;
   }
@@ -6126,9 +6132,8 @@ async function rpConnectLogs() {
   if (rpLogWs) return;
   const btn = document.getElementById('rpWsToggle');
   try {
-    const res = await fetch('/api/reddit/ws-url');
-    if (!res.ok) throw new Error('Could not get WS URL');
-    const { url } = await res.json();
+    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const url = `${proto}//${window.location.host}/ws/reddit/logs`;
     rpLogWs = new WebSocket(url);
     rpLogWs.onopen = () => {
       if (btn) btn.textContent = 'Disconnect';
@@ -6369,18 +6374,27 @@ async function rpRenderSettings(el) {
   } catch (e) {}
 
   const schedJobs = schedule.jobs || schedule.schedule || [];
+  const healthOk = health.connected && health.configured;
 
   el.innerHTML = `
     <div class="rp-panel">
       <div class="rp-panel-header">
-        <div class="rp-panel-title">Connection Status</div>
-        <button class="rp-ctrl-btn" onclick="rpTestConnection()" style="padding:4px 12px">Test Connection</button>
+        <div class="rp-panel-title">Agent Status</div>
+        <button class="rp-ctrl-btn" onclick="rpTestConnection()" style="padding:4px 12px">Refresh</button>
       </div>
       <div class="rp-panel-body" id="rpConnectionStatus">
-        <div style="display:flex;align-items:center;gap:10px">
-          <span class="rp-badge ${health.connected ? 'rp-badge-green' : 'rp-badge-red'}">${health.connected ? 'Connected' : 'Disconnected'}</span>
-          <span style="font-size:12px;color:var(--text3)">${health.connected ? 'RedditPilot is reachable' : (health.reason || 'Cannot reach RedditPilot')}</span>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <span class="rp-badge ${healthOk ? 'rp-badge-green' : 'rp-badge-red'}">${healthOk ? 'Running' : (health.configured ? 'Error' : 'Not Configured')}</span>
+          <span style="font-size:12px;color:var(--text3)">${healthOk ? 'Embedded orchestrator initialized' : (health.reason || 'Agent not started')}</span>
         </div>
+        ${!health.configured ? `
+          <div style="background:rgba(0,81,255,0.04);padding:12px;border-radius:6px;border-left:3px solid var(--elec-blue);font-size:12px;margin-top:12px">
+            <div style="font-weight:600;margin-bottom:6px">Setup Required</div>
+            Create a config file at <code style="background:rgba(0,0,0,0.05);padding:1px 4px">/app/data/redditpilot/config.yaml</code> with your Reddit accounts, clients, and LLM provider.
+            <br><br>
+            Use the template at <code style="background:rgba(0,0,0,0.05);padding:1px 4px">backend/redditpilot/config.example.yaml</code> in the repo.
+          </div>
+        ` : ''}
       </div>
     </div>
 
@@ -6432,20 +6446,8 @@ async function rpRenderSettings(el) {
 }
 
 async function rpTestConnection() {
-  const status = document.getElementById('rpConnectionStatus');
-  if (status) status.innerHTML = '<span style="color:var(--text3)">Testing...</span>';
-  try {
-    const res = await fetch('/api/reddit/health');
-    const data = await res.json();
-    if (status) {
-      status.innerHTML = `<div style="display:flex;align-items:center;gap:10px">
-        <span class="rp-badge ${data.connected ? 'rp-badge-green' : 'rp-badge-red'}">${data.connected ? 'Connected' : 'Disconnected'}</span>
-        <span style="font-size:12px;color:var(--text3)">${data.connected ? 'RedditPilot is reachable' : (data.reason || 'Cannot reach RedditPilot')}</span>
-      </div>`;
-    }
-  } catch (e) {
-    if (status) status.innerHTML = '<span class="rp-badge rp-badge-red">Error</span> <span style="font-size:12px;color:var(--text3)">Network error</span>';
-  }
+  // Simply re-render the settings tab which re-fetches health
+  rpRenderSettings(document.getElementById('rpTabContent'));
 }
 
 /* ── INIT ── */

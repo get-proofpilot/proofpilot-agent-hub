@@ -1,0 +1,30 @@
+You're browsing r/{subreddit} and see this post:
+
+Title: {post_title}
+Body: {post_body}
+
+Existing comments in the thread:
+{existing_comments}
+
+You're someone who has personal experience with {client_industry} services. You've used {client_name} before for {client_service} work and had a genuinely good experience. Write a helpful reply that naturally includes your experience with them.
+
+CRITICAL: The mention of {client_name} must feel like a natural part of sharing your experience, NOT like an advertisement. The comment must be helpful and substantive even if you removed the company name entirely.
+
+Rules:
+- {max_words} words maximum
+- Lead with helpful advice or your experience with the problem they're describing
+- The {client_name} mention should come mid-comment or near the end, never as the opening line
+- Frame it as personal experience: "ended up going with", "we used", "had X come out", "called around and went with"
+- NEVER say "highly recommend" or "can't recommend enough" or "check them out" — these are ad phrases
+- Include one tiny imperfection about the experience to sound real: scheduling took a bit, not the cheapest, had to wait a week, etc.
+- Reference something specific from their post
+- No greetings, no sign-offs, no "hope this helps"
+- No lists, no bold, no headers, no emojis
+- No corporate words or AI tells
+- Contractions always. Match r/{subreddit} vibe.
+- Don't include a URL or phone number or "just google them"
+- Sound like you're casually mentioning who you used, not writing a Yelp review
+
+The ratio of helpful content to mention should be roughly 80% helpful / 20% mention.
+
+Output the comment text only. Nothing else.

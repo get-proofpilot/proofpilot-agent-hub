@@ -10,9 +10,8 @@ import uuid
 import asyncio
 from pathlib import Path
 
-import httpx
 import anthropic
-from fastapi import FastAPI, HTTPException, UploadFile, Query as QueryParam
+from fastapi import FastAPI, HTTPException, UploadFile, Query as QueryParam, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse, HTMLResponse
 from pydantic import BaseModel
@@ -128,53 +127,11 @@ async def _stop_scheduler():
     if _scheduler:
         _scheduler.stop()
 
-# ── RedditPilot proxy setup ──────────────────────────────
-_rp_url = os.environ.get("REDDITPILOT_URL", "").rstrip("/")
-_rp_user = os.environ.get("REDDITPILOT_USER", "")
-_rp_pass = os.environ.get("REDDITPILOT_PASS", "")
-_rp_token: Optional[str] = None
-_rp_token_lock = asyncio.Lock()
-
-
-async def _rp_ensure_token() -> str:
-    """Authenticate with RedditPilot and cache the bearer token."""
-    global _rp_token
-    async with _rp_token_lock:
-        if _rp_token:
-            return _rp_token
-        if not _rp_url:
-            raise HTTPException(status_code=503, detail="REDDITPILOT_URL not configured")
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(f"{_rp_url}/api/auth/login", json={
-                "username": _rp_user, "password": _rp_pass
-            })
-            resp.raise_for_status()
-            data = resp.json()
-            _rp_token = data.get("token") or data.get("access_token")
-            if not _rp_token:
-                raise HTTPException(status_code=502, detail="RedditPilot auth returned no token")
-            return _rp_token
-
-
-async def _rp_request(method: str, path: str, **kwargs) -> httpx.Response:
-    """Forward a request to RedditPilot with auto-retry on 401."""
-    global _rp_token
-    token = await _rp_ensure_token()
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.request(
-            method, f"{_rp_url}{path}",
-            headers={"Authorization": f"Bearer {token}"},
-            **kwargs,
-        )
-        if resp.status_code == 401:
-            _rp_token = None
-            token = await _rp_ensure_token()
-            resp = await client.request(
-                method, f"{_rp_url}{path}",
-                headers={"Authorization": f"Bearer {token}"},
-                **kwargs,
-            )
-        return resp
+# ── RedditPilot embedded agent ───────────────────────────
+# The RedditPilot package is vendored at backend/redditpilot/.
+# reddit_agent.py manages a lazy singleton orchestrator and exposes
+# helper functions for the /api/reddit/* routes below.
+import reddit_agent
 
 
 WORKFLOW_TITLES = {
@@ -2012,125 +1969,152 @@ async def delete_schedule(job_id: str):
     return {"deleted": True}
 
 
-# ── RedditPilot proxy routes ──────────────────────────────────────
+# ── RedditPilot routes (embedded agent) ──────────────────────────
+# RedditPilot runs in-process via the vendored `redditpilot` package.
+# reddit_agent.py manages a lazy singleton orchestrator. These routes
+# expose JSON endpoints that the frontend calls directly — no proxy,
+# no separate service, no external auth.
 
 @app.get("/api/reddit/health")
 async def rp_health():
-    """Check RedditPilot connection status."""
-    if not _rp_url:
-        return {"connected": False, "reason": "REDDITPILOT_URL not configured"}
+    """Report RedditPilot agent health and configuration status."""
+    configured = reddit_agent.is_configured()
+    if not configured:
+        return {
+            "connected": False,
+            "configured": False,
+            "reason": f"No config file at {reddit_agent.config_path()}",
+        }
     try:
-        resp = await _rp_request("GET", "/api/status")
-        return {"connected": True, "status": resp.json()}
+        status = reddit_agent.get_status()
+        return {"connected": status.get("connected", False), "configured": True, "status": status}
     except Exception as e:
-        return {"connected": False, "reason": str(e)}
-
-
-@app.get("/api/reddit/ws-url")
-async def rp_ws_url():
-    """Return WebSocket URL for direct browser connection to live logs."""
-    if not _rp_url:
-        raise HTTPException(status_code=503, detail="REDDITPILOT_URL not configured")
-    token = await _rp_ensure_token()
-    ws_url = _rp_url.replace("http://", "ws://").replace("https://", "wss://")
-    return {"url": f"{ws_url}/ws/logs?token={token}"}
+        return {"connected": False, "configured": True, "reason": str(e)}
 
 
 @app.get("/api/reddit/status")
 async def rp_status():
-    resp = await _rp_request("GET", "/api/status")
-    return resp.json()
+    return reddit_agent.get_status()
 
 
 @app.get("/api/reddit/stats")
-async def rp_stats():
-    resp = await _rp_request("GET", "/api/stats")
-    return resp.json()
+async def rp_stats(hours: int = QueryParam(24, le=168)):
+    return reddit_agent.get_stats(hours=hours)
 
 
 @app.get("/api/reddit/clients")
 async def rp_clients():
-    resp = await _rp_request("GET", "/api/clients")
-    return resp.json()
+    return {"clients": reddit_agent.get_clients()}
 
 
 @app.get("/api/reddit/clients/{slug}")
 async def rp_client_detail(slug: str):
-    resp = await _rp_request("GET", f"/api/clients/{slug}")
-    return resp.json()
+    return reddit_agent.get_client_detail(slug)
 
 
 @app.get("/api/reddit/accounts")
 async def rp_accounts():
-    resp = await _rp_request("GET", "/api/accounts")
-    return resp.json()
+    return {"accounts": reddit_agent.get_accounts()}
 
 
 @app.get("/api/reddit/opportunities")
-async def rp_opportunities():
-    resp = await _rp_request("GET", "/api/opportunities")
-    return resp.json()
+async def rp_opportunities(limit: int = QueryParam(50, le=200)):
+    return {"opportunities": reddit_agent.get_opportunities(limit=limit)}
 
 
 @app.get("/api/reddit/actions")
 async def rp_actions(hours: int = QueryParam(24, le=168), limit: int = QueryParam(50, le=200)):
-    resp = await _rp_request("GET", f"/api/actions?hours={hours}&limit={limit}")
-    return resp.json()
+    return {"actions": reddit_agent.get_actions(hours=hours, limit=limit)}
 
 
 @app.get("/api/reddit/schedule")
 async def rp_schedule():
-    resp = await _rp_request("GET", "/api/schedule")
-    return resp.json()
+    return reddit_agent.get_schedule()
 
 
 @app.get("/api/reddit/insights")
 async def rp_insights():
-    resp = await _rp_request("GET", "/api/insights")
-    return resp.json()
+    return reddit_agent.get_insights()
 
 
 @app.get("/api/reddit/performance")
-async def rp_performance():
-    resp = await _rp_request("GET", "/api/performance")
-    return resp.json()
+async def rp_performance(days: int = QueryParam(7, le=30)):
+    return reddit_agent.get_performance(days=days)
 
 
 @app.get("/api/reddit/heatmap")
 async def rp_heatmap():
-    resp = await _rp_request("GET", "/api/heatmap")
-    return resp.json()
+    return reddit_agent.get_heatmap()
 
 
 @app.get("/api/reddit/funnel")
 async def rp_funnel():
-    resp = await _rp_request("GET", "/api/funnel")
-    return resp.json()
+    return reddit_agent.get_funnel()
 
 
 @app.get("/api/reddit/history")
 async def rp_history(days: int = QueryParam(7, le=30), limit: int = QueryParam(50, le=200)):
-    resp = await _rp_request("GET", f"/api/history?days={days}&limit={limit}")
-    return resp.json()
+    return {"history": reddit_agent.get_history(days=days, limit=limit)}
 
 
 @app.get("/api/reddit/decisions")
 async def rp_decisions(hours: int = QueryParam(24, le=168), limit: int = QueryParam(50, le=200)):
-    resp = await _rp_request("GET", f"/api/decisions?hours={hours}&limit={limit}")
-    return resp.json()
+    return reddit_agent.get_decisions(hours=hours, limit=limit)
 
 
 @app.get("/api/reddit/summary")
 async def rp_summary():
-    resp = await _rp_request("GET", "/api/summary")
-    return resp.json()
+    return reddit_agent.get_summary()
 
 
 @app.post("/api/reddit/control/{action}")
 async def rp_control(action: str):
-    """Forward control commands: scan, learn, pause, resume, emergency_stop, cycle, discover, generate, post."""
-    resp = await _rp_request("POST", f"/api/control/{action}")
-    return resp.json()
+    """Execute control commands: scan, learn, pause, resume, emergency_stop,
+    cycle, discover, generate, post, start_scheduler, stop_scheduler."""
+    return reddit_agent.control(action)
+
+
+@app.get("/api/reddit/logs")
+async def rp_logs(since: int = QueryParam(0)):
+    """Poll recent log records (fallback when WebSocket not available)."""
+    cap = reddit_agent.log_capture()
+    if cap is None:
+        return {"logs": [], "seq": 0}
+    records = cap.since(since) if since > 0 else cap.snapshot()
+    last_seq = records[-1]["seq"] if records else since
+    return {"logs": records, "seq": last_seq}
+
+
+@app.websocket("/ws/reddit/logs")
+async def rp_ws_logs(websocket: WebSocket):
+    """Stream RedditPilot log records over WebSocket."""
+    await websocket.accept()
+    # Ensure orchestrator is initialized so the log capture handler exists
+    reddit_agent.get_orch()
+    cap = reddit_agent.log_capture()
+    last_seq = 0
+    try:
+        # Send snapshot on connect
+        if cap is not None:
+            snapshot = cap.snapshot()
+            for rec in snapshot:
+                await websocket.send_json(rec)
+                last_seq = rec["seq"]
+        # Stream new records
+        while True:
+            await asyncio.sleep(1.0)
+            if cap is None:
+                cap = reddit_agent.log_capture()
+                continue
+            new_records = cap.since(last_seq)
+            for rec in new_records:
+                await websocket.send_json(rec)
+                last_seq = rec["seq"]
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        logger_rp = __import__("logging").getLogger("proofpilot.reddit_ws")
+        logger_rp.warning(f"RedditPilot WS error: {e}")
 
 
 # ── Serve frontend ────────────────────────────────────────────────

@@ -1,0 +1,79 @@
+# ──────────────────────────────────────────────────────────────
+# RedditPilot Config Template — ProofPilot Agent Hub Edition
+# ──────────────────────────────────────────────────────────────
+# On Railway, place the real config at:
+#   /app/data/redditpilot/config.yaml
+# (or set REDDITPILOT_CONFIG_PATH to a custom path)
+#
+# Locally:
+#   ./data/redditpilot/config.yaml
+#
+# The data_dir is set automatically to the config's parent directory.
+# ──────────────────────────────────────────────────────────────
+
+# Reddit accounts used for posting and scanning
+# Start with ONE account and tier = "new" for safety.
+accounts:
+  - username: "your_reddit_username"
+    password: "your_reddit_password"
+    client_id: "your_app_client_id"      # From https://www.reddit.com/prefs/apps
+    client_secret: "your_app_client_secret"
+    karma_tier: "new"                     # new | growing | established | veteran
+    enabled: true
+
+# Clients whose presence RedditPilot manages
+clients:
+  - name: "All Thingz Electric"
+    slug: "all-thingz-electric"
+    industry: "electrician"
+    service_area: "Chandler, AZ"
+    website: "https://allthingzelectric.com"
+    brand_voice: "Helpful local electrician, avoids jargon, speaks plainly"
+    keywords:
+      - "electrician"
+      - "panel upgrade"
+      - "electrical repair"
+    target_subreddits:
+      - "HomeImprovement"
+      - "electricians"
+      - "phoenix"
+    promo_ratio: 0.05                     # 5% max promotional content
+    approval_required: true               # Slack approval before posting
+    enabled: true
+
+# LLM provider — use free tiers to keep costs at zero
+llm:
+  primary_provider: "anthropic"
+  primary_model: "claude-haiku-4-5-20251001"
+  primary_api_key: ""                     # Pulls from ANTHROPIC_API_KEY env if blank
+  fallback_provider: "groq"
+  fallback_model: "llama-3.3-70b-versatile"
+  fallback_api_key: ""                    # Pulls from REDDITPILOT_LLM_FALLBACK_KEY if blank
+  temperature: 0.8
+  max_tokens: 500
+  casualness: 0.7                         # 0 = formal, 1 = very casual
+  use_contractions: true
+
+# Safety / anti-detection
+safety:
+  min_delay_seconds: 30
+  max_delay_seconds: 180
+  min_account_age_days: 30
+  min_karma_to_post: 50
+  shadowban_check_interval_hours: 6
+  max_actions_per_hour: 8
+  content_validation_enabled: true
+  auto_delete_negative_comments: true
+  negative_score_threshold: -2
+
+# Slack approval (optional)
+slack:
+  enabled: false
+  bot_token: ""                           # Pulls from REDDITPILOT_SLACK_TOKEN if blank
+  approval_channel: ""
+  notification_channel: ""
+
+# Top-level settings
+log_level: "INFO"
+scan_interval_minutes: 30
+learning_interval_hours: 6
