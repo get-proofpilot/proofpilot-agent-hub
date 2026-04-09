@@ -1,7 +1,7 @@
 FROM python:3.11-slim
 
 # Cache-bust arg — change value to force full rebuild
-ARG BUILD_VERSION=v25-redditpilot-embedded
+ARG BUILD_VERSION=v26-fix-static-dir
 
 WORKDIR /app
 

@@ -2158,14 +2158,19 @@ async def rp_ws_logs(websocket: WebSocket):
 # ── Serve frontend ────────────────────────────────────────────────
 # Explicit routes instead of StaticFiles mount — prevents the mount from
 # intercepting /api/* routes (known FastAPI/Starlette issue with root mounts).
-static_dir = Path(__file__).parent / "static"
+#
+# IMPORTANT: Directory is `web/` not `static/` — Railway's Railpack builder
+# detects `static/index.html` and classifies the project as a static site,
+# deploying with Caddy instead of running the Python backend. See
+# commit 9520969 "rename static/ to web/ to prevent Railpack Staticfile detection".
+static_dir = Path(__file__).parent / "web"
 
 @app.get("/")
 async def serve_index():
     f = static_dir / "index.html"
     if f.exists():
         return FileResponse(f)
-    return {"status": "frontend not found"}
+    return {"status": "frontend not found", "expected_path": str(f)}
 
 @app.get("/script.js")
 async def serve_script():
@@ -2175,6 +2180,14 @@ async def serve_script():
 async def serve_style():
     return FileResponse(static_dir / "style.css", media_type="text/css")
 
+@app.get("/seo-playbook.css")
+async def serve_seo_playbook_css():
+    return FileResponse(static_dir / "seo-playbook.css", media_type="text/css")
+
+@app.get("/seo-playbook.js")
+async def serve_seo_playbook_js():
+    return FileResponse(static_dir / "seo-playbook.js", media_type="application/javascript")
+
 @app.get("/{spa_path:path}")
 async def serve_spa(spa_path: str):
     """Serve standalone agent pages if they exist, otherwise fall back to SPA."""
@@ -2183,4 +2196,8 @@ async def serve_spa(spa_path: str):
         candidate = static_dir / f"{spa_path}.html"
         if candidate.exists():
             return FileResponse(candidate)
-    return FileResponse(static_dir / "index.html")
+    # Fallback to SPA index
+    index = static_dir / "index.html"
+    if index.exists():
+        return FileResponse(index)
+    return {"status": "frontend not found", "expected_path": str(index)}
