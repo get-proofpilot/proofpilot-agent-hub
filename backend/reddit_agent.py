@@ -1009,3 +1009,216 @@ def control(action: str) -> Dict[str, Any]:
             return {"ok": False, "error": str(e)}
 
     return {"ok": False, "error": f"Unknown action: {action}"}
+
+
+# ══════════════════════════════════════════════════════════════════
+# Config file CRUD — account & client management via the dashboard
+# ══════════════════════════════════════════════════════════════════
+
+VALID_KARMA_TIERS = {"new", "growing", "established", "veteran"}
+
+
+def _read_config_yaml() -> Dict[str, Any]:
+    """Read the raw YAML config file (bootstraps from template if missing)."""
+    import yaml
+    if not _bootstrap_config():
+        raise RuntimeError("No config file available")
+    with open(_CONFIG_PATH, "r") as f:
+        return yaml.safe_load(f) or {}
+
+
+def _write_config_yaml(data: Dict[str, Any]) -> None:
+    """Write the config file atomically and force orchestrator reload."""
+    import yaml
+    _CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = _CONFIG_PATH.with_suffix(".yaml.tmp")
+    with open(tmp_path, "w") as f:
+        yaml.safe_dump(data, f, sort_keys=False, allow_unicode=True, default_flow_style=False)
+    tmp_path.replace(_CONFIG_PATH)
+    # Force reload so the next get_orch() picks up the new config
+    reset()
+
+
+def list_accounts_raw() -> List[Dict[str, Any]]:
+    """Return the account list from the config YAML with secrets masked.
+
+    Unlike get_accounts() (which joins DB stats), this reflects the
+    declarative config file — useful for the management UI.
+    """
+    try:
+        data = _read_config_yaml()
+    except Exception as e:
+        logger.error(f"list_accounts_raw error: {e}")
+        return []
+    accounts = data.get("accounts") or []
+    masked = []
+    for a in accounts:
+        masked.append({
+            "username": a.get("username", ""),
+            "karma_tier": a.get("karma_tier", "new"),
+            "enabled": a.get("enabled", True),
+            "has_password": bool(a.get("password")),
+            "has_client_id": bool(a.get("client_id")),
+            "has_client_secret": bool(a.get("client_secret")),
+            "assigned_subreddits": a.get("assigned_subreddits", []),
+            "proxy": a.get("proxy", ""),
+            "notes": a.get("notes", ""),
+        })
+    return masked
+
+
+def add_account(
+    username: str,
+    password: str,
+    client_id: str,
+    client_secret: str,
+    karma_tier: str = "new",
+    enabled: bool = True,
+    assigned_subreddits: Optional[List[str]] = None,
+    notes: str = "",
+) -> Dict[str, Any]:
+    """Add a Reddit account to the config file. If an account with the same
+    username exists, it is replaced."""
+    username = (username or "").strip().lstrip("u/").lstrip("/")
+    if not username:
+        return {"ok": False, "error": "username is required"}
+    if not password:
+        return {"ok": False, "error": "password is required"}
+    if not client_id or not client_secret:
+        return {"ok": False, "error": "client_id and client_secret are required (from https://www.reddit.com/prefs/apps)"}
+    if karma_tier not in VALID_KARMA_TIERS:
+        return {"ok": False, "error": f"karma_tier must be one of {sorted(VALID_KARMA_TIERS)}"}
+
+    try:
+        data = _read_config_yaml()
+    except Exception as e:
+        return {"ok": False, "error": f"Could not read config: {e}"}
+
+    accounts = data.get("accounts") or []
+    # Remove any existing entry with the same username
+    accounts = [a for a in accounts if a.get("username") != username]
+
+    new_entry = {
+        "username": username,
+        "password": password,
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "karma_tier": karma_tier,
+        "enabled": enabled,
+    }
+    if assigned_subreddits:
+        new_entry["assigned_subreddits"] = [s.strip() for s in assigned_subreddits if s.strip()]
+    if notes:
+        new_entry["notes"] = notes
+    accounts.append(new_entry)
+    data["accounts"] = accounts
+
+    try:
+        _write_config_yaml(data)
+    except Exception as e:
+        return {"ok": False, "error": f"Could not write config: {e}"}
+
+    return {"ok": True, "message": f"Account u/{username} saved", "username": username}
+
+
+def delete_account(username: str) -> Dict[str, Any]:
+    username = (username or "").strip().lstrip("u/").lstrip("/")
+    if not username:
+        return {"ok": False, "error": "username is required"}
+    try:
+        data = _read_config_yaml()
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+    accounts = data.get("accounts") or []
+    before = len(accounts)
+    accounts = [a for a in accounts if a.get("username") != username]
+    if len(accounts) == before:
+        return {"ok": False, "error": f"Account u/{username} not found"}
+    data["accounts"] = accounts
+    try:
+        _write_config_yaml(data)
+    except Exception as e:
+        return {"ok": False, "error": f"Could not write config: {e}"}
+    return {"ok": True, "message": f"Account u/{username} removed"}
+
+
+def set_account_enabled(username: str, enabled: bool) -> Dict[str, Any]:
+    username = (username or "").strip().lstrip("u/").lstrip("/")
+    try:
+        data = _read_config_yaml()
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+    accounts = data.get("accounts") or []
+    found = False
+    for a in accounts:
+        if a.get("username") == username:
+            a["enabled"] = bool(enabled)
+            found = True
+            break
+    if not found:
+        return {"ok": False, "error": f"Account u/{username} not found"}
+    data["accounts"] = accounts
+    try:
+        _write_config_yaml(data)
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+    return {"ok": True, "enabled": bool(enabled)}
+
+
+def list_clients_raw() -> List[Dict[str, Any]]:
+    """Return the client list from the config YAML (not the joined DB view)."""
+    try:
+        data = _read_config_yaml()
+    except Exception as e:
+        logger.error(f"list_clients_raw error: {e}")
+        return []
+    return list(data.get("clients") or [])
+
+
+def update_client(slug: str, updates: Dict[str, Any]) -> Dict[str, Any]:
+    """Update editable fields of a client. Allowed fields: keywords,
+    target_subreddits, brand_voice, enabled, promo_ratio, approval_required."""
+    allowed = {"keywords", "target_subreddits", "brand_voice", "enabled",
+               "promo_ratio", "approval_required", "service_area", "website"}
+    try:
+        data = _read_config_yaml()
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+    clients = data.get("clients") or []
+    found = None
+    for c in clients:
+        if c.get("slug") == slug:
+            found = c
+            break
+    if not found:
+        return {"ok": False, "error": f"Client {slug} not found"}
+    for k, v in (updates or {}).items():
+        if k in allowed:
+            found[k] = v
+    data["clients"] = clients
+    try:
+        _write_config_yaml(data)
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+    return {"ok": True, "client": slug}
+
+
+def get_llm_status() -> Dict[str, Any]:
+    """Return LLM provider status without exposing the key."""
+    try:
+        data = _read_config_yaml()
+    except Exception as e:
+        return {"configured": False, "error": str(e)}
+    llm = data.get("llm") or {}
+    primary_key = llm.get("primary_api_key") or os.environ.get("OPENROUTER_API_KEY", "") or os.environ.get("REDDITPILOT_LLM_API_KEY", "")
+    fallback_key = llm.get("fallback_api_key") or os.environ.get("ANTHROPIC_API_KEY", "")
+    return {
+        "configured": True,
+        "primary_provider": llm.get("primary_provider", ""),
+        "primary_model": llm.get("primary_model", ""),
+        "primary_key_set": bool(primary_key),
+        "primary_key_source": "config" if llm.get("primary_api_key") else ("OPENROUTER_API_KEY" if os.environ.get("OPENROUTER_API_KEY") else ("REDDITPILOT_LLM_API_KEY" if os.environ.get("REDDITPILOT_LLM_API_KEY") else "none")),
+        "fallback_provider": llm.get("fallback_provider", ""),
+        "fallback_model": llm.get("fallback_model", ""),
+        "fallback_key_set": bool(fallback_key),
+    }

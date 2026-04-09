@@ -6579,6 +6579,43 @@ body.dashboard-standalone {
 }
 .rp-reconnect-btn:hover { border-color: #FF4500; color: #FF4500; }
 
+/* Add Account form grid */
+.rp-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+.rp-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rp-form-field label {
+  font-size: 10px;
+  font-family: var(--mono);
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-weight: 600;
+}
+.rp-form-field input,
+.rp-form-field select {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border2);
+  background: var(--surface, #fff);
+  font-family: var(--body);
+  font-size: 13px;
+  color: var(--text);
+  transition: border-color var(--t-fast);
+}
+.rp-form-field input:focus,
+.rp-form-field select:focus {
+  outline: none;
+  border-color: #FF4500;
+  box-shadow: 0 0 0 2px rgba(255, 69, 0, 0.1);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .rp-header { flex-direction: column; align-items: flex-start; gap: 12px; }
@@ -6587,4 +6624,5 @@ body.dashboard-standalone {
   .rp-tab-content { padding: 16px; }
   .rp-controls { flex-direction: column; }
   .rp-kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .rp-form-grid { grid-template-columns: 1fr; }
 }

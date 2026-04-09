@@ -2112,6 +2112,81 @@ async def rp_control(action: str):
     return reddit_agent.control(action)
 
 
+# ── RedditPilot config CRUD (dashboard-driven account/client management) ──
+
+class RPAccountRequest(BaseModel):
+    username: str
+    password: str
+    client_id: str
+    client_secret: str
+    karma_tier: str = "new"
+    enabled: bool = True
+    assigned_subreddits: Optional[list] = None
+    notes: str = ""
+
+
+class RPAccountToggle(BaseModel):
+    enabled: bool
+
+
+class RPClientUpdate(BaseModel):
+    keywords: Optional[list] = None
+    target_subreddits: Optional[list] = None
+    brand_voice: Optional[str] = None
+    enabled: Optional[bool] = None
+    promo_ratio: Optional[float] = None
+    approval_required: Optional[bool] = None
+    service_area: Optional[str] = None
+    website: Optional[str] = None
+
+
+@app.get("/api/reddit/config/accounts")
+async def rp_config_list_accounts():
+    """Return the account list from the config YAML (secrets masked)."""
+    return {"accounts": reddit_agent.list_accounts_raw()}
+
+
+@app.post("/api/reddit/config/accounts")
+async def rp_config_add_account(req: RPAccountRequest):
+    """Add or replace a Reddit account in the config file."""
+    return reddit_agent.add_account(
+        username=req.username,
+        password=req.password,
+        client_id=req.client_id,
+        client_secret=req.client_secret,
+        karma_tier=req.karma_tier,
+        enabled=req.enabled,
+        assigned_subreddits=req.assigned_subreddits,
+        notes=req.notes,
+    )
+
+
+@app.delete("/api/reddit/config/accounts/{username}")
+async def rp_config_delete_account(username: str):
+    return reddit_agent.delete_account(username)
+
+
+@app.patch("/api/reddit/config/accounts/{username}")
+async def rp_config_toggle_account(username: str, body: RPAccountToggle):
+    return reddit_agent.set_account_enabled(username, body.enabled)
+
+
+@app.get("/api/reddit/config/clients")
+async def rp_config_list_clients():
+    return {"clients": reddit_agent.list_clients_raw()}
+
+
+@app.patch("/api/reddit/config/clients/{slug}")
+async def rp_config_update_client(slug: str, body: RPClientUpdate):
+    updates = {k: v for k, v in body.dict().items() if v is not None}
+    return reddit_agent.update_client(slug, updates)
+
+
+@app.get("/api/reddit/config/llm")
+async def rp_config_llm_status():
+    return reddit_agent.get_llm_status()
+
+
 @app.get("/api/reddit/logs")
 async def rp_logs(since: int = QueryParam(0)):
     """Poll recent log records (fallback when WebSocket not available)."""

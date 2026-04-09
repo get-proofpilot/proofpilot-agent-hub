@@ -6603,19 +6603,27 @@ function _rpRenderHeatmap(data) {
 
 /* ── Tab 5: Settings ── */
 async function rpRenderSettings(el) {
-  let accounts = [], schedule = {}, health = {}, tpl = {};
+  let rawAccounts = [], liveAccounts = [], schedule = {}, health = {}, llm = {};
   try {
-    const [accRes, schRes, hRes, tplRes] = await Promise.all([
+    const [rawAccRes, liveAccRes, schRes, hRes, llmRes] = await Promise.all([
+      fetch('/api/reddit/config/accounts'),
       fetch('/api/reddit/accounts'),
       fetch('/api/reddit/schedule'),
       fetch('/api/reddit/health'),
-      fetch('/api/reddit/config-template'),
+      fetch('/api/reddit/config/llm'),
     ]);
-    if (accRes.ok) { const d = await accRes.json(); accounts = d.accounts || []; }
+    if (rawAccRes.ok) { const d = await rawAccRes.json(); rawAccounts = d.accounts || []; }
+    if (liveAccRes.ok) { const d = await liveAccRes.json(); liveAccounts = d.accounts || []; }
     if (schRes.ok) schedule = await schRes.json();
     if (hRes.ok) health = await hRes.json();
-    if (tplRes.ok) tpl = await tplRes.json();
+    if (llmRes.ok) llm = await llmRes.json();
   } catch (e) {}
+
+  // Merge: raw config account list is source of truth for username/tier/enabled,
+  // live accounts (from DB) enrich with karma/health info.
+  const liveByUser = {};
+  liveAccounts.forEach(a => { if (a.username) liveByUser[a.username] = a; });
+  const mergedAccounts = rawAccounts.map(a => ({ ...a, ...(liveByUser[a.username] || {}) }));
 
   const schedJobs = schedule.jobs || [];
   const healthOk = health.connected && health.configured;
@@ -6626,57 +6634,123 @@ async function rpRenderSettings(el) {
         <div class="rp-panel-title">Agent Status</div>
         <button class="rp-ctrl-btn" onclick="rpTestConnection()" style="padding:4px 12px">Refresh</button>
       </div>
-      <div class="rp-panel-body" id="rpConnectionStatus">
+      <div class="rp-panel-body">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
           <span class="rp-badge ${healthOk ? 'rp-badge-green' : 'rp-badge-red'}">${healthOk ? 'Running' : (health.configured ? 'Error' : 'Not Configured')}</span>
           <span style="font-size:12px;color:var(--text3)">${healthOk ? 'Embedded orchestrator initialized — all systems go' : (health.reason || 'Agent not started')}</span>
         </div>
-        ${tpl.target_path ? `
-          <div style="font-size:11px;color:var(--text4);margin-top:6px">
-            Config path: <code style="background:rgba(0,0,0,0.05);padding:1px 4px;font-size:11px">${tpl.target_path}</code>
+        <div style="font-size:11px;color:var(--text4)">
+          Config path: <code style="background:rgba(0,0,0,0.05);padding:1px 4px;font-size:11px">${health.status && health.status.configured ? (llm.configured ? 'loaded from Railway volume' : '/app/data/redditpilot/config.yaml') : '/app/data/redditpilot/config.yaml'}</code>
+        </div>
+      </div>
+    </div>
+
+    <div class="rp-panel">
+      <div class="rp-panel-header"><div class="rp-panel-title">LLM Provider</div></div>
+      <div class="rp-panel-body">
+        <div class="rp-kpi-row" style="margin-bottom:0">
+          <div class="rp-kpi">
+            <div class="rp-kpi-label">Primary</div>
+            <div class="rp-kpi-value" style="font-size:14px">${llm.primary_provider || '—'}</div>
+            <div class="rp-kpi-sub">${llm.primary_model || '—'}</div>
+          </div>
+          <div class="rp-kpi">
+            <div class="rp-kpi-label">API Key</div>
+            <div class="rp-kpi-value" style="font-size:14px">
+              <span class="rp-badge ${llm.primary_key_set ? 'rp-badge-green' : 'rp-badge-red'}">${llm.primary_key_set ? 'Configured' : 'Missing'}</span>
+            </div>
+            <div class="rp-kpi-sub">source: ${llm.primary_key_source || '—'}</div>
+          </div>
+          <div class="rp-kpi">
+            <div class="rp-kpi-label">Fallback</div>
+            <div class="rp-kpi-value" style="font-size:14px">${llm.fallback_provider || '—'}</div>
+            <div class="rp-kpi-sub">${llm.fallback_model || '—'} &middot; ${llm.fallback_key_set ? 'key set' : 'no key'}</div>
+          </div>
+        </div>
+        ${!llm.primary_key_set ? `
+          <div style="margin-top:12px;padding:10px;background:var(--red-bg);border-radius:6px;font-size:12px;color:var(--red);border-left:3px solid var(--red)">
+            <strong>API key missing.</strong> Set <code>OPENROUTER_API_KEY</code> in Railway variables to enable content generation.
           </div>
         ` : ''}
       </div>
     </div>
 
-    ${!health.configured && tpl.template ? `
-      <div class="rp-panel" style="border-left:3px solid var(--elec-blue)">
-        <div class="rp-panel-header">
-          <div class="rp-panel-title">Setup — Create Config File</div>
-          <button class="rp-ctrl-btn" id="rpCopyTplBtn" onclick="rpCopyTemplate()" style="padding:4px 12px">Copy Template</button>
+    <div class="rp-panel" style="border-left:3px solid var(--elec-blue)">
+      <div class="rp-panel-header">
+        <div class="rp-panel-title">Add Reddit Account</div>
+      </div>
+      <div class="rp-panel-body">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:14px">
+          Credentials are stored in the config YAML on the Railway volume and never sent back to the browser.
+          Get <code>client_id</code> and <code>client_secret</code> from <a href="https://www.reddit.com/prefs/apps" target="_blank" style="color:var(--elec-blue)">https://www.reddit.com/prefs/apps</a> (create a "script" app).
         </div>
-        <div class="rp-panel-body">
-          <div style="font-size:12px;color:var(--text3);margin-bottom:10px">
-            Save this YAML template to <code style="background:rgba(0,0,0,0.05);padding:1px 4px">${tpl.target_path}</code> (on Railway, use the persistent volume at <code>/app/data/redditpilot/</code>). Fill in your Reddit accounts, clients, and LLM provider keys, then refresh this page.
+        <div class="rp-form-grid">
+          <div class="rp-form-field">
+            <label>Username</label>
+            <input type="text" id="rpAcctUsername" placeholder="your_reddit_username" />
           </div>
-          <pre id="rpConfigTemplate" style="background:#0a0e1a;color:#4ade80;padding:14px;border-radius:6px;font-family:var(--mono);font-size:11px;max-height:360px;overflow:auto;white-space:pre-wrap">${tpl.template.replace(/</g, '&lt;')}</pre>
+          <div class="rp-form-field">
+            <label>Password</label>
+            <input type="password" id="rpAcctPassword" placeholder="Reddit password" autocomplete="new-password" />
+          </div>
+          <div class="rp-form-field">
+            <label>Client ID</label>
+            <input type="text" id="rpAcctClientId" placeholder="14-char app ID" />
+          </div>
+          <div class="rp-form-field">
+            <label>Client Secret</label>
+            <input type="password" id="rpAcctClientSecret" placeholder="app secret" autocomplete="new-password" />
+          </div>
+          <div class="rp-form-field">
+            <label>Karma Tier</label>
+            <select id="rpAcctKarmaTier">
+              <option value="new">New (3 comments/day, 0 posts)</option>
+              <option value="growing" selected>Growing (7 comments/day, 2 posts)</option>
+              <option value="established">Established (12 comments/day, 5 posts)</option>
+              <option value="veteran">Veteran (20 comments/day, 10 posts)</option>
+            </select>
+          </div>
+          <div class="rp-form-field">
+            <label>Notes (optional)</label>
+            <input type="text" id="rpAcctNotes" placeholder="e.g. for Saiyan Electric" />
+          </div>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:10px;align-items:center">
+          <button class="rp-ctrl-btn rp-ctrl-success" onclick="rpSaveAccount()">Save Account</button>
+          <button class="rp-ctrl-btn" onclick="rpClearAccountForm()">Clear</button>
+          <span id="rpAcctStatus" style="font-size:12px;color:var(--text3)"></span>
         </div>
       </div>
-    ` : ''}
+    </div>
 
     <div class="rp-panel">
-      <div class="rp-panel-header"><div class="rp-panel-title">Reddit Accounts (${Array.isArray(accounts) ? accounts.length : 0})</div></div>
+      <div class="rp-panel-header"><div class="rp-panel-title">Reddit Accounts (${mergedAccounts.length})</div></div>
       <div class="rp-panel-body">
-        ${Array.isArray(accounts) && accounts.length > 0 ? `
+        ${mergedAccounts.length > 0 ? `
           <div class="rp-account-grid">
-            ${accounts.map(a => `
+            ${mergedAccounts.map(a => `
               <div class="rp-account-card">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
                   <div class="rp-account-name">u/${a.username || '—'}</div>
-                  <span class="rp-badge ${a.healthy !== false ? 'rp-badge-green' : 'rp-badge-red'}">${a.healthy !== false ? 'Healthy' : 'Issue'}</span>
+                  <span class="rp-badge ${a.enabled !== false ? 'rp-badge-green' : 'rp-badge-amber'}">${a.enabled !== false ? 'Enabled' : 'Disabled'}</span>
                 </div>
                 <div class="rp-account-tier rp-tier-${a.karma_tier || 'new'}" style="margin-bottom:6px">
                   ${(a.karma_tier || 'new').toUpperCase()} TIER
                 </div>
-                <div style="font-size:11px;color:var(--text3)">
-                  ${a.karma != null ? 'Karma: ' + _rpFmt(a.karma) : ''}
-                  ${a.daily_remaining != null ? ' &bull; ' + a.daily_remaining + ' remaining today' : ''}
+                <div style="font-size:11px;color:var(--text3);margin-bottom:10px">
+                  ${a.karma != null ? 'Karma: ' + _rpFmt(a.karma) : 'Karma: not synced'}
+                  ${a.daily_remaining != null ? ' &bull; ' + a.daily_remaining + ' remaining' : ''}
                   ${a.shadowbanned ? '<br><span style="color:var(--red)">Shadowbanned</span>' : ''}
+                  ${a.notes ? '<br><span style="color:var(--text4);font-style:italic">' + a.notes + '</span>' : ''}
+                </div>
+                <div style="display:flex;gap:6px">
+                  <button class="rp-ctrl-btn" style="padding:4px 10px;font-size:10px" onclick="rpToggleAccount('${a.username}', ${a.enabled === false})">${a.enabled === false ? 'Enable' : 'Disable'}</button>
+                  <button class="rp-ctrl-btn rp-ctrl-danger" style="padding:4px 10px;font-size:10px" onclick="rpDeleteAccount('${a.username}')">Remove</button>
                 </div>
               </div>
             `).join('')}
           </div>
-        ` : '<div class="rp-empty"><div class="rp-empty-msg">No accounts configured</div></div>'}
+        ` : '<div class="rp-empty"><div class="rp-empty-msg">No accounts configured</div><div class="rp-empty-sub">Add a Reddit account above to start posting</div></div>'}
       </div>
     </div>
 
@@ -6695,10 +6769,92 @@ async function rpRenderSettings(el) {
               </tr>`).join('')}
             </tbody>
           </table>
-        ` : '<div class="rp-empty"><div class="rp-empty-msg">No scheduled jobs</div><div class="rp-empty-sub">RedditPilot schedules are configured in the orchestrator</div></div>'}
+        ` : '<div class="rp-empty"><div class="rp-empty-msg">No scheduled jobs</div><div class="rp-empty-sub">Start the scheduler from the Command Center to enable autonomous cycles</div></div>'}
       </div>
     </div>
   `;
+}
+
+function rpClearAccountForm() {
+  ['rpAcctUsername','rpAcctPassword','rpAcctClientId','rpAcctClientSecret','rpAcctNotes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const sel = document.getElementById('rpAcctKarmaTier');
+  if (sel) sel.value = 'growing';
+  const status = document.getElementById('rpAcctStatus');
+  if (status) status.textContent = '';
+}
+
+async function rpSaveAccount() {
+  const status = document.getElementById('rpAcctStatus');
+  const payload = {
+    username: (document.getElementById('rpAcctUsername') || {}).value || '',
+    password: (document.getElementById('rpAcctPassword') || {}).value || '',
+    client_id: (document.getElementById('rpAcctClientId') || {}).value || '',
+    client_secret: (document.getElementById('rpAcctClientSecret') || {}).value || '',
+    karma_tier: (document.getElementById('rpAcctKarmaTier') || {}).value || 'new',
+    notes: (document.getElementById('rpAcctNotes') || {}).value || '',
+    enabled: true,
+  };
+  if (!payload.username || !payload.password || !payload.client_id || !payload.client_secret) {
+    if (status) { status.textContent = 'Username, password, client_id, and client_secret are all required'; status.style.color = 'var(--red)'; }
+    return;
+  }
+  if (status) { status.textContent = 'Saving...'; status.style.color = 'var(--text3)'; }
+  try {
+    const res = await fetch('/api/reddit/config/accounts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      if (status) { status.textContent = 'Saved. Reloading...'; status.style.color = '#4ade80'; }
+      rpClearAccountForm();
+      rpData.status = null;
+      setTimeout(() => rpRenderSettings(document.getElementById('rpTabContent')), 500);
+    } else {
+      if (status) { status.textContent = data.error || 'Save failed'; status.style.color = 'var(--red)'; }
+    }
+  } catch (e) {
+    if (status) { status.textContent = 'Network error: ' + e.message; status.style.color = 'var(--red)'; }
+  }
+}
+
+async function rpDeleteAccount(username) {
+  if (!confirm(`Remove Reddit account u/${username}? This cannot be undone.`)) return;
+  try {
+    const res = await fetch(`/api/reddit/config/accounts/${encodeURIComponent(username)}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.ok) {
+      rpData.status = null;
+      rpRenderSettings(document.getElementById('rpTabContent'));
+    } else {
+      alert(data.error || 'Delete failed');
+    }
+  } catch (e) {
+    alert('Network error: ' + e.message);
+  }
+}
+
+async function rpToggleAccount(username, enable) {
+  try {
+    const res = await fetch(`/api/reddit/config/accounts/${encodeURIComponent(username)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: enable }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      rpData.status = null;
+      rpRenderSettings(document.getElementById('rpTabContent'));
+    } else {
+      alert(data.error || 'Toggle failed');
+    }
+  } catch (e) {
+    alert('Network error: ' + e.message);
+  }
 }
 
 async function rpTestConnection() {
