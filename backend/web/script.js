@@ -4878,7 +4878,10 @@ function _renderContentTab(data) {
   if (uploadBtn) {
     uploadBtn.onclick = () => {
       const modal = document.getElementById('contentUploadModal');
-      if (modal) modal.style.display = '';
+      if (modal) {
+        modal.style.display = '';
+        modal.classList.add('open');
+      }
       _initContentUpload();
     };
   }
@@ -5053,7 +5056,12 @@ async function _confirmContentMapping() {
     const result = await res.json();
     if (statusEl) statusEl.textContent = 'Imported ' + result.imported + ' items!';
     const modal = document.getElementById('contentUploadModal');
-    setTimeout(() => { if (modal) modal.style.display = 'none'; }, 1500);
+    setTimeout(() => {
+      if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('open');
+      }
+    }, 1500);
     // Reload content tab
     _tabDataLoaded['content'] = false;
     _loadTabData('content');
@@ -6726,3 +6734,17 @@ if (dashboardMatch) {
 }
 loadClients();
 loadSchedules();
+
+// ── Global Escape-to-close for modals ──
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const docModal = document.getElementById('docViewerModal');
+  if (docModal && docModal.classList.contains('open')) { closeDocViewer(); return; }
+  const jobModal = document.getElementById('jobModal');
+  if (jobModal && jobModal.classList.contains('open')) { closeModal(); return; }
+  const uploadModal = document.getElementById('contentUploadModal');
+  if (uploadModal && uploadModal.classList.contains('open')) {
+    uploadModal.style.display = 'none';
+    uploadModal.classList.remove('open');
+  }
+});

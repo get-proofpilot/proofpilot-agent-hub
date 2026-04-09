@@ -4730,19 +4730,12 @@ body {
   color: var(--elec-blue);
 }
 
-/* ── Modal Overlay (for content upload) ── */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0,0,0,0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
+/* ── Modal Panel (for content upload) ── */
+/* NOTE: Previously this block also redefined `.modal-overlay` with
+   `display: flex` unconditionally, which overrode the main modal rule
+   (line ~1860) that uses `.modal-overlay.open` to toggle visibility.
+   That bug left the document viewer permanently visible because
+   removing the `.open` class had no effect. The duplicate was removed. */
 .modal-panel {
   background: var(--bg2);
   border: 1px solid var(--border);
