@@ -1978,6 +1978,340 @@ async def delete_schedule(job_id: str):
     return {"deleted": True}
 
 
+# ── AuditPilot agent routes ──────────────────────────────────────
+# AuditPilot is a multi-stage audit agent that collects data from
+# Firecrawl + DataForSEO, runs Strategic Brain analysis, and generates
+# Sales Audit v2 documents.
+
+class AuditRequest(BaseModel):
+    domain: str
+    service: str
+    location: str
+    prospect_name: Optional[str] = ""
+    competitor_domains: Optional[str] = ""
+    notes: Optional[str] = ""
+    client_id: Optional[int] = None
+    client_name: Optional[str] = ""
+
+
+@app.post("/api/agents/audit")
+async def run_auditpilot(req: AuditRequest):
+    """Run a full AuditPilot audit → SSE stream."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured")
+
+    from agents.auditpilot.engine import run_audit
+
+    job_id = str(uuid.uuid4())[:8]
+    audit_client = anthropic.AsyncAnthropic(api_key=api_key)
+    display_name = req.prospect_name or req.client_name or req.domain
+
+    async def event_stream():
+        full_content: list[str] = []
+
+        # Inject client brain context if available
+        strategy_ctx = ""
+        if req.client_id:
+            try:
+                from pipeline.brain_formatter import format_brain_for_workflow
+                brain_ctx = format_brain_for_workflow(_memory_store, req.client_id, "audit")
+                if brain_ctx:
+                    strategy_ctx = brain_ctx
+            except Exception:
+                pass
+
+        try:
+            inputs = {
+                "domain": req.domain,
+                "service": req.service,
+                "location": req.location,
+                "prospect_name": display_name,
+                "competitor_domains": req.competitor_domains,
+                "notes": req.notes,
+            }
+
+            async for text in run_audit(
+                client=audit_client,
+                inputs=inputs,
+                strategy_context=strategy_ctx,
+                client_name=display_name,
+            ):
+                full_content.append(text)
+                yield f"data: {json.dumps({'type': 'token', 'text': text})}\n\n"
+
+            content = "".join(full_content)
+            job_data = {
+                "content": content,
+                "client_name": display_name,
+                "workflow_title": "AuditPilot Sales Audit",
+                "workflow_id": "auditpilot",
+                "inputs": inputs,
+                "client_id": req.client_id,
+            }
+
+            await asyncio.to_thread(save_job, job_id, job_data)
+            docx_path = await asyncio.to_thread(generate_docx, job_id, job_data)
+            await asyncio.to_thread(update_docx_path, job_id, str(docx_path))
+
+            yield f"data: {json.dumps({'type': 'done', 'job_id': job_id, 'client_name': display_name, 'workflow_title': 'AuditPilot Sales Audit', 'workflow_id': 'auditpilot'})}\n\n"
+
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+# ── Pilot Core agent routes ──────────────────────────────────────
+# Pilot is the central AI coworker. These endpoints expose its
+# scheduled intelligence capabilities (briefing, escalation, context).
+
+@app.get("/api/pilot/context")
+async def pilot_context():
+    """Return the current client context snapshot."""
+    from agents.pilot.context_builder import build_context
+    return build_context(db_connect)
+
+
+@app.post("/api/pilot/briefing")
+async def pilot_briefing():
+    """Generate a morning briefing → SSE stream."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured")
+
+    from agents.pilot.briefing import generate_briefing
+
+    pilot_client = anthropic.AsyncAnthropic(api_key=api_key)
+
+    async def event_stream():
+        try:
+            async for text in generate_briefing(pilot_client, db_connect):
+                yield f"data: {json.dumps({'type': 'token', 'text': text})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
+    )
+
+
+@app.post("/api/pilot/escalation")
+async def pilot_escalation():
+    """Run an escalation check → SSE stream."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured")
+
+    from agents.pilot.escalation import run_escalation_check
+
+    pilot_client = anthropic.AsyncAnthropic(api_key=api_key)
+
+    async def event_stream():
+        try:
+            async for text in run_escalation_check(pilot_client, db_connect):
+                yield f"data: {json.dumps({'type': 'token', 'text': text})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
+    )
+
+
+# ── QAPilot agent routes ─────────────────────────────────────────
+# QAPilot runs a 7-layer QA review on SEO deliverables.
+
+class QARequest(BaseModel):
+    url: Optional[str] = ""
+    content: Optional[str] = ""
+    keyword: str
+    page_type: Optional[str] = "service-page"
+    notes: Optional[str] = ""
+    client_id: Optional[int] = None
+    client_name: Optional[str] = ""
+
+
+@app.post("/api/agents/qa")
+async def run_qapilot(req: QARequest):
+    """Run a QAPilot 7-layer review → SSE stream."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured")
+
+    from agents.qapilot.engine import run_qa
+
+    job_id = str(uuid.uuid4())[:8]
+    qa_client = anthropic.AsyncAnthropic(api_key=api_key)
+    display_name = req.client_name or "QA Review"
+
+    async def event_stream():
+        full_content: list[str] = []
+
+        strategy_ctx = ""
+        if req.client_id:
+            try:
+                from pipeline.brain_formatter import format_brain_for_workflow
+                brain_ctx = format_brain_for_workflow(_memory_store, req.client_id, "qa")
+                if brain_ctx:
+                    strategy_ctx = brain_ctx
+            except Exception:
+                pass
+
+        try:
+            inputs = {
+                "url": req.url,
+                "content": req.content,
+                "keyword": req.keyword,
+                "page_type": req.page_type,
+                "notes": req.notes,
+            }
+
+            async for text in run_qa(
+                client=qa_client,
+                inputs=inputs,
+                strategy_context=strategy_ctx,
+                client_name=display_name,
+            ):
+                full_content.append(text)
+                yield f"data: {json.dumps({'type': 'token', 'text': text})}\n\n"
+
+            content = "".join(full_content)
+            job_data = {
+                "content": content,
+                "client_name": display_name,
+                "workflow_title": "QAPilot Review",
+                "workflow_id": "qapilot",
+                "inputs": inputs,
+                "client_id": req.client_id,
+            }
+
+            await asyncio.to_thread(save_job, job_id, job_data)
+            docx_path = await asyncio.to_thread(generate_docx, job_id, job_data)
+            await asyncio.to_thread(update_docx_path, job_id, str(docx_path))
+
+            yield f"data: {json.dumps({'type': 'done', 'job_id': job_id, 'client_name': display_name, 'workflow_title': 'QAPilot Review', 'workflow_id': 'qapilot'})}\n\n"
+
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+# ── StrategyPilot agent routes ───────────────────────────────────
+# StrategyPilot builds full SEO strategy documents with page system
+# recommendations, architecture planning, and ROI modeling.
+
+class StrategyRequest(BaseModel):
+    domain: str
+    service: str
+    location: str
+    business_name: Optional[str] = ""
+    competitor_domains: Optional[str] = ""
+    priorities: Optional[str] = ""
+    notes: Optional[str] = ""
+    client_id: Optional[int] = None
+    client_name: Optional[str] = ""
+
+
+@app.post("/api/agents/strategy")
+async def run_strategypilot(req: StrategyRequest):
+    """Run a full StrategyPilot strategy document → SSE stream."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured")
+
+    from agents.strategypilot.engine import run_strategy
+
+    job_id = str(uuid.uuid4())[:8]
+    strat_client = anthropic.AsyncAnthropic(api_key=api_key)
+    display_name = req.business_name or req.client_name or req.domain
+
+    async def event_stream():
+        full_content: list[str] = []
+
+        strategy_ctx = ""
+        if req.client_id:
+            try:
+                from pipeline.brain_formatter import format_brain_for_workflow
+                brain_ctx = format_brain_for_workflow(_memory_store, req.client_id, "strategy")
+                if brain_ctx:
+                    strategy_ctx = brain_ctx
+            except Exception:
+                pass
+
+        try:
+            inputs = {
+                "domain": req.domain,
+                "service": req.service,
+                "location": req.location,
+                "business_name": display_name,
+                "competitor_domains": req.competitor_domains,
+                "priorities": req.priorities,
+                "notes": req.notes,
+            }
+
+            async for text in run_strategy(
+                client=strat_client,
+                inputs=inputs,
+                strategy_context=strategy_ctx,
+                client_name=display_name,
+            ):
+                full_content.append(text)
+                yield f"data: {json.dumps({'type': 'token', 'text': text})}\n\n"
+
+            content = "".join(full_content)
+            job_data = {
+                "content": content,
+                "client_name": display_name,
+                "workflow_title": "StrategyPilot SEO Strategy",
+                "workflow_id": "strategypilot",
+                "inputs": inputs,
+                "client_id": req.client_id,
+            }
+
+            await asyncio.to_thread(save_job, job_id, job_data)
+            docx_path = await asyncio.to_thread(generate_docx, job_id, job_data)
+            await asyncio.to_thread(update_docx_path, job_id, str(docx_path))
+
+            yield f"data: {json.dumps({'type': 'done', 'job_id': job_id, 'client_name': display_name, 'workflow_title': 'StrategyPilot SEO Strategy', 'workflow_id': 'strategypilot'})}\n\n"
+
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
 # ── RedditPilot routes (embedded agent) ──────────────────────────
 # RedditPilot runs in-process via the vendored `redditpilot` package.
 # reddit_agent.py manages a lazy singleton orchestrator. These routes

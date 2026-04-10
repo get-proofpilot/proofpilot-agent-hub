@@ -132,6 +132,40 @@
           RedditPilot
           <span class="nav-badge nav-badge-agent">AGENT</span>
         </a>
+        <a href="#" class="nav-item nav-item-agent" data-view="auditpilot" id="nav-auditpilot">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M9 11l3 3L22 4"/>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+          </svg>
+          AuditPilot
+          <span class="nav-badge nav-badge-agent">AGENT</span>
+        </a>
+        <a href="#" class="nav-item nav-item-agent" data-view="strategypilot" id="nav-strategypilot">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+          </svg>
+          StrategyPilot
+          <span class="nav-badge nav-badge-agent">AGENT</span>
+        </a>
+        <a href="#" class="nav-item nav-item-agent" data-view="qapilot" id="nav-qapilot">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="9" y1="15" x2="15" y2="15"/>
+            <line x1="12" y1="12" x2="12" y2="18"/>
+          </svg>
+          QAPilot
+          <span class="nav-badge nav-badge-agent">AGENT</span>
+        </a>
+        <a href="#" class="nav-item nav-item-agent" data-view="pilot" id="nav-pilot">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+          Pilot
+          <span class="nav-badge nav-badge-agent">AGENT</span>
+        </a>
         <a href="/page-design" class="nav-item" target="_blank" id="nav-page-design">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <rect x="3" y="3" width="18" height="18" rx="2" />
@@ -1014,6 +1048,235 @@
             <button class="ap-toggle-btn active" onclick="apToggleView('terminal')">Terminal</button>
             <button class="ap-toggle-btn" onclick="apToggleView('preview')">Preview</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         VIEW: PILOT
+    ═══════════════════════════════ -->
+    <div class="view" id="view-pilot">
+      <div class="ap-audit-layout">
+        <div class="ap-audit-header">
+          <div>
+            <h2 class="ap-audit-title">Pilot</h2>
+            <p class="ap-audit-subtitle">AI operations coworker — client monitoring, briefings, escalations</p>
+          </div>
+          <span class="nav-badge nav-badge-agent" style="font-size:11px">AGENT</span>
+        </div>
+
+        <!-- Command Buttons -->
+        <div class="pilot-commands">
+          <button class="pilot-cmd-btn" onclick="runPilotCommand('briefing')">
+            <span class="pilot-cmd-icon">☀️</span>
+            <span class="pilot-cmd-label">Morning Briefing</span>
+            <span class="pilot-cmd-desc">Daily status across all clients</span>
+          </button>
+          <button class="pilot-cmd-btn" onclick="runPilotCommand('escalation')">
+            <span class="pilot-cmd-icon">🚨</span>
+            <span class="pilot-cmd-label">Escalation Check</span>
+            <span class="pilot-cmd-desc">Flag overdue and at-risk clients</span>
+          </button>
+          <button class="pilot-cmd-btn" onclick="loadPilotContext()">
+            <span class="pilot-cmd-icon">📊</span>
+            <span class="pilot-cmd-label">Client Pulse</span>
+            <span class="pilot-cmd-desc">Raw context snapshot</span>
+          </button>
+        </div>
+
+        <!-- Output -->
+        <div class="ap-audit-output" id="pilotOutput" style="display:none">
+          <div class="ap-audit-output-header">
+            <span class="ap-audit-output-title" id="pilotOutputTitle">Output</span>
+          </div>
+          <div class="ap-audit-stream" id="pilotStream"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         VIEW: QAPILOT
+    ═══════════════════════════════ -->
+    <div class="view" id="view-qapilot">
+      <div class="ap-audit-layout">
+        <div class="ap-audit-header">
+          <div>
+            <h2 class="ap-audit-title">QAPilot</h2>
+            <p class="ap-audit-subtitle">7-layer QA review for SEO deliverables</p>
+          </div>
+          <span class="nav-badge nav-badge-agent" style="font-size:11px">AGENT</span>
+        </div>
+
+        <div class="ap-audit-form">
+          <div class="ap-audit-form-grid">
+            <div class="ap-audit-field">
+              <label>Page URL (or paste content below)</label>
+              <input type="text" id="qaUrl" placeholder="https://client-site.com/service-page" />
+            </div>
+            <div class="ap-audit-field">
+              <label>Target Keyword *</label>
+              <input type="text" id="qaKeyword" placeholder="electrician chandler az" />
+            </div>
+            <div class="ap-audit-field">
+              <label>Client Name</label>
+              <input type="text" id="qaClientName" placeholder="All Thingz Electric" />
+            </div>
+            <div class="ap-audit-field">
+              <label>Page Type</label>
+              <select id="qaPageType">
+                <option value="service-page">Service Page</option>
+                <option value="location-page">Location Page</option>
+                <option value="blog-post">Blog Post</option>
+              </select>
+            </div>
+            <div class="ap-audit-field" style="grid-column: 1 / -1">
+              <label>Page Content (paste here if no URL)</label>
+              <textarea id="qaContent" rows="4" placeholder="Paste the page content here if you don't have a live URL..."></textarea>
+            </div>
+            <div class="ap-audit-field" style="grid-column: 1 / -1">
+              <label>Task Brief / Notes (optional)</label>
+              <textarea id="qaNotes" rows="2" placeholder="Any context about what this page should accomplish"></textarea>
+            </div>
+          </div>
+          <div class="ap-audit-actions">
+            <button class="ap-audit-run-btn" id="qaRunBtn" onclick="runQAPilot()">
+              Run QA Review
+            </button>
+          </div>
+        </div>
+
+        <div class="ap-audit-output" id="qaOutput" style="display:none">
+          <div class="ap-audit-output-header">
+            <span class="ap-audit-output-title">QA Report</span>
+            <div>
+              <button class="ap-audit-dl-btn" id="qaDownloadBtn" style="display:none" onclick="downloadQADoc()">Download .docx</button>
+            </div>
+          </div>
+          <div class="ap-audit-stream" id="qaStream"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         VIEW: STRATEGYPILOT
+    ═══════════════════════════════ -->
+    <div class="view" id="view-strategypilot">
+      <div class="ap-audit-layout">
+        <div class="ap-audit-header">
+          <div>
+            <h2 class="ap-audit-title">StrategyPilot</h2>
+            <p class="ap-audit-subtitle">SEO strategy documents that tell clients what to build and why</p>
+          </div>
+          <span class="nav-badge nav-badge-agent" style="font-size:11px">AGENT</span>
+        </div>
+
+        <div class="ap-audit-form">
+          <div class="ap-audit-form-grid">
+            <div class="ap-audit-field">
+              <label>Domain *</label>
+              <input type="text" id="stratDomain" placeholder="example.com" />
+            </div>
+            <div class="ap-audit-field">
+              <label>Business Name</label>
+              <input type="text" id="stratBusinessName" placeholder="Acme Electric" />
+            </div>
+            <div class="ap-audit-field">
+              <label>Service Vertical *</label>
+              <input type="text" id="stratService" placeholder="electrician" />
+            </div>
+            <div class="ap-audit-field">
+              <label>Location *</label>
+              <input type="text" id="stratLocation" placeholder="Chandler, AZ" />
+            </div>
+            <div class="ap-audit-field" style="grid-column: 1 / -1">
+              <label>Competitor Domains (comma-separated, optional)</label>
+              <input type="text" id="stratCompetitors" placeholder="competitor1.com, competitor2.com" />
+            </div>
+            <div class="ap-audit-field">
+              <label>Known Priorities (optional)</label>
+              <input type="text" id="stratPriorities" placeholder="service pages, location expansion" />
+            </div>
+            <div class="ap-audit-field">
+              <label>Notes (optional)</label>
+              <textarea id="stratNotes" rows="2" placeholder="Context about the client or engagement"></textarea>
+            </div>
+          </div>
+          <div class="ap-audit-actions">
+            <button class="ap-audit-run-btn" id="stratRunBtn" onclick="runStrategyPilot()">
+              Build Strategy
+            </button>
+          </div>
+        </div>
+
+        <div class="ap-audit-output" id="stratOutput" style="display:none">
+          <div class="ap-audit-output-header">
+            <span class="ap-audit-output-title">Strategy Document</span>
+            <div>
+              <button class="ap-audit-dl-btn" id="stratDownloadBtn" style="display:none" onclick="downloadStrategyDoc()">Download .docx</button>
+            </div>
+          </div>
+          <div class="ap-audit-stream" id="stratStream"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════
+         VIEW: AUDITPILOT
+    ═══════════════════════════════ -->
+    <div class="view" id="view-auditpilot">
+      <div class="ap-audit-layout">
+        <div class="ap-audit-header">
+          <div>
+            <h2 class="ap-audit-title">AuditPilot</h2>
+            <p class="ap-audit-subtitle">Sales-focused website audits that close deals</p>
+          </div>
+          <span class="nav-badge nav-badge-agent" style="font-size:11px">AGENT</span>
+        </div>
+
+        <!-- Input Form -->
+        <div class="ap-audit-form">
+          <div class="ap-audit-form-grid">
+            <div class="ap-audit-field">
+              <label>Prospect Domain *</label>
+              <input type="text" id="auditDomain" placeholder="example.com" />
+            </div>
+            <div class="ap-audit-field">
+              <label>Prospect Name</label>
+              <input type="text" id="auditProspectName" placeholder="Big Ben Electric" />
+            </div>
+            <div class="ap-audit-field">
+              <label>Service Vertical *</label>
+              <input type="text" id="auditService" placeholder="electrician" />
+            </div>
+            <div class="ap-audit-field">
+              <label>Location *</label>
+              <input type="text" id="auditLocation" placeholder="Chandler, AZ" />
+            </div>
+            <div class="ap-audit-field" style="grid-column: 1 / -1">
+              <label>Competitor Domains (comma-separated, optional)</label>
+              <input type="text" id="auditCompetitors" placeholder="competitor1.com, competitor2.com" />
+            </div>
+            <div class="ap-audit-field" style="grid-column: 1 / -1">
+              <label>Sales Context (optional)</label>
+              <textarea id="auditNotes" rows="2" placeholder="Any context about the prospect — upcoming call, pain points mentioned, etc."></textarea>
+            </div>
+          </div>
+          <div class="ap-audit-actions">
+            <button class="ap-audit-run-btn" id="auditRunBtn" onclick="runAuditPilot()">
+              Run Full Audit
+            </button>
+          </div>
+        </div>
+
+        <!-- Output Area -->
+        <div class="ap-audit-output" id="auditOutput" style="display:none">
+          <div class="ap-audit-output-header">
+            <span class="ap-audit-output-title">Audit Output</span>
+            <div>
+              <button class="ap-audit-dl-btn" id="auditDownloadBtn" style="display:none" onclick="downloadAuditDoc()">Download .docx</button>
+            </div>
+          </div>
+          <div class="ap-audit-stream" id="auditStream"></div>
         </div>
       </div>
     </div>

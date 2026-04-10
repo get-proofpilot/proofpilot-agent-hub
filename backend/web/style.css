@@ -6399,6 +6399,77 @@ body.dashboard-standalone {
 .nav-item-reddit.active { border-left-color: #FF4500 !important; }
 .nav-item-reddit.active svg { color: #FF4500; }
 
+/* ── Pilot Core ── */
+.pilot-commands {
+  display: flex; gap: 12px; padding: 20px 28px;
+  border-bottom: 1px solid var(--border);
+}
+.pilot-cmd-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: flex-start;
+  padding: 16px 18px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--panel-bg); cursor: pointer; transition: all var(--t-fast);
+  text-align: left;
+}
+.pilot-cmd-btn:hover { border-color: var(--elec-blue); background: rgba(0,81,255,0.04); }
+.pilot-cmd-icon { font-size: 20px; margin-bottom: 6px; }
+.pilot-cmd-label { font-weight: 600; font-size: 13px; color: var(--text); }
+.pilot-cmd-desc { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+
+/* ── AuditPilot ── */
+.ap-audit-layout { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+.ap-audit-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 20px 28px; border-bottom: 1px solid var(--border);
+}
+.ap-audit-title { font-family: var(--font-display); font-size: 22px; color: var(--text); margin: 0; }
+.ap-audit-subtitle { font-size: 13px; color: var(--text-dim); margin: 4px 0 0; }
+.ap-audit-form { padding: 20px 28px; border-bottom: 1px solid var(--border); }
+.ap-audit-form-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+}
+.ap-audit-field label {
+  display: block; font-size: 12px; font-weight: 600; color: var(--text-dim);
+  margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.ap-audit-field input,
+.ap-audit-field textarea,
+.ap-audit-field select {
+  width: 100%; padding: 9px 12px; border: 1px solid var(--border);
+  border-radius: 6px; background: var(--panel-bg); color: var(--text);
+  font-size: 13px; font-family: var(--font-body);
+}
+.ap-audit-field input:focus,
+.ap-audit-field textarea:focus,
+.ap-audit-field select:focus {
+  outline: none; border-color: var(--elec-blue);
+}
+.ap-audit-actions { margin-top: 16px; display: flex; gap: 10px; }
+.ap-audit-run-btn {
+  padding: 10px 28px; border: none; border-radius: 6px; cursor: pointer;
+  font-size: 14px; font-weight: 600; font-family: var(--font-body);
+  background: var(--elec-blue); color: #fff; transition: opacity var(--t-fast);
+}
+.ap-audit-run-btn:hover { opacity: 0.85; }
+.ap-audit-run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ap-audit-output { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+.ap-audit-output-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 28px; border-bottom: 1px solid var(--border);
+}
+.ap-audit-output-title { font-weight: 600; font-size: 14px; color: var(--text); }
+.ap-audit-dl-btn {
+  padding: 6px 16px; border: 1px solid var(--elec-blue); border-radius: 5px;
+  background: transparent; color: var(--elec-blue); font-size: 12px;
+  font-weight: 600; cursor: pointer; transition: all var(--t-fast);
+}
+.ap-audit-dl-btn:hover { background: var(--elec-blue); color: #fff; }
+.ap-audit-stream {
+  flex: 1; overflow-y: auto; padding: 20px 28px;
+  font-family: var(--font-code); font-size: 12px; line-height: 1.7;
+  color: var(--text); white-space: pre-wrap; word-break: break-word;
+}
+
+/* ── RedditPilot ── */
 /* Layout */
 .rp-layout { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
 .rp-header {

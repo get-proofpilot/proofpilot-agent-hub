@@ -232,7 +232,8 @@ function showView(viewId) {
     jobs: 'Agent Tasks', reporting: 'Reporting', reports: 'Reports', content: 'Content',
     logs: 'Activity Log', ads: 'Ad Studio', campaigns: 'Campaigns', schedules: 'Schedules',
     training: 'Training', 'client-hub': 'Client Hub', autopilot: 'AutoPilot AI',
-    redditpilot: 'RedditPilot'
+    auditpilot: 'AuditPilot', strategypilot: 'StrategyPilot', qapilot: 'QAPilot',
+    pilot: 'Pilot', redditpilot: 'RedditPilot'
   };
   if (title) title.textContent = titles[viewId] || viewId;
 
@@ -256,6 +257,10 @@ function showView(viewId) {
   if (viewId === 'client-hub') renderClientHub();
   if (viewId === 'schedules') renderSchedules();
   if (viewId === 'autopilot') renderAutoPilot();
+  if (viewId === 'auditpilot') { /* static form, no render needed */ }
+  if (viewId === 'strategypilot') { /* static form, no render needed */ }
+  if (viewId === 'qapilot') { /* static form, no render needed */ }
+  if (viewId === 'pilot') { /* static buttons, no render needed */ }
   if (viewId === 'redditpilot') renderRedditPilot();
 }
 
@@ -5752,6 +5757,265 @@ function _rpGauge(label, value, unit, severity) {
     </div>
   </div>`;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   PILOT CORE
+   ═══════════════════════════════════════════════════════════════════ */
+
+async function runPilotCommand(command) {
+  const output = document.getElementById('pilotOutput');
+  const stream = document.getElementById('pilotStream');
+  const title = document.getElementById('pilotOutputTitle');
+
+  const labels = { briefing: 'Morning Briefing', escalation: 'Escalation Check' };
+  title.textContent = labels[command] || command;
+  output.style.display = 'block';
+  stream.innerHTML = '';
+
+  try {
+    const resp = await fetch(`/api/pilot/${command}`, { method: 'POST' });
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.type === 'token') {
+            stream.innerHTML += data.text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            stream.scrollTop = stream.scrollHeight;
+          }
+        } catch (e) { /* skip */ }
+      }
+    }
+  } catch (e) {
+    stream.innerHTML += `\n<span style="color:#ff4444">Error: ${e.message}</span>`;
+  }
+}
+
+async function loadPilotContext() {
+  const output = document.getElementById('pilotOutput');
+  const stream = document.getElementById('pilotStream');
+  const title = document.getElementById('pilotOutputTitle');
+
+  title.textContent = 'Client Pulse';
+  output.style.display = 'block';
+  stream.innerHTML = 'Loading context...';
+
+  try {
+    const resp = await fetch('/api/pilot/context');
+    const ctx = await resp.json();
+
+    let html = `Timestamp: ${ctx.timestamp}\nTotal clients: ${ctx.total_clients}\n`;
+    html += `Overdue: ${ctx.overdue_clients.length ? ctx.overdue_clients.join(', ') : 'None'}\n`;
+    html += `Attention: ${ctx.attention_clients.length ? ctx.attention_clients.join(', ') : 'None'}\n\n`;
+
+    for (const c of ctx.clients) {
+      const icon = c.status === 'overdue' ? '🔴' : c.status === 'attention' ? '🟡' : c.status === 'unknown' ? '⚪' : '🟢';
+      html += `${icon} ${c.name} (T${c.tier}) — ${c.manager}`;
+      if (c.days_since_last_work != null) html += ` — ${c.days_since_last_work}d since last work`;
+      if (c.has_roadmap) html += ` — ${c.roadmap_pages_done}/${c.roadmap_pages_total} pages done`;
+      html += '\n';
+    }
+
+    stream.innerHTML = html;
+  } catch (e) {
+    stream.innerHTML = `Error: ${e.message}`;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   QAPILOT
+   ═══════════════════════════════════════════════════════════════════ */
+
+let qaJobId = null;
+
+async function runQAPilot() {
+  const url = document.getElementById('qaUrl')?.value.trim();
+  const keyword = document.getElementById('qaKeyword')?.value.trim();
+  const clientNameVal = document.getElementById('qaClientName')?.value.trim();
+  const pageType = document.getElementById('qaPageType')?.value;
+  const content = document.getElementById('qaContent')?.value.trim();
+  const notes = document.getElementById('qaNotes')?.value.trim();
+
+  if (!keyword) { alert('Target keyword is required.'); return; }
+  if (!url && !content) { alert('Provide a URL or paste content.'); return; }
+
+  const btn = document.getElementById('qaRunBtn');
+  const output = document.getElementById('qaOutput');
+  const stream = document.getElementById('qaStream');
+  const dlBtn = document.getElementById('qaDownloadBtn');
+
+  btn.disabled = true;
+  btn.textContent = 'Running QA review...';
+  output.style.display = 'block';
+  stream.innerHTML = '';
+  dlBtn.style.display = 'none';
+  qaJobId = null;
+
+  await _streamAgentSSE('/api/agents/qa', {
+    url, keyword, content, page_type: pageType, notes,
+    client_name: clientNameVal || 'QA Review',
+  }, stream, btn, dlBtn, 'Run QA Review', (data) => { qaJobId = data.job_id; });
+}
+
+function downloadQADoc() {
+  if (qaJobId) window.open(`/api/download/${qaJobId}`, '_blank');
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   STRATEGYPILOT
+   ═══════════════════════════════════════════════════════════════════ */
+
+let stratJobId = null;
+
+async function runStrategyPilot() {
+  const domain = document.getElementById('stratDomain')?.value.trim();
+  const service = document.getElementById('stratService')?.value.trim();
+  const location = document.getElementById('stratLocation')?.value.trim();
+  const businessName = document.getElementById('stratBusinessName')?.value.trim();
+  const competitors = document.getElementById('stratCompetitors')?.value.trim();
+  const priorities = document.getElementById('stratPriorities')?.value.trim();
+  const notes = document.getElementById('stratNotes')?.value.trim();
+
+  if (!domain || !service || !location) {
+    alert('Domain, service, and location are required.');
+    return;
+  }
+
+  const btn = document.getElementById('stratRunBtn');
+  const output = document.getElementById('stratOutput');
+  const stream = document.getElementById('stratStream');
+  const dlBtn = document.getElementById('stratDownloadBtn');
+
+  btn.disabled = true;
+  btn.textContent = 'Building strategy...';
+  output.style.display = 'block';
+  stream.innerHTML = '';
+  dlBtn.style.display = 'none';
+  stratJobId = null;
+
+  await _streamAgentSSE('/api/agents/strategy', {
+    domain, service, location,
+    business_name: businessName || domain,
+    competitor_domains: competitors, priorities, notes,
+    client_name: businessName || domain,
+  }, stream, btn, dlBtn, 'Build Strategy', (data) => { stratJobId = data.job_id; });
+}
+
+function downloadStrategyDoc() {
+  if (stratJobId) window.open(`/api/download/${stratJobId}`, '_blank');
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   AUDITPILOT
+   ═══════════════════════════════════════════════════════════════════ */
+
+let auditJobId = null;
+let auditEventSource = null;
+
+/**
+ * Shared SSE stream reader for agent endpoints.
+ * Handles non-200 responses, stream parsing, button re-enable on all exit paths.
+ */
+async function _streamAgentSSE(url, body, streamEl, btnEl, dlBtnEl, btnLabel, onDone) {
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => resp.statusText);
+      streamEl.innerHTML += `\n<span style="color:#ff4444">Server error (${resp.status}): ${errText}</span>`;
+      btnEl.disabled = false;
+      btnEl.textContent = btnLabel;
+      return;
+    }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.type === 'token') {
+            streamEl.innerHTML += data.text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            streamEl.scrollTop = streamEl.scrollHeight;
+          } else if (data.type === 'done') {
+            if (onDone) onDone(data);
+            if (dlBtnEl && data.job_id) dlBtnEl.style.display = 'inline-block';
+          } else if (data.type === 'error') {
+            streamEl.innerHTML += `\n\n<span style="color:#ff4444">Error: ${data.message}</span>`;
+          }
+        } catch (e) { /* skip malformed SSE */ }
+      }
+    }
+  } catch (e) {
+    streamEl.innerHTML += `\n\n<span style="color:#ff4444">Connection error: ${e.message}</span>`;
+  } finally {
+    // Always re-enable the button when done, regardless of how the stream ended
+    btnEl.disabled = false;
+    btnEl.textContent = btnLabel;
+  }
+}
+
+async function runAuditPilot() {
+  const domain = document.getElementById('auditDomain')?.value.trim();
+  const service = document.getElementById('auditService')?.value.trim();
+  const location = document.getElementById('auditLocation')?.value.trim();
+  const prospectName = document.getElementById('auditProspectName')?.value.trim();
+  const competitors = document.getElementById('auditCompetitors')?.value.trim();
+  const notes = document.getElementById('auditNotes')?.value.trim();
+
+  if (!domain || !service || !location) {
+    alert('Domain, service, and location are required.');
+    return;
+  }
+
+  const btn = document.getElementById('auditRunBtn');
+  const output = document.getElementById('auditOutput');
+  const stream = document.getElementById('auditStream');
+  const dlBtn = document.getElementById('auditDownloadBtn');
+
+  btn.disabled = true;
+  btn.textContent = 'Running audit...';
+  output.style.display = 'block';
+  stream.innerHTML = '';
+  dlBtn.style.display = 'none';
+  auditJobId = null;
+
+  await _streamAgentSSE('/api/agents/audit', {
+    domain, service, location,
+    prospect_name: prospectName || domain,
+    competitor_domains: competitors, notes,
+    client_name: prospectName || domain,
+  }, stream, btn, dlBtn, 'Run Full Audit', (data) => { auditJobId = data.job_id; });
+}
+
+function downloadAuditDoc() {
+  if (auditJobId) window.open(`/api/download/${auditJobId}`, '_blank');
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   REDDITPILOT
+   ═══════════════════════════════════════════════════════════════════ */
 
 async function renderRedditPilot() {
   const container = document.getElementById('rpTabContent');
