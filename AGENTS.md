@@ -47,6 +47,38 @@ railway variables
 railway variables set KEY=value
 ```
 
+## Local install (Claude Code agents + skills)
+
+Every Pilot in `backend/agents/` and every workflow in `backend/workflows/`
+is available as a Claude Code agent or skill on your laptop. One command:
+
+```bash
+./scripts/install-local.sh
+```
+
+This creates symlinks in `~/.claude/agents/` (10 pilot agents, named
+`proofpilot-<pilot>.md`) and `~/.claude/skills/` (10 pilot skills +
+25 `pp-<workflow>` skills).
+
+After install:
+- From any Claude Code session, say *"use auditpilot to audit acme.com"*
+  and `proofpilot-auditpilot` is invoked with its skill auto-loaded.
+- `git pull` on this repo updates all agents/skills in place — no
+  re-install needed.
+
+Preview what would happen:
+
+```bash
+./scripts/install-local.sh --dry-run
+```
+
+Uninstall (only removes symlinks pointing into this repo — leaves
+unrelated Claude Code skills alone):
+
+```bash
+./scripts/uninstall-local.sh
+```
+
 ## File layout
 
 ```
