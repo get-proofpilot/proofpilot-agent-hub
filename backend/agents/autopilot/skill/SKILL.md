@@ -49,6 +49,33 @@ Do NOT "manually follow the methodology" or "build content directly." The whole 
 
 Output: Production-ready HTML file with QA score.
 
+## Three-Brain Design Architecture (Apr 23 2026 — canonical)
+
+**Read this first:** `references/three-brain-architecture.md`
+
+Every AutoPilot design run now has three explicit stages with distinct brains:
+
+1. **Brand Brain** — captures what the brand IS (logo, colors, fonts, real assets). Reporter, no opinions. Output: `brand-brain.json` + verdict PRESERVE+ELEVATE / PARTIAL ANCHOR / INVENT.
+2. **Designer Brain** — decides what to preserve, elevate, or invent. Reads the Brand Brain's facts + gold-standard playbook + inspiration guide, produces a concrete `design-spec.md`. Hard rule: **don't add colors the logo doesn't have**; **don't replace typography that has brand equity unless the current type is truly generic**.
+3. **Website Brain** — executor. Applies the spec to a template from the WebsitePilot library. No re-deciding, no re-inventing.
+
+Doctrine files:
+- `references/three-brain-architecture.md` — the sequenced architecture
+- `references/brand-archaeology.md` — Brand Brain procedure + schema
+- `references/design-strategist.md` — Designer Brain procedure + spec template
+- `references/gold-standard-playbook.md` — cross-vertical patterns + "remove the logo" success test
+- `references/inspiration/inspiration-guide.md` — ProofPilot's canonical list of gold-standard home-service sites (Hook Agency, 180 Sites, Be The Anomaly, Get Local Leads) + the 3 pillars (Cohesive · Detail · Dynamic)
+
+## Running locally (no API, no VPS)
+
+When AutoPilot runs inside a Claude Code session (not the Railway backend):
+
+- Brand Brain = Claude + Playwright + Python (Pillow for logo pixel analysis) + Bash (asset downloads). Prefer Firecrawl if available (better `extract` schema for brand fields); fallback: Playwright page.evaluate + raw HTML parsing.
+- Designer Brain = Claude reasoning. No model swap needed.
+- Website Brain = Claude writing/editing TS/TSX/CSS on a cloned WebsitePilot template.
+
+Dispatched as sequential subagents in the same session. Each reads the previous stage's output file.
+
 ## Design Quality Upgrades (Apr 23 2026)
 
 **Observed failure mode** when running AutoPilot locally (Claude Code skill mode): demos looked "template-skinned" — didn't pull the client's real logo, didn't use their actual colors, didn't feel custom. The root cause: Research stage pulled brand signals as a JSON blob that Design stage ignored, jumping straight from "strategy" to "render HTML."
