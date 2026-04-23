@@ -10,9 +10,18 @@
 set -euo pipefail
 
 DRY_RUN=false
-if [[ "${1:-}" == "--dry-run" ]]; then
-  DRY_RUN=true
-fi
+case "${1:-}" in
+  "") ;;
+  --dry-run) DRY_RUN=true ;;
+  -h|--help)
+    echo "Usage: $0 [--dry-run]"
+    exit 0
+    ;;
+  *)
+    echo "Usage: $0 [--dry-run]" >&2
+    exit 2
+    ;;
+esac
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 AGENTS_SRC="$REPO_ROOT/backend/agents"
@@ -21,7 +30,9 @@ WORKFLOW_SKILLS_SRC="$REPO_ROOT/backend/workflows/skills"
 CLAUDE_AGENTS="$HOME/.claude/agents"
 CLAUDE_SKILLS="$HOME/.claude/skills"
 
-mkdir -p "$CLAUDE_AGENTS" "$CLAUDE_SKILLS"
+if [[ "$DRY_RUN" == "false" ]]; then
+  mkdir -p "$CLAUDE_AGENTS" "$CLAUDE_SKILLS"
+fi
 
 linked=0
 skipped=0
