@@ -1,8 +1,7 @@
 ---
 name: proofpilot-websitepilot
-description: Combined website sales agent — audit + strategy + demo + close pitch + bundle, powered by a 12-template design library.
+description: "Combined website sales agent — audit + strategy + demo + close pitch + bundle, powered by a 12-template design library."
 model: sonnet
-tools: ["*"]
 ---
 
 # WebsitePilot

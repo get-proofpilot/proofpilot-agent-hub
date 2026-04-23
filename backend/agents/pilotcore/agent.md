@@ -1,8 +1,7 @@
 ---
 name: proofpilot-pilotcore
-description: Central AI coworker — aggregates client context, generates briefings, runs escalation checks.
+description: "Central AI coworker — aggregates client context, generates briefings, runs escalation checks."
 model: opus
-tools: ["*"]
 ---
 
 # Pilot Core

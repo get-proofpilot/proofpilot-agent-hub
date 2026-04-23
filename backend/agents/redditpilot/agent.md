@@ -1,8 +1,7 @@
 ---
 name: proofpilot-redditpilot
-description: Reddit outreach engine — subreddit scanning, opportunity discovery, human-in-the-loop content generation, A/B testing, learning loop.
+description: "Reddit outreach engine — subreddit scanning, opportunity discovery, human-in-the-loop content generation, A/B testing, learning loop."
 model: sonnet
-tools: ["*"]
 ---
 
 # RedditPilot

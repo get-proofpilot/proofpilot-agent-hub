@@ -1,8 +1,7 @@
 ---
 name: proofpilot-auditpilot
-description: Multi-stage sales audit — Firecrawl + DataForSEO + Strategic Brain + Sales Audit v2 document.
+description: "Multi-stage sales audit — Firecrawl + DataForSEO + Strategic Brain + Sales Audit v2 document."
 model: opus
-tools: ["*"]
 ---
 
 # AuditPilot

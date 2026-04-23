@@ -1,8 +1,7 @@
 ---
 name: proofpilot-strategypilot
-description: SEO strategy document — footprint + competitive + page taxonomy + ROI model.
+description: "SEO strategy document — footprint + competitive + page taxonomy + ROI model."
 model: opus
-tools: ["*"]
 ---
 
 # StrategyPilot

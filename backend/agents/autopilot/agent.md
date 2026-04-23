@@ -1,8 +1,7 @@
 ---
 name: proofpilot-autopilot
-description: 6-stage SEO page builder — research, strategy, copywrite, design, images, QA with revision loop.
+description: "6-stage SEO page builder — research, strategy, copywrite, design, images, QA with revision loop."
 model: opus
-tools: ["*"]
 ---
 
 # AutoPilot AI

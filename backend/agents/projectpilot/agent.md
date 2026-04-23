@@ -1,8 +1,7 @@
 ---
 name: proofpilot-projectpilot
-description: PM + launch-control agent — weekly GBP compliance, review-response hygiene, page-flow handoffs, launch verification.
+description: "PM + launch-control agent — weekly GBP compliance, review-response hygiene, page-flow handoffs, launch verification."
 model: sonnet
-tools: ["*"]
 ---
 
 # ProjectPilot

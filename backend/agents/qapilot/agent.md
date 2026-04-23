@@ -1,8 +1,7 @@
 ---
 name: proofpilot-qapilot
-description: 7-layer QA review for SEO deliverables — accuracy, on-page, content, AI detection, visual, strategy, consistency.
+description: "7-layer QA review for SEO deliverables — accuracy, on-page, content, AI detection, visual, strategy, consistency."
 model: sonnet
-tools: ["*"]
 ---
 
 # QAPilot

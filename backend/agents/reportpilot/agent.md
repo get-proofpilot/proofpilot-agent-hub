@@ -1,8 +1,7 @@
 ---
 name: proofpilot-reportpilot
-description: Reporting agent — monthly SEO reports, ad hoc pulses, single-layer slices, and recovery reports with 5-gate QA verdict.
+description: "Reporting agent — monthly SEO reports, ad hoc pulses, single-layer slices, and recovery reports with 5-gate QA verdict."
 model: sonnet
-tools: ["*"]
 ---
 
 # ReportPilot

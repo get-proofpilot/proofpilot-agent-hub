@@ -1,8 +1,7 @@
 ---
 name: proofpilot-gbppilot
-description: Google Business Profile strategist — categories, services, products, posts, reviews, website mirroring, and map-pack geo relevance.
+description: "Google Business Profile strategist — categories, services, products, posts, reviews, website mirroring, and map-pack geo relevance."
 model: sonnet
-tools: ["*"]
 ---
 
 # GBPPilot

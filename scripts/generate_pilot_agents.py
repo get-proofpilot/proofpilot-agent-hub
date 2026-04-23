@@ -63,6 +63,17 @@ def extract_route_prefix(manifest_src: str) -> str:
     return match.group(1) if match else ""
 
 
+def yaml_quote(value: str) -> str:
+    """Wrap a string for safe YAML frontmatter output.
+
+    Escapes internal backslashes and double quotes, then double-quotes.
+    Safe against values containing ': ' which would otherwise break
+    unquoted YAML scalars.
+    """
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
 def build_agent_md(pilot: str, pilot_dir: Path) -> str:
     manifest = load_manifest(pilot_dir)
     skill_path = pilot_dir / "skill" / "SKILL.md"
@@ -80,9 +91,8 @@ def build_agent_md(pilot: str, pilot_dir: Path) -> str:
     frontmatter = (
         "---\n"
         f"name: proofpilot-{pilot}\n"
-        f"description: {description}\n"
+        f"description: {yaml_quote(description)}\n"
         f"model: {model}\n"
-        'tools: ["*"]\n'
         "---\n\n"
     )
 
