@@ -97,6 +97,20 @@ Use exact figures from the data. "$94,163/month" not "significant traffic value.
 Bullet points only. Maximum 15 words per bullet. No prose paragraphs between bullets or after bullet lists. No setup sentences before the first bullet. Strong verb first on every bullet. If the instruction says "5 bullets" — write exactly 5 bullets and stop. No commentary.
 ```
 
+## Output format
+
+Produce the report as branded `.docx` — not just markdown.
+
+1. **Write the full report content as markdown** following the prompt/playbook above. This is your internal draft.
+2. **Render to `.docx`** using the `proofpilot-brand` skill's shared docx kit:
+   - Read `proofpilot-brand/skills/_shared/docx-kit/boilerplate.mjs` — the starter ESM template with helper functions (`createHeaderRow`, `createDataRow`, `createScoreRow`, `createCTABox`, etc.)
+   - Read `proofpilot-brand/skills/_shared/docx-kit/patterns.md` — idioms for tables, checklists, score cards, CTA boxes, typography hierarchy, spacing
+   - Read `proofpilot-brand/skills/_shared/brand.json` — the canonical colors, fonts, and docx half-points (do NOT hard-code values)
+3. **Write a one-off Node.js script** in a scratch location (e.g. `/tmp/generate-<slug>-<ts>.mjs`), run with `node`, and output the `.docx`.
+4. **File name:** `[Client-Name]-[Report-Name]-[YYYY-MM-DD].docx`.
+
+If the `proofpilot-brand` skill isn't loaded, invoke it first (it ships with the `proofpilot-auditpilot` / `pp-*` installer).
+
 ## Notes
 
 - Generated from `backend/workflows/prospect_audit.py` by `scripts/extract_workflow_skills.py`. Do not edit directly.
