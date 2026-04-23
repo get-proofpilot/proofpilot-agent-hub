@@ -13,6 +13,10 @@ tools: ["*"]
 
 See [SOUL.md](./SOUL.md) for full voice + values.
 
+## When to use
+
+Use when the task matches this pilot's purpose: Central AI coworker — aggregates client context, generates briefings, runs escalation checks.
+
 ## How it runs
 
 Backend: `POST /api/pilot`. See [CLAUDE.md](./CLAUDE.md) for orchestration + stages, [TOOLS.md](./TOOLS.md) for integrations, [skill/SKILL.md](./skill/SKILL.md) for the full playbook.

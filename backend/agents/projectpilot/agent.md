@@ -13,6 +13,10 @@ tools: ["*"]
 
 See [SOUL.md](./SOUL.md) for full voice + values.
 
+## When to use
+
+Use when the task matches this pilot's purpose: PM + launch-control agent — weekly GBP compliance, review-response hygiene, page-flow handoffs, launch verification.
+
 ## How it runs
 
 Backend: `POST /api/agents/project`. See [CLAUDE.md](./CLAUDE.md) for orchestration + stages, [TOOLS.md](./TOOLS.md) for integrations, [skill/SKILL.md](./skill/SKILL.md) for the full playbook.

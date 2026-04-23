@@ -50,10 +50,10 @@ def load_manifest(pilot_dir: Path) -> dict:
 
 
 def extract_when_to_trigger(skill_md: str) -> str:
-    """Pull the 'When to Trigger' section from SKILL.md (best-effort)."""
+    """Pull a '## When …' section from SKILL.md (best-effort)."""
     match = re.search(
-        r"## When to Trigger\s*\n(.*?)(?=\n## |\Z)",
-        skill_md, re.DOTALL,
+        r"^## When [^\n]*\n(.*?)(?=\n## |\Z)",
+        skill_md, re.DOTALL | re.MULTILINE,
     )
     return match.group(1).strip() if match else ""
 
@@ -97,6 +97,13 @@ def build_agent_md(pilot: str, pilot_dir: Path) -> str:
 
     if triggers:
         body += f"## When to use\n\n{triggers}\n\n"
+    else:
+        # Fallback: derive from manifest description so the section is never empty.
+        body += (
+            "## When to use\n\n"
+            f"Use when the task matches this pilot's purpose: "
+            f"{manifest['description'].replace(chr(10), ' ').strip()}\n\n"
+        )
 
     body += (
         "## How it runs\n\n"

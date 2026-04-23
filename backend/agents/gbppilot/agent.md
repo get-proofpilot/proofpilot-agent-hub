@@ -13,6 +13,18 @@ tools: ["*"]
 
 See [SOUL.md](./SOUL.md) for full voice + values.
 
+## When to use
+
+Use this when the request is primarily about any of these:
+- building a full GBP strategy for a client
+- choosing primary and secondary categories
+- creating GBP services and products
+- writing GBP descriptions, Q and A seeds, review prompts, or post plans
+- improving map-pack relevance and website-to-GBP mirroring
+- aligning the homepage, service pages, schema, NAP, and service areas to the GBP
+- auditing why a local business is underperforming in Google Maps or local pack results
+- preparing an implementation handoff for the SEO specialist, web team, or client
+
 ## How it runs
 
 Backend: `POST /api/agents/gbp`. See [CLAUDE.md](./CLAUDE.md) for orchestration + stages, [TOOLS.md](./TOOLS.md) for integrations, [skill/SKILL.md](./skill/SKILL.md) for the full playbook.

@@ -13,6 +13,10 @@ tools: ["*"]
 
 See [SOUL.md](./SOUL.md) for full voice + values.
 
+## When to use
+
+Use when the task matches this pilot's purpose: Reddit outreach engine — subreddit scanning, opportunity discovery, human-in-the-loop content generation, A/B testing, learning loop.
+
 ## How it runs
 
 Backend: `POST /api/reddit`. See [CLAUDE.md](./CLAUDE.md) for orchestration + stages, [TOOLS.md](./TOOLS.md) for integrations, [skill/SKILL.md](./skill/SKILL.md) for the full playbook.
