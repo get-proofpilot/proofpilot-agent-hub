@@ -1,0 +1,184 @@
+{
+  "site": {
+    "url": "https://www.prestigeelectricalcontractor.com",
+    "title": "Prestige Electrical Contractor LLC",
+    "h1": "Residential/Commercial Electrical and HVAC Contractor",
+    "platform": "Squarespace (fluid-engine, barely customized)",
+    "business_name_full": "Prestige Electrical Contractor LLC",
+    "also_operating_as": "Prestige Heating and Cooling",
+    "address": "7447 E Southern Ave, Suite 101, Mesa AZ 85209",
+    "phone_site": "480-612-9434",
+    "phone_on_fleet_photo": "480-406-5448",
+    "email": "info@prestigeelectricalcontractor.com",
+    "hours": "Mon-Fri 8am-4pm",
+    "meta_description": null
+  },
+  "logo": {
+    "source_url": "https://images.squarespace-cdn.com/content/v1/68f160bdc6fb78523c8d4879/b6388d16-e022-4168-ae9f-026011e2cf11/Prestige+Electrical+Contractor.png?format=1500w",
+    "local_path": "/tmp/prestige/assets/logo-original.png",
+    "served_format": "WebP (filename extension is .png but bytes are RIFF/WebP)",
+    "dimensions_px": [1030, 890],
+    "composition": "combo",
+    "description": "Combo mark: a circular iconmark composed of a lightning bolt cut through the middle, left half red (cool-to-warm radial gradient ~#C01000/#800000 to highlight #E01000) representing Heating, right half blue (radial gradient ~#003060 to #00A0BB) representing Cooling/Electrical. Below the icon sits a bold, wide, slightly rounded geometric sans-serif wordmark 'Prestige' in solid black, with a thin uppercase tagline 'Electrical Contractor , Heating and Cooling' underneath. The lightning bolt + dual-color circle is a clear hot/cold electric/HVAC metaphor and is the single strongest brand asset on the site.",
+    "dominant_colors_hex": [
+      "#000000",
+      "#C01000",
+      "#B01000",
+      "#005080",
+      "#D01000",
+      "#A01000",
+      "#003060",
+      "#0080A0"
+    ],
+    "pil_quantize_8_palette": [
+      "#FE1E00",
+      "#00A0BB",
+      "#000000",
+      "#003A70",
+      "#8E0D00",
+      "#397D8B",
+      "#006B94",
+      "#C61600"
+    ],
+    "suggested_brand_tokens": {
+      "primary_red": "#C01000",
+      "primary_red_bright": "#E01000",
+      "primary_blue_deep": "#003060",
+      "primary_blue_bright": "#0080A0",
+      "neutral_black": "#000000"
+    },
+    "palette_source_file": "/tmp/prestige/assets/logo-palette.json"
+  },
+  "typography": {
+    "headings": {
+      "family": "Manrope",
+      "weights_used": [500, 700],
+      "styles_used": ["normal"],
+      "source": "Google Fonts (loaded via fonts.googleapis.com css2 href)",
+      "note": "Squarespace-default; no custom brand heading font — Manrope is the stock template pick."
+    },
+    "body": {
+      "family": "Poppins",
+      "weights_used": [400, 700],
+      "styles_used": ["normal", "italic"],
+      "source": "Google Fonts (loaded via fonts.googleapis.com css2 href)",
+      "note": "Used for paragraphs, links, buttons, and h1/h3 fallbacks — again Squarespace template default."
+    },
+    "wordmark_logo_font": {
+      "family": "Custom / unknown geometric sans",
+      "description": "The word 'Prestige' in the logo is NOT Manrope or Poppins — it is a bolder, wider, lightly rounded geometric display sans (visually closest to Eurostile Bold Extended / Zekton / Good Times Bold family). This would be redrawn as SVG if the logo is preserved.",
+      "weight_impression": "heavy / black"
+    },
+    "source_urls": [
+      "https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,700;1,400;1,700&family=Manrope:ital,wght@0,500;0,700"
+    ]
+  },
+  "colors_in_use_on_site": {
+    "note": "The live site uses ZERO brand color. Every CSS custom property resolves to either #000, #FFF, #F5F5F5 (hsla(0,0%,96.08%)), or #D9D9D9 (hsla(0,0%,85.1%)). The accent token --accent-hsl is literally 0,0%,85.1% — a light gray. All brand color lives exclusively in the logo.",
+    "hex_list": [
+      "#000000",
+      "#FFFFFF",
+      "#F5F5F5",
+      "#D9D9D9",
+      "#797979"
+    ],
+    "css_variable_evidence": {
+      "--siteBackgroundColor": "hsla(0,0%,96.08%,1)  -> #F5F5F5",
+      "--primaryButtonBackgroundColor": "hsla(0,0%,0%,1)  -> #000000",
+      "--primaryButtonTextColor": "hsla(0,0%,100%,1)  -> #FFFFFF",
+      "--accent-hsl": "0,0%,85.1%  -> #D9D9D9 (no brand accent configured)",
+      "--headingExtraLargeColor": "hsla(0,0%,0%,1)",
+      "--paragraphMediumColor": "hsla(0,0%,0%,1)"
+    }
+  },
+  "imagery": {
+    "stock_count": 1,
+    "custom_count": 1,
+    "logo_count": 2,
+    "total_image_elements_homepage": 4,
+    "stock_urls": [
+      "https://images.squarespace-cdn.com/content/v1/68f160bdc6fb78523c8d4879/1760651480781-WHPD6QNARG34XJZNH3TC/unsplash-image-5QLCohwVndQ.jpg"
+    ],
+    "custom_urls": [
+      "https://images.squarespace-cdn.com/content/v1/68f160bdc6fb78523c8d4879/2aad8738-21f9-4c3f-add8-48fa56a9502b/Luxury+Watch+Ad%2836%29.jpeg"
+    ],
+    "logo_urls": [
+      "https://images.squarespace-cdn.com/content/v1/68f160bdc6fb78523c8d4879/b6388d16-e022-4168-ae9f-026011e2cf11/Prestige+Electrical+Contractor.png?format=1500w",
+      "https://images.squarespace-cdn.com/content/v1/68f160bdc6fb78523c8d4879/f8eca1ef-04d8-4a12-ac8a-eba5abaa8f4a/Prestige+Electrical+Contractor.jpg"
+    ],
+    "notes": "Only ONE real brand photo exists on the entire site: a shot of Prestige's Mesa storefront with their fleet — 3-4 white Ford Transit Connect vans plus a Tesla Cybertruck, all wrapped with the red/blue lightning logo, parked outside their building which has the Prestige sign mounted above the storefront entrance. This IS ownable. Saved as luxury-watch-ad.jpeg (note: the CDN filename is 'Luxury Watch Ad(36).jpeg' which appears to be the contractor's Canva/Photoshop export name, not an actual luxury watch — it's just the fleet photo). The homepage 'hero' is the unsplash-image-5QLCohwVndQ.jpg — a generic modern home exterior, CLEARLY stock. No team photos, no jobsite photos, no customer photos, no completed-work photos. The About page reuses the same two assets. Favicon is Squarespace's default (assets.squarespace.com/universal/default-favicon.ico) — no custom branded favicon."
+  },
+  "favicon": {
+    "url": "https://assets.squarespace.com/universal/default-favicon.ico",
+    "is_branded": false,
+    "local_path": "/tmp/prestige/assets/favicon.ico",
+    "note": "Squarespace default favicon — needs to be designed from the logo circle iconmark."
+  },
+  "meta_brand": {
+    "og_image_url": "http://static1.squarespace.com/static/68f160bdc6fb78523c8d4879/t/68f2546162efdd2372b93708/1760711777598/Prestige+Electrical+Contractor.png?format=1500w",
+    "og_image_local_path": "/tmp/prestige/assets/og-image.png",
+    "og_site_name": null,
+    "og_description": null,
+    "note": "OG image is just the logo on transparent — not a framed social card."
+  },
+  "voice": {
+    "tone": "Formal-to-neutral, trade-professional, low-warmth. Corporate vendor register rather than homeowner-friendly. Reads like a capability statement written for a builder partner, not for a homeowner searching for an electrician. Minimal personality, no humor, no first-name/owner voice, no emojis, no urgency words, no guarantees. Zero 'you'-voice copy. Almost entirely third-person about the company.",
+    "audience_signals": [
+      "Primary: production homebuilders (tract + custom) and general contractors in the Phoenix 'Valley' — explicit language: 'trusted trade partner for some of the leading homebuilders in the Valley', 'Builder-Friendly Setup', 'Our builder partners appreciate our organized approach', 'Strong Workforce & Capacity', 'multiple rough and trim crews ready to deploy'.",
+      "Secondary: commercial clients — 'commercial projects as needed'.",
+      "Tertiary: homeowners — a distant third, only mentioned as 'home owners' alongside builders/contractors; no homeowner-focused CTAs, no residential service-page funnels, no pricing."
+    ],
+    "industry_vocabulary_to_preserve": [
+      "rough and trim (phases of construction electrical work)",
+      "tract homes / custom homes",
+      "HVAC change outs",
+      "Service Calls",
+      "QC / Project Manager per active community",
+      "Valley-wide / East Valley (Phoenix-metro local vernacular)",
+      "licensed, bonded, and insured",
+      "trade partner"
+    ],
+    "proof_points_on_site": [
+      "Over 27 years of hands-on electrical experience",
+      "18+ years in business",
+      "Long-term partnerships with leading national and local builders",
+      "Dedicated QC/Project Manager per community",
+      "Multiple rough and trim crews"
+    ],
+    "copy_flaws": [
+      "Typo: 'Prestige Electrical Condtractor LLC' (missing letter rearranged) appears in footer",
+      "Extra space before comma: 'Electrical Contractor , Heating and Cooling' in logo tagline",
+      "Thin content: homepage is ~5 bullet points; about page is ~200 words",
+      "No service pages (Services link appears in nav but leads to minimal content)",
+      "No testimonials, no case studies, no gallery of completed work"
+    ]
+  },
+  "verdict": {
+    "real_brand_signal_strength": "LOW-MEDIUM",
+    "what_is_real": [
+      "The logo itself: a strong, ownable combo mark with a clear red-meets-blue heating-meets-cooling metaphor via the split lightning bolt — a genuinely good concept worth preserving.",
+      "The dominant color story derivable from the logo: warm red (#C01000/#E01000) + deep-to-bright blue (#003060 -> #0080A0) + black. This is ownable and differentiated in the trades.",
+      "One fleet/storefront photo that genuinely shows Prestige branding in the real world.",
+      "Trade-partner voice and concrete operational proof points (27yrs, 18yrs, rough+trim crews, QC per community) that are defensible."
+    ],
+    "what_is_missing_or_fake": [
+      "No custom typography — Manrope + Poppins are stock Squarespace template fonts.",
+      "No brand color is applied anywhere in the site CSS — the entire UI is black/white/gray.",
+      "No custom favicon.",
+      "No branded social share card.",
+      "No photography library beyond the one fleet photo — the 'hero' is Unsplash stock.",
+      "No homeowner-facing voice, no service pages, no testimonials, no case studies."
+    ],
+    "recommendation": "PRESERVE the logo (vectorize/redraw it cleanly) and the red+blue+black color system it implies. INVENT everything else: typography pairing, photography direction (we need at minimum: jobsite shots, headshots, truck-in-driveway shots), copy voice, service-page structure, favicon, OG card, and a proper brand system. The logo gives us a real anchor — the business has genuine equity in the lightning-bolt-split-circle mark and the red-hot/blue-cool HVAC+electric metaphor — but everything around it needs to be built from scratch. This is not a rebrand; it's a brand-system buildout around a pre-existing, salvageable logo and one usable photo."
+  },
+  "assets_downloaded": [
+    "/tmp/prestige/assets/logo-original.png",
+    "/tmp/prestige/assets/logo-palette.json",
+    "/tmp/prestige/assets/favicon.ico",
+    "/tmp/prestige/assets/og-image.png",
+    "/tmp/prestige/assets/hero-unsplash.jpg",
+    "/tmp/prestige/assets/prestige-photo.jpg",
+    "/tmp/prestige/assets/luxury-watch-ad.jpeg",
+    "/tmp/prestige/assets/prestige-raw.html"
+  ]
+}
