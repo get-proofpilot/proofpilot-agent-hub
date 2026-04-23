@@ -29,7 +29,7 @@ See the `programmatic-seo-strategy` entry in `CLAUDE.md` § *Workflow Input Sche
 
 ## System prompt
 
-```
+````
 You are ProofPilot's Programmatic SEO Strategist. You design scalable content systems for home service businesses — templates that produce dozens or hundreds of SEO-optimized pages with genuine unique value. Your job is to plan the campaign, not generate the actual content.
 
 Your output must follow this exact structure:
@@ -286,7 +286,7 @@ Pages that [specific criteria — e.g., "have no local-specific data and make no
 - Every recommendation must be specific to this business type and location
 - The unique value section is the most important — don't let it be vague
 - Provide actual example content for the template sections, not just descriptions
-```
+````
 
 ## Notes
 

@@ -8,7 +8,14 @@ with section headings.
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
+
+
+def _fence_for(text: str) -> str:
+    """Return a backtick fence guaranteed to exceed any interior backtick run."""
+    longest = max((len(m.group(0)) for m in re.finditer(r"`+", text)), default=0)
+    return "`" * max(longest + 1, 3)
 
 WORKFLOWS = [
     ("website-seo-audit", "website_seo_audit", "Website & SEO Audit"),
@@ -80,12 +87,16 @@ def _resolve_joined_str(node: ast.JoinedStr, consts: dict[str, str]) -> str | No
     return "".join(parts)
 
 
-def extract_system_prompts(source: str) -> list[tuple[str, str]]:
+def extract_system_prompts(source: str, module: str = "<unknown>") -> list[tuple[str, str]]:
     """Return [(name, value)] for every top-level SYSTEM-ish string constant.
 
     Handles both plain string literals and f-strings whose interpolated
     expressions are simple references to other top-level string constants
     in the same module (e.g. proposals.py's ``SYSTEM_PROMPT = f"...{PRICING_TABLE}..."``).
+
+    Prints a WARN line to stdout for any SYSTEM-named constant whose value
+    can't be resolved statically (e.g. function calls, .format(), complex
+    FormattedValue expressions), so they don't disappear silently.
     """
     tree = ast.parse(source)
     consts = _collect_str_constants(tree)
@@ -95,12 +106,17 @@ def extract_system_prompts(source: str) -> list[tuple[str, str]]:
             target = node.targets[0]
             if isinstance(target, ast.Name) and "SYSTEM" in target.id:
                 value_node = node.value
+                resolved_value: str | None = None
                 if isinstance(value_node, ast.Constant) and isinstance(value_node.value, str):
-                    out.append((target.id, value_node.value))
+                    resolved_value = value_node.value
                 elif isinstance(value_node, ast.JoinedStr):
-                    resolved = _resolve_joined_str(value_node, consts)
-                    if resolved is not None:
-                        out.append((target.id, resolved))
+                    resolved_value = _resolve_joined_str(value_node, consts)
+                if resolved_value is not None:
+                    out.append((target.id, resolved_value))
+                else:
+                    print(
+                        f"WARN: {module}: SYSTEM constant {target.id} could not be resolved — skipping"
+                    )
     return out
 
 
@@ -146,12 +162,14 @@ def build_skill_md(slug: str, module: str, title: str, prompts: list[tuple[str, 
     ]
 
     if len(prompts) == 1:
+        prompt_body = prompts[0][1].strip()
+        fence = _fence_for(prompt_body)
         body += [
             "## System prompt",
             "",
-            "```",
-            prompts[0][1].strip(),
-            "```",
+            fence,
+            prompt_body,
+            fence,
             "",
         ]
     else:
@@ -164,12 +182,14 @@ def build_skill_md(slug: str, module: str, title: str, prompts: list[tuple[str, 
         )
         body.append("")
         for name, value in prompts:
+            value_body = value.strip()
+            sub_fence = _fence_for(value_body)
             body += [
                 f"### {name}",
                 "",
-                "```",
-                value.strip(),
-                "```",
+                sub_fence,
+                value_body,
+                sub_fence,
                 "",
             ]
 
@@ -195,7 +215,7 @@ def main() -> None:
     written = 0
     for slug, module, title in WORKFLOWS:
         src = (workflows_dir / f"{module}.py").read_text(encoding="utf-8")
-        prompts = extract_system_prompts(src)
+        prompts = extract_system_prompts(src, module=module)
         if not prompts:
             print(f"WARN {slug}: no SYSTEM prompt found in {module}.py — skipping")
             continue

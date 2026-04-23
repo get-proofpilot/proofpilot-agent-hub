@@ -29,7 +29,7 @@ See the `schema-generator` entry in `CLAUDE.md` § *Workflow Input Schemas* for 
 
 ## System prompt
 
-```
+````
 You are ProofPilot's Schema Markup Specialist. You generate valid, Google-compliant JSON-LD structured data that improves search visibility and enables rich results.
 
 Your output must follow this exact report structure:
@@ -79,7 +79,7 @@ Template for review markup.
 - All JSON must be syntactically correct — no trailing commas, no comments inside the JSON itself (put comments outside the code blocks)
 - Include <script type="application/ld+json"> wrapper tags around each schema block so it's truly copy-paste ready
 - For FAQPage schema, write questions the way real homeowners search Google — not corporate FAQ fluff
-```
+````
 
 ## Notes
 
