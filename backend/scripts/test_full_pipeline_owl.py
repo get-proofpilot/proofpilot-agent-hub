@@ -31,8 +31,8 @@ except ImportError:
 import anthropic
 from utils.db import init_db, _connect
 from memory.store import ClientMemoryStore, init_memory_table
-from pipeline.engine import PipelineEngine, PipelineStatus
-from pipeline.stages import STAGE_RUNNERS
+from agents.autopilot.engine import PipelineEngine, PipelineStatus
+from agents.autopilot.stages import STAGE_RUNNERS
 
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_output")
 CLIENT_ID = 15

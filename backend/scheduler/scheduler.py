@@ -134,9 +134,9 @@ class PipelineScheduler:
             client_name = client.get("name", "") if client else ""
 
             # Get page type config for stages
-            from pipeline.page_types.service_page import PAGE_CONFIG as SP
-            from pipeline.page_types.location_page import PAGE_CONFIG as LP
-            from pipeline.page_types.blog_post import PAGE_CONFIG as BP
+            from agents.autopilot.page_types.service_page import PAGE_CONFIG as SP
+            from agents.autopilot.page_types.location_page import PAGE_CONFIG as LP
+            from agents.autopilot.page_types.blog_post import PAGE_CONFIG as BP
             configs = {
                 "service-page": SP,
                 "location-page": LP,

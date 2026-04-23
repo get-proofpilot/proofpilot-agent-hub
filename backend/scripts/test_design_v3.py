@@ -25,9 +25,9 @@ except ImportError:
 import anthropic
 from utils.db import init_db, _connect
 from memory.store import ClientMemoryStore, init_memory_table
-from pipeline.engine import PipelineEngine, PipelineRun, PipelineStatus
-from pipeline.stages import STAGE_RUNNERS
-from pipeline.artifacts import ContentArtifact, StrategyArtifact
+from agents.autopilot.engine import PipelineEngine, PipelineRun, PipelineStatus
+from agents.autopilot.stages import STAGE_RUNNERS
+from agents.autopilot.artifacts import ContentArtifact, StrategyArtifact
 
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "test_output")
 CLIENT_ID = 15
@@ -168,8 +168,8 @@ META_DESCRIPTION = "Phoenix's premier large home roofing specialists. Custom sol
 
 async def step_1_reextract_brand(api_client):
     """Re-run brand extraction with improved tracking pixel filters."""
-    from pipeline.brand_extractor import extract_brand
-    from pipeline.brand_memory import save_brand_to_memory, format_brand_for_design_prompt
+    from agents.autopilot.brand_extractor import extract_brand
+    from agents.autopilot.brand_memory import save_brand_to_memory, format_brand_for_design_prompt
 
     store = ClientMemoryStore(_connect)
 

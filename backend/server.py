@@ -64,13 +64,13 @@ from utils.sheets_sync import sync_sheets_data
 from utils.content_db import get_content_roadmap, get_content_stats, bulk_insert_content, clear_content_roadmap
 from utils.tasks_db import get_client_tasks, create_client_task, update_task_status, sync_tasks_from_jobs
 from utils.db import _connect as db_connect
-from pipeline.engine import PipelineEngine
-from pipeline.stages import STAGE_RUNNERS
-from pipeline.page_types.service_page import PAGE_CONFIG as SERVICE_PAGE_CONFIG
-from pipeline.page_types.location_page import PAGE_CONFIG as LOCATION_PAGE_CONFIG
-from pipeline.page_types.blog_post import PAGE_CONFIG as BLOG_POST_CONFIG
+from agents.autopilot.engine import PipelineEngine
+from agents.autopilot.stages import STAGE_RUNNERS
+from agents.autopilot.page_types.service_page import PAGE_CONFIG as SERVICE_PAGE_CONFIG
+from agents.autopilot.page_types.location_page import PAGE_CONFIG as LOCATION_PAGE_CONFIG
+from agents.autopilot.page_types.blog_post import PAGE_CONFIG as BLOG_POST_CONFIG
 from memory.store import ClientMemoryStore
-from pipeline.sprint_runner import run_sprint
+from agents.autopilot.sprint_runner import run_sprint
 from clickup_sync import update_task_status as clickup_update_task, add_task_comment as clickup_add_comment
 from utils.content_db import (
     get_assignable_items, get_roadmap_item, assign_to_pipeline,
@@ -128,10 +128,26 @@ async def _stop_scheduler():
         _scheduler.stop()
 
 # ── RedditPilot embedded agent ───────────────────────────
-# The RedditPilot package is vendored at backend/redditpilot/.
-# reddit_agent.py manages a lazy singleton orchestrator and exposes
-# helper functions for the /api/reddit/* routes below.
-import reddit_agent
+# The RedditPilot package lives at backend/agents/redditpilot/.
+# agents/redditpilot/shim.py manages a lazy singleton orchestrator and exposes
+# helper functions for the /api/reddit/* routes below. Imported under the
+# legacy `reddit_agent` alias so the 40+ call sites below don't need to change.
+from agents.redditpilot import shim as reddit_agent
+
+
+# ── Auto-discovered agent routers ──────────────────────────
+# Each folder under backend/agents/ that exports `manifest` + `router` gets
+# mounted at manifest.route_prefix. Existing hand-rolled routes in this
+# file still own the production paths — these mount a `/_health` endpoint
+# per agent and prepare the scaffolding for a future cutover.
+from agents import mount_agents
+_mounted_agents = mount_agents(app)
+
+
+@app.get("/api/agents")
+def list_agents():
+    """Manifests of every auto-discovered Pilot — used by the frontend sidebar."""
+    return {"agents": _mounted_agents}
 
 
 @app.on_event("shutdown")
@@ -293,8 +309,8 @@ async def onboard_client_brand(client_id: int, body: OnboardRequest):
     if not domain:
         raise HTTPException(status_code=400, detail="No domain provided and none on client record")
 
-    from pipeline.brand_extractor import extract_brand
-    from pipeline.brand_memory import save_brand_to_memory
+    from agents.autopilot.brand_extractor import extract_brand
+    from agents.autopilot.brand_memory import save_brand_to_memory
 
     brand_data = await extract_brand(domain, anthropic.AsyncAnthropic())
     if not brand_data.get("color_palette"):
@@ -362,7 +378,7 @@ async def research_client(client_id: int, body: ResearchRequest = ResearchReques
     anthropic_client = anthropic.AsyncAnthropic(api_key=api_key)
 
     async def research_stream():
-        from pipeline.client_research_agent import build_client_brain_streaming
+        from agents.autopilot.client_research_agent import build_client_brain_streaming
         async for chunk in build_client_brain_streaming(
             client_id=client_id,
             domain=domain,
@@ -413,7 +429,7 @@ async def client_interview(client_id: int, body: InterviewRequest = InterviewReq
         raise HTTPException(status_code=404, detail="Client not found")
 
     async def interview_stream():
-        from pipeline.interview_agent import run_interview
+        from agents.autopilot.interview_agent import run_interview
         async for event in run_interview(
             client_id=client_id,
             memory_store=_memory_store,
@@ -437,7 +453,7 @@ async def test_client_voice(client_id: int):
 
     client_name = client_row.get("name", "this business")
 
-    from pipeline.brain_formatter import format_brain_for_workflow
+    from agents.autopilot.brain_formatter import format_brain_for_workflow
     brain_ctx = format_brain_for_workflow(_memory_store, client_id, "service-page")
     if not brain_ctx:
         raise HTTPException(
@@ -551,7 +567,7 @@ async def run_workflow(req: WorkflowRequest):
         strategy_ctx = req.strategy_context or ""
         if req.client_id:
             try:
-                from pipeline.brain_formatter import format_brain_for_workflow
+                from agents.autopilot.brain_formatter import format_brain_for_workflow
                 from memory.store import ClientMemoryStore
                 _mem = ClientMemoryStore(db_connect)
                 brain_ctx = format_brain_for_workflow(_mem, req.client_id, req.workflow_id)
@@ -2014,7 +2030,7 @@ async def run_auditpilot(req: AuditRequest):
         strategy_ctx = ""
         if req.client_id:
             try:
-                from pipeline.brain_formatter import format_brain_for_workflow
+                from agents.autopilot.brain_formatter import format_brain_for_workflow
                 brain_ctx = format_brain_for_workflow(_memory_store, req.client_id, "audit")
                 if brain_ctx:
                     strategy_ctx = brain_ctx
@@ -2077,7 +2093,7 @@ async def run_auditpilot(req: AuditRequest):
 @app.get("/api/pilot/context")
 async def pilot_context():
     """Return the current client context snapshot."""
-    from agents.pilot.context_builder import build_context
+    from agents.pilotcore.context_builder import build_context
     return build_context(db_connect)
 
 
@@ -2088,7 +2104,7 @@ async def pilot_briefing():
     if not api_key:
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured")
 
-    from agents.pilot.briefing import generate_briefing
+    from agents.pilotcore.briefing import generate_briefing
 
     pilot_client = anthropic.AsyncAnthropic(api_key=api_key)
 
@@ -2114,7 +2130,7 @@ async def pilot_escalation():
     if not api_key:
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured")
 
-    from agents.pilot.escalation import run_escalation_check
+    from agents.pilotcore.escalation import run_escalation_check
 
     pilot_client = anthropic.AsyncAnthropic(api_key=api_key)
 
@@ -2165,7 +2181,7 @@ async def run_qapilot(req: QARequest):
         strategy_ctx = ""
         if req.client_id:
             try:
-                from pipeline.brain_formatter import format_brain_for_workflow
+                from agents.autopilot.brain_formatter import format_brain_for_workflow
                 brain_ctx = format_brain_for_workflow(_memory_store, req.client_id, "qa")
                 if brain_ctx:
                     strategy_ctx = brain_ctx
@@ -2255,7 +2271,7 @@ async def run_strategypilot(req: StrategyRequest):
         strategy_ctx = ""
         if req.client_id:
             try:
-                from pipeline.brain_formatter import format_brain_for_workflow
+                from agents.autopilot.brain_formatter import format_brain_for_workflow
                 brain_ctx = format_brain_for_workflow(_memory_store, req.client_id, "strategy")
                 if brain_ctx:
                     strategy_ctx = brain_ctx
@@ -2433,7 +2449,7 @@ async def rp_subreddit_intel(limit: int = QueryParam(20, le=100)):
 @app.get("/api/reddit/config-template")
 async def rp_config_template():
     """Return the config template so the frontend can show a setup helper."""
-    tpl_path = Path(__file__).parent / "redditpilot" / "config.example.yaml"
+    tpl_path = Path(__file__).parent / "agents" / "redditpilot" / "config.example.yaml"
     if tpl_path.exists():
         return {"template": tpl_path.read_text(), "target_path": str(reddit_agent.config_path())}
     return {"template": "", "target_path": str(reddit_agent.config_path())}

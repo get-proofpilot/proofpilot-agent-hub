@@ -1,0 +1,6 @@
+# Agent-specific config template.
+# Delete this file if the agent has no config.
+# Production config path is resolved via env var or $DOCS_DIR/<agent_id>/config.yaml.
+
+agent_id: template
+feature_flags: {}
